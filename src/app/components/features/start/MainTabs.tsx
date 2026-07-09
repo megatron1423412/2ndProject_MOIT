@@ -14,7 +14,7 @@ const tabs: Array<{ id: MainTab; label: string }> = [
 
 export default function MainTabs({ activeTab, onChange }: MainTabsProps) {
   return (
-    <div className="inline-flex rounded-lg border border-border bg-muted/50 p-1">
+    <div className="flex items-center gap-7">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
@@ -22,10 +22,10 @@ export default function MainTabs({ activeTab, onChange }: MainTabsProps) {
             key={tab.id}
             type="button"
             onClick={() => onChange(tab.id)}
-            className={`rounded-md px-4 py-2 text-sm font-black transition-all ${
+            className={`text-xl transition-colors ${
               isActive
-                ? "bg-card text-primary shadow-sm"
-                : "text-muted-foreground hover:text-primary"
+                ? "font-black text-primary"
+                : "font-bold text-muted-foreground/55 hover:text-muted-foreground"
             }`}
           >
             {tab.label}

@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import type { DiagnosisItem } from "./data";
-import ChatScreen from "./components/ChatScreen";
-import MainStartScreen from "./components/MainStartScreen";
+import type { SubCategoryId } from "./types/moit";
+import ChatScreen from "./components/features/chat/ChatScreen";
+import MainStartScreen from "./components/features/start/MainStartScreen";
 
 export default function App() {
-  const [selectedItem, setSelectedItem] = useState<DiagnosisItem | null>(null);
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<SubCategoryId | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   return (
@@ -32,13 +32,13 @@ export default function App() {
         }
       `}</style>
       <div className={isDarkMode ? "dark" : ""}>
-        {selectedItem ? (
-          <ChatScreen item={selectedItem} onBack={() => setSelectedItem(null)} />
+        {selectedSubCategoryId ? (
+          <ChatScreen subCategoryId={selectedSubCategoryId} onBack={() => setSelectedSubCategoryId(null)} />
         ) : (
           <MainStartScreen
             isDarkMode={isDarkMode}
             onToggleTheme={() => setIsDarkMode((value) => !value)}
-            onSelectItem={setSelectedItem}
+            onSelectSubCategory={(item) => setSelectedSubCategoryId(item.id)}
           />
         )}
       </div>

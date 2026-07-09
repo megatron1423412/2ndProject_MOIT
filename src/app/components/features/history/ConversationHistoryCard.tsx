@@ -1,17 +1,12 @@
 import React from "react";
 import { MessageSquareText } from "lucide-react";
-import type { ConversationHistoryItem, HistoryStatus } from "../data";
+import type { ConversationHistoryItem } from "../../../types/moit";
+import Badge, { historyStatusTone } from "../../common/Badge";
 
 interface ConversationHistoryCardProps {
   item: ConversationHistoryItem;
   onSelect: (item: ConversationHistoryItem) => void;
 }
-
-const statusClass: Record<HistoryStatus, string> = {
-  완료: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  "진행 중": "bg-sky-50 text-sky-700 border-sky-100",
-  "다시 확인 필요": "bg-amber-50 text-amber-700 border-amber-100",
-};
 
 export default function ConversationHistoryCard({ item, onSelect }: ConversationHistoryCardProps) {
   return (
@@ -24,9 +19,7 @@ export default function ConversationHistoryCard({ item, onSelect }: Conversation
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary text-primary">
           <MessageSquareText size={19} />
         </div>
-        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${statusClass[item.status]}`}>
-          {item.status}
-        </span>
+        <Badge tone={historyStatusTone[item.status]}>{item.status}</Badge>
       </div>
       <div className="mt-5">
         <p className="text-xs font-bold text-accent">{item.category}</p>

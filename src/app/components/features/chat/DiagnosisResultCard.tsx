@@ -1,19 +1,19 @@
 import React from "react";
 import { CheckCircle2, ClipboardCheck, Star, TrendingDown } from "lucide-react";
-import type { DiagnosisItem, LivingCostDiagnosisResult, ProductDiagnosisResult } from "../data";
+import type { DiagnosisResult, LivingCostDiagnosisResult, ProductDiagnosisResult } from "../../../types/moit";
 
 interface DiagnosisResultCardProps {
-  item: DiagnosisItem;
+  result: DiagnosisResult;
 }
 
 const fmt = (n: number) => n.toLocaleString("ko-KR");
 
-export default function DiagnosisResultCard({ item }: DiagnosisResultCardProps) {
-  if (item.result.type === "living") {
-    return <LivingResultCard result={item.result} />;
+export default function DiagnosisResultCard({ result }: DiagnosisResultCardProps) {
+  if (result.type === "living") {
+    return <LivingResultCard result={result} />;
   }
 
-  return <ProductResultCard result={item.result} />;
+  return <ProductResultCard result={result} />;
 }
 
 function ProductResultCard({ result }: { result: ProductDiagnosisResult }) {
@@ -57,18 +57,9 @@ function LivingResultCard({ result }: { result: LivingCostDiagnosisResult }) {
       </div>
       <div className="p-5">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-border bg-muted/35 p-3">
-            <p className="text-[11px] font-bold text-muted-foreground">예상 월 절감액</p>
-            <p className="mt-1 text-lg font-black text-accent">{fmt(result.monthlySavings)}원</p>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/35 p-3">
-            <p className="text-[11px] font-bold text-muted-foreground">연간 환산</p>
-            <p className="mt-1 text-lg font-black text-primary">{fmt(result.yearlySavings)}원</p>
-          </div>
-          <div className="rounded-lg border border-border bg-muted/35 p-3">
-            <p className="text-[11px] font-bold text-muted-foreground">진단 등급</p>
-            <p className="mt-1 text-sm font-black text-primary">{result.grade}</p>
-          </div>
+          <Stat label="예상 월 절감액" value={`${fmt(result.monthlySavings)}원`} emphasize />
+          <Stat label="연간 환산" value={`${fmt(result.yearlySavings)}원`} />
+          <Stat label="진단 등급" value={result.grade} />
         </div>
         <div className="mt-4 rounded-lg border border-border p-3">
           <p className="text-xs font-black text-primary">확인 필요 사항</p>
@@ -96,6 +87,15 @@ function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; 
         <span className="text-[11px] font-black">{label}</span>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{value}</p>
+    </div>
+  );
+}
+
+function Stat({ label, value, emphasize = false }: { label: string; value: string; emphasize?: boolean }) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/35 p-3">
+      <p className="text-[11px] font-bold text-muted-foreground">{label}</p>
+      <p className={`mt-1 font-black ${emphasize ? "text-lg text-accent" : "text-sm text-primary"}`}>{value}</p>
     </div>
   );
 }
