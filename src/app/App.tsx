@@ -1,11 +1,15 @@
-import React from "react";
-import ChatLayout from "./components/ChatLayout";
+import React, { useState } from "react";
+import type { DiagnosisItem } from "./data";
+import ChatScreen from "./components/ChatScreen";
+import MainStartScreen from "./components/MainStartScreen";
 
 export default function App() {
+  const [selectedItem, setSelectedItem] = useState<DiagnosisItem | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
   return (
     <>
       <style>{`
-        /* Hide default scrollbars for a clean workspace feel */
         ::-webkit-scrollbar {
           width: 6px;
           height: 6px;
@@ -14,11 +18,11 @@ export default function App() {
           background: transparent;
         }
         ::-webkit-scrollbar-thumb {
-          background: rgba(26, 58, 92, 0.1);
+          background: rgba(26, 58, 92, 0.16);
           border-radius: 9999px;
         }
         ::-webkit-scrollbar-thumb:hover {
-          background: rgba(26, 58, 92, 0.2);
+          background: rgba(26, 58, 92, 0.26);
         }
         body {
           margin: 0;
@@ -27,8 +31,16 @@ export default function App() {
           background-color: #F2F6FC;
         }
       `}</style>
-      <div className="w-screen h-screen overflow-hidden">
-        <ChatLayout />
+      <div className={isDarkMode ? "dark" : ""}>
+        {selectedItem ? (
+          <ChatScreen item={selectedItem} onBack={() => setSelectedItem(null)} />
+        ) : (
+          <MainStartScreen
+            isDarkMode={isDarkMode}
+            onToggleTheme={() => setIsDarkMode((value) => !value)}
+            onSelectItem={setSelectedItem}
+          />
+        )}
       </div>
     </>
   );
