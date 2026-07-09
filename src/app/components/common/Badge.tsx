@@ -8,9 +8,9 @@ interface BadgeProps {
 
 const toneClass = {
   default: "bg-secondary text-primary border-border",
-  success: "bg-emerald-50 text-emerald-700 border-emerald-100",
-  info: "bg-sky-50 text-sky-700 border-sky-100",
-  warning: "bg-amber-50 text-amber-700 border-amber-100",
+  success: "bg-accent/15 text-accent border-accent/20",
+  info: "bg-secondary text-primary border-border",
+  warning: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-300/15 dark:text-amber-200 dark:border-amber-200/20",
 };
 
 export const historyStatusTone: Record<HistoryStatus, BadgeProps["tone"]> = {

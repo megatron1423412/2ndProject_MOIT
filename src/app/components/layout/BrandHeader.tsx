@@ -12,7 +12,7 @@ export default function BrandHeader({ onClick }: BrandHeaderProps) {
       onClick={onClick}
       className="flex items-center gap-3 rounded-lg text-left transition-opacity hover:opacity-85"
     >
-      <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-white shadow-sm">
+      <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand-surface text-brand-surface-foreground shadow-sm">
         <Sparkles size={19} className="text-accent" />
       </div>
       <div>

@@ -26,7 +26,7 @@ export default function ChatMessage({ sender, text, timestamp, children }: ChatM
           className={`rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-sm ${
             isAi
               ? "rounded-tl-sm border-border bg-card text-foreground"
-              : "rounded-tr-sm border-primary/10 bg-primary text-white"
+              : "rounded-tr-sm border-border bg-brand-surface text-brand-surface-foreground"
           }`}
         >
           {text && <p className="whitespace-pre-wrap">{text}</p>}

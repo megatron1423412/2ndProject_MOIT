@@ -14,8 +14,8 @@ export default function IconButton({ label, children, active = false, onClick }:
       title={label}
       aria-label={label}
       onClick={onClick}
-      className={`flex h-10 w-10 items-center justify-center rounded-lg border shadow-sm transition-all hover:border-accent/40 hover:bg-secondary active:scale-[0.98] ${
-        active ? "border-amber-200 bg-amber-50 text-amber-500" : "border-border bg-card text-primary"
+      className={`flex h-10 w-10 items-center justify-center rounded-lg border shadow-sm transition-all hover:border-accent/40 hover:bg-hover-background active:scale-[0.98] ${
+        active ? "border-accent/35 bg-accent/15 text-accent" : "border-border bg-card text-primary"
       }`}
     >
       {children}

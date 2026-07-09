@@ -3,6 +3,11 @@
 :root {
   --font-size: 16px;
   --background: #F2F6FC;
+  --app-surface: #F8FAFD;
+  --elevated: #ffffff;
+  --hover-background: #EAF2FB;
+  --brand-surface: #1B3A5C;
+  --brand-surface-foreground: #ffffff;
   --foreground: #111827;
   --card: #ffffff;
   --card-foreground: #111827;
@@ -42,25 +47,31 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+  --background: #202832;
+  --app-surface: #24303B;
+  --elevated: #303C49;
+  --hover-background: #384653;
+  --brand-surface: #263B4D;
+  --brand-surface-foreground: #EAF2F7;
+  --foreground: #E7EDF4;
+  --card: #2A3440;
+  --card-foreground: #E7EDF4;
+  --popover: #303C49;
+  --popover-foreground: #E7EDF4;
+  --primary: #E7EDF4;
+  --primary-foreground: #24303B;
+  --secondary: #344250;
+  --secondary-foreground: #E7EDF4;
+  --muted: #3A4653;
+  --muted-foreground: #B8C4D1;
+  --accent: #35D69B;
+  --accent-foreground: #173226;
+  --destructive: #F87171;
+  --destructive-foreground: #FFF3F3;
+  --border: rgba(202, 214, 226, 0.16);
+  --input: #344250;
+  --input-background: #344250;
+  --ring: #35D69B;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --chart-1: oklch(0.488 0.243 264.376);
@@ -68,18 +79,23 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --sidebar: #27323E;
+  --sidebar-foreground: #E7EDF4;
+  --sidebar-primary: #35D69B;
+  --sidebar-primary-foreground: #173226;
+  --sidebar-accent: #344250;
+  --sidebar-accent-foreground: #E7EDF4;
+  --sidebar-border: rgba(202, 214, 226, 0.14);
+  --sidebar-ring: #35D69B;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-app-surface: var(--app-surface);
+  --color-elevated: var(--elevated);
+  --color-hover-background: var(--hover-background);
+  --color-brand-surface: var(--brand-surface);
+  --color-brand-surface-foreground: var(--brand-surface-foreground);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);

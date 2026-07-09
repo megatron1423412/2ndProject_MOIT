@@ -1,11 +1,22 @@
 import React, { useState } from "react";
-import type { SubCategoryId } from "./types/moit";
+import type { SubCategoryId, TopActionState } from "./types/moit";
 import ChatScreen from "./components/features/chat/ChatScreen";
 import MainStartScreen from "./components/features/start/MainStartScreen";
 
 export default function App() {
   const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<SubCategoryId | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  const appActions: TopActionState = {
+    isLoggedIn,
+    isDarkMode,
+    isFavorite,
+    onToggleLogin: () => setIsLoggedIn((value) => !value),
+    onToggleTheme: () => setIsDarkMode((value) => !value),
+    onToggleFavorite: () => setIsFavorite((value) => !value),
+  };
 
   return (
     <>
@@ -33,11 +44,15 @@ export default function App() {
       `}</style>
       <div className={isDarkMode ? "dark" : ""}>
         {selectedSubCategoryId ? (
-          <ChatScreen subCategoryId={selectedSubCategoryId} onBack={() => setSelectedSubCategoryId(null)} />
+          <ChatScreen
+            subCategoryId={selectedSubCategoryId}
+            onBack={() => setSelectedSubCategoryId(null)}
+            onSelectSubCategory={(item) => setSelectedSubCategoryId(item.id)}
+            actions={appActions}
+          />
         ) : (
           <MainStartScreen
-            isDarkMode={isDarkMode}
-            onToggleTheme={() => setIsDarkMode((value) => !value)}
+            actions={appActions}
             onSelectSubCategory={(item) => setSelectedSubCategoryId(item.id)}
           />
         )}

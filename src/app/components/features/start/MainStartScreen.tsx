@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { MOCK_CONVERSATIONS } from "../../../data/mockConversations";
 import { START_SECTIONS } from "../../../data/categories";
-import type { ConversationHistoryItem, SubCategory } from "../../../types/moit";
+import type { ConversationHistoryItem, SubCategory, TopActionState } from "../../../types/moit";
 import PageShell from "../../layout/PageShell";
 import ConversationHistory from "../history/ConversationHistory";
 import MainTabs from "./MainTabs";
@@ -9,19 +9,15 @@ import type { MainTab } from "./MainTabs";
 import StartCategorySection from "./StartCategorySection";
 
 interface MainStartScreenProps {
-  isDarkMode: boolean;
-  onToggleTheme: () => void;
+  actions: TopActionState;
   onSelectSubCategory: (item: SubCategory) => void;
 }
 
 export default function MainStartScreen({
-  isDarkMode,
-  onToggleTheme,
+  actions,
   onSelectSubCategory,
 }: MainStartScreenProps) {
   const [activeTab, setActiveTab] = useState<MainTab>("start");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [notice, setNotice] = useState("");
 
   const handleHistorySelect = (item: ConversationHistoryItem) => {
@@ -31,13 +27,13 @@ export default function MainStartScreen({
 
   return (
     <PageShell
-      isLoggedIn={isLoggedIn}
-      isDarkMode={isDarkMode}
-      isFavorite={isFavorite}
+      isLoggedIn={actions.isLoggedIn}
+      isDarkMode={actions.isDarkMode}
+      isFavorite={actions.isFavorite}
       onBrandClick={() => setActiveTab("start")}
-      onToggleLogin={() => setIsLoggedIn((value) => !value)}
-      onToggleTheme={onToggleTheme}
-      onToggleFavorite={() => setIsFavorite((value) => !value)}
+      onToggleLogin={actions.onToggleLogin}
+      onToggleTheme={actions.onToggleTheme}
+      onToggleFavorite={actions.onToggleFavorite}
     >
       <main className="flex-1 py-8">
         <div className="mx-auto w-full max-w-[1180px]">

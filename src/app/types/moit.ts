@@ -83,3 +83,12 @@ export interface ConversationHistoryItem {
   summary: string;
   status: HistoryStatus;
 }
+
+export interface TopActionState {
+  isLoggedIn: boolean;
+  isDarkMode: boolean;
+  isFavorite: boolean;
+  onToggleLogin: () => void;
+  onToggleTheme: () => void;
+  onToggleFavorite: () => void;
+}

@@ -24,7 +24,7 @@ function ProductResultCard({ result }: { result: ProductDiagnosisResult }) {
           <p className="text-xs font-black text-accent">소비 최적화 진단</p>
           <h3 className="mt-1 text-base font-black text-primary">{result.headline}</h3>
         </div>
-        <span className="rounded-lg bg-primary px-3 py-1.5 text-sm font-black text-white">
+        <span className="rounded-lg bg-brand-surface px-3 py-1.5 text-sm font-black text-brand-surface-foreground">
           {result.valueGrade}
         </span>
       </div>
@@ -71,7 +71,7 @@ function LivingResultCard({ result }: { result: LivingCostDiagnosisResult }) {
             ))}
           </div>
         </div>
-        <p className="mt-3 rounded-lg bg-amber-50 p-3 text-xs font-bold leading-relaxed text-amber-800">
+        <p className="mt-3 rounded-lg bg-amber-100 p-3 text-xs font-bold leading-relaxed text-amber-800 dark:bg-amber-300/15 dark:text-amber-200">
           {result.caution}
         </p>
       </div>
