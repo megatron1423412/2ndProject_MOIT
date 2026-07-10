@@ -34,8 +34,6 @@ export interface SubCategory {
   /** Replaceable public asset. Leave undefined to use the Lucide fallback only. */
   iconPath?: string;
   chatTitle: string;
-  initialMessage: string;
-  quickReplies: string[];
 }
 
 export interface MiddleCategory {
@@ -55,29 +53,6 @@ export interface StartSection {
   description: string;
   middleCategories: MiddleCategory[];
 }
-
-export interface ProductDiagnosisResult {
-  type: "product";
-  headline: string;
-  valueGrade: string;
-  fairPrice: string;
-  marketSignal: string;
-  reviewSignal: string;
-  fitSignal: string;
-  nextChecks: string[];
-}
-
-export interface LivingCostDiagnosisResult {
-  type: "living";
-  headline: string;
-  monthlySavings: number;
-  yearlySavings: number;
-  grade: string;
-  checks: string[];
-  caution: string;
-}
-
-export type DiagnosisResult = ProductDiagnosisResult | LivingCostDiagnosisResult;
 
 export interface ConversationHistoryItem {
   id: string;
