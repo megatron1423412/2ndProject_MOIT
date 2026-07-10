@@ -1,12 +1,13 @@
-import React from "react";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { PanelLeftClose } from "lucide-react";
 import { MOCK_CONVERSATIONS } from "../../../data/mockConversations";
 import { START_SECTIONS } from "../../../data/categories";
-import type { ConversationHistoryItem, SubCategory, SubCategoryId } from "../../../types/moit";
+import type { ConversationHistoryItem, MiddleCategoryId, SubCategory, SubCategoryId } from "../../../types/moit";
 import BrandHeader from "../../layout/BrandHeader";
 import IconButton from "../../common/IconButton";
 import CompactConversationList from "../history/CompactConversationList";
 import ChatSidebarSection from "./ChatSidebarSection";
+import CollapsedSidebarRail from "./CollapsedSidebarRail";
 
 interface ChatSidebarProps {
   activeSubCategoryId: SubCategoryId;
@@ -25,13 +26,35 @@ export default function ChatSidebar({
   onSelectSubCategory,
   onSelectHistory,
 }: ChatSidebarProps) {
+  const categories = useMemo(
+    () => START_SECTIONS.flatMap((section) => section.middleCategories.map((category) => ({ ...category, sectionTitle: section.title }))),
+    [],
+  );
+  const activeCategoryId = categories.find((category) =>
+    category.subCategories.some((item) => item.id === activeSubCategoryId),
+  )?.id;
+  const [openCategoryIds, setOpenCategoryIds] = useState<MiddleCategoryId[]>(() => (activeCategoryId ? [activeCategoryId] : []));
+
+  useEffect(() => {
+    if (activeCategoryId) {
+      setOpenCategoryIds((current) => (current.includes(activeCategoryId) ? current : [...current, activeCategoryId]));
+    }
+  }, [activeCategoryId]);
+
+  const toggleCategory = (id: MiddleCategoryId) => {
+    setOpenCategoryIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+  };
+
   if (isCollapsed) {
     return (
-      <aside className="flex h-full w-[64px] flex-shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar py-4">
-        <IconButton label="사이드바 펼치기" onClick={onToggleCollapsed}>
-          <PanelLeftOpen size={18} />
-        </IconButton>
-      </aside>
+      <CollapsedSidebarRail
+        categories={categories}
+        activeSubCategoryId={activeSubCategoryId}
+        openCategoryIds={openCategoryIds}
+        onExpand={onToggleCollapsed}
+        onToggleCategory={toggleCategory}
+        onSelectSubCategory={onSelectSubCategory}
+      />
     );
   }
 
@@ -46,16 +69,16 @@ export default function ChatSidebar({
 
       <div className="flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-5">
-          {START_SECTIONS.map((section) =>
-            section.middleCategories.map((category) => (
+          {categories.map((category) =>
               <ChatSidebarSection
                 key={category.id}
-                sectionTitle={section.title}
+                sectionTitle={category.sectionTitle}
                 category={category}
                 activeSubCategoryId={activeSubCategoryId}
+                isOpen={openCategoryIds.includes(category.id)}
+                onToggle={() => toggleCategory(category.id)}
                 onSelectSubCategory={onSelectSubCategory}
               />
-            )),
           )}
         </div>
       </div>

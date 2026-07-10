@@ -31,6 +31,8 @@ export interface SubCategory {
   kind: DiagnosisKind;
   description: string;
   icon: IconKey;
+  /** Replaceable public asset. Leave undefined to use the Lucide fallback only. */
+  iconPath?: string;
   chatTitle: string;
   initialMessage: string;
   quickReplies: string[];
@@ -42,6 +44,8 @@ export interface MiddleCategory {
   parentSection: StartSectionId;
   description: string;
   icon: IconKey;
+  /** Replaceable public asset. Leave undefined to use the Lucide fallback only. */
+  iconPath?: string;
   subCategories: SubCategory[];
 }
 

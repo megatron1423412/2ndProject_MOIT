@@ -8,6 +8,7 @@ const applianceSubCategories: SubCategory[] = [
     kind: "product",
     description: "설치 공간, 예산, 냉방 면적을 기준으로 구매 적정성을 봐요.",
     icon: "snowflake",
+    iconPath: "/assets/icons/categories/air-conditioner.svg",
     chatTitle: "에어컨 구매 진단 챗봇",
     initialMessage:
       "에어컨 구매 진단을 시작할게요. 설치 공간, 예산, 냉방 면적을 알려주시면 돈값 기준으로 골라드릴게요.",
@@ -20,6 +21,7 @@ const applianceSubCategories: SubCategory[] = [
     kind: "product",
     description: "화면 크기, 시청 거리, OTT/게임 사용성을 같이 판단해요.",
     icon: "tv",
+    iconPath: "/assets/icons/categories/tv.svg",
     chatTitle: "TV 구매 진단 챗봇",
     initialMessage:
       "TV 구매를 도와드릴게요. 화면 크기, 시청 거리, OTT/게임 사용 여부를 기준으로 가성비를 판단해볼게요.",
@@ -32,6 +34,7 @@ const applianceSubCategories: SubCategory[] = [
     kind: "product",
     description: "가족 수, 용량, 설치 공간, 에너지 효율을 비교해요.",
     icon: "refrigerator",
+    iconPath: "/assets/icons/categories/refrigerator.svg",
     chatTitle: "냉장고 구매 진단 챗봇",
     initialMessage:
       "냉장고 구매 진단을 시작할게요. 가족 수, 용량, 설치 공간, 에너지 효율을 기준으로 비교해드릴게요.",
@@ -44,6 +47,7 @@ const applianceSubCategories: SubCategory[] = [
     kind: "product",
     description: "무선/로봇/유선 선호와 집 구조를 기준으로 추천해요.",
     icon: "vacuum",
+    iconPath: "/assets/icons/categories/vacuum.svg",
     chatTitle: "청소기 구매 진단 챗봇",
     initialMessage:
       "청소기 구매를 도와드릴게요. 무선/로봇/유선 선호와 집 구조를 알려주시면 돈값 기준으로 추천해드릴게요.",
@@ -59,6 +63,7 @@ const telecomSubCategories: SubCategory[] = [
     kind: "living",
     description: "통신사, 월요금, 데이터 사용량으로 절감 가능성을 계산해요.",
     icon: "phone",
+    iconPath: "/assets/icons/categories/phone.svg",
     chatTitle: "휴대폰 요금제 진단 챗봇",
     initialMessage:
       "휴대폰 요금제 진단을 시작할게요. 현재 통신사, 월요금, 데이터 사용량을 알려주시면 절약 가능성을 계산해볼게요.",
@@ -71,6 +76,7 @@ const telecomSubCategories: SubCategory[] = [
     kind: "living",
     description: "속도, 월요금, 가족 사용 패턴으로 낮춰도 되는지 봐요.",
     icon: "internet",
+    iconPath: "/assets/icons/categories/internet.svg",
     chatTitle: "인터넷 요금/속도 진단 챗봇",
     initialMessage:
       "인터넷 요금 진단을 시작할게요. 현재 속도, 월요금, 가족 사용 패턴을 기준으로 낮춰도 되는지 판단해볼게요.",
@@ -83,6 +89,7 @@ const telecomSubCategories: SubCategory[] = [
     kind: "living",
     description: "요금, 채널 수, 꼭 보는 채널 기준으로 축소 여부를 봐요.",
     icon: "tv",
+    iconPath: "/assets/icons/categories/iptv.svg",
     chatTitle: "IPTV 요금/채널 진단 챗봇",
     initialMessage:
       "IPTV 진단을 시작할게요. 현재 요금, 채널 수, 꼭 보는 채널을 기준으로 줄여도 괜찮은지 계산해볼게요.",
@@ -95,6 +102,7 @@ const telecomSubCategories: SubCategory[] = [
     kind: "living",
     description: "휴대폰 회선, 인터넷/IPTV, 기존 결합 할인을 비교해요.",
     icon: "bundle",
+    iconPath: "/assets/icons/categories/bundle.svg",
     chatTitle: "유무선 결합상품 진단 챗봇",
     initialMessage:
       "유무선 결합상품 진단을 시작할게요. 휴대폰 회선 수, 인터넷/IPTV 사용 여부, 기존 결합 할인을 기준으로 바꿀 가치가 있는지 살펴볼게요.",
@@ -114,6 +122,7 @@ export const START_SECTIONS: StartSection[] = [
         parentSection: "smart-spending",
         description: "큰돈이 들어가는 생활 가전을 돈값 기준으로 비교해요.",
         icon: "appliance",
+        iconPath: "/assets/icons/categories/appliances.svg",
         subCategories: applianceSubCategories,
       },
     ],
@@ -129,6 +138,7 @@ export const START_SECTIONS: StartSection[] = [
         parentSection: "living-cost",
         description: "폰, 인터넷, IPTV, 결합 할인을 한 흐름에서 점검해요.",
         icon: "telecom",
+        iconPath: "/assets/icons/categories/telecom.svg",
         subCategories: telecomSubCategories,
       },
     ],
