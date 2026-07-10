@@ -9,3 +9,27 @@
 
   Run `npm run dev` to start the development server.
   
+
+  # 작업 폴더
+    src/⭐
+  └── app/⭐
+      ├── components/
+      ├── config/
+      ├── data/
+      ├── features/⭐
+      │   └── chat-flow/
+      │       ├── core/
+      │       ├── engine/
+      │       └── flows/⭐
+      │           ├── appliances/⭐가전제품
+      │           │   ├── air-conditioner/ 🟢에어컨
+      │           │   ├── refrigerator/ 🟢냉장고
+      │           │   ├── tv/ 🟢TV
+      │           │   └── vacuum/ 🟢청소기
+      │           └── telecom/⭐통신비
+      │               ├── bundle/ 🟢결합 상품
+      │               ├── internet/ 🟢인터넷
+      │               ├── iptv/ 🟢IPTV
+      │               └── phone/ 🟢폰
+      ├── registry/
+      └── shared/
