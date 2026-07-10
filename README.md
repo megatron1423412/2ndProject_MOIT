@@ -1,35 +1,40 @@
+# 📍 작업 폴더 안내 및 구조
 
-  # MOIT 생활비 추천 챗봇 앱
+## 💻 실행 방법 (Running the Code)
+패키지 설치
+  Run `npm i`
+실행 
+  Run `npm run dev`
 
-  This is a code bundle for MOIT 생활비 추천 챗봇 앱. The original project is available at https://www.figma.com/design/jNTl6y3hFmhWWUu9ciN3ew/MOIT-%EC%83%9D%ED%99%9C%EB%B9%84-%EC%B6%94%EC%B2%9C-%EC%B1%97%EB%B4%87-%EC%95%B1.
+## 🚀 핵심 작업 경로
+* **메인 작업 위치:** `src/app/features/chat-flow/flows/`
 
-  ## Running the code
+---
 
-  Run `npm i` to install the dependencies.
+## 🏗️ 폴더 구조
 
-  Run `npm run dev` to start the development server.
-  
+src/ ⭐
+└── app/ ⭐
+    ├── components/
+    ├── config/
+    ├── data/               
+    ├── features/ ⭐
+    │   └── chat-flow/
+    │       ├── core/
+    │       ├── engine/
+    │       └── flows/ ⭐
+    │           ├── appliances/          # 가전제품
+    │           │   ├── air-conditioner/ # 🟢 에어컨
+    │           │   ├── refrigerator/    # 🟢 냉장고
+    │           │   ├── tv/              # 🟢 TV
+    │           │   └── vacuum/          # 🟢 청소기
+    │           └── telecom/             # 통신비
+    │               ├── bundle/          # 🟢 결합 상품
+    │               ├── internet/        # 🟢 인터넷
+    │               ├── iptv/            # 🟢 IPTV
+    │               └── phone/           # 🟢 폰
+    ├── registry/
+    └── shared/
 
-  # 작업 폴더
-    src/⭐
-  └── app/⭐
-      ├── components/
-      ├── config/
-      ├── data/
-      ├── features/⭐
-      │   └── chat-flow/
-      │       ├── core/
-      │       ├── engine/
-      │       └── flows/⭐
-      │           ├── appliances/⭐가전제품
-      │           │   ├── air-conditioner/ 🟢에어컨
-      │           │   ├── refrigerator/ 🟢냉장고
-      │           │   ├── tv/ 🟢TV
-      │           │   └── vacuum/ 🟢청소기
-      │           └── telecom/⭐통신비
-      │               ├── bundle/ 🟢결합 상품
-      │               ├── internet/ 🟢인터넷
-      │               ├── iptv/ 🟢IPTV
-      │               └── phone/ 🟢폰
-      ├── registry/
-      └── shared/
+**mockData.ts 각 소분류 카테고리의 더미데이터** 
+
