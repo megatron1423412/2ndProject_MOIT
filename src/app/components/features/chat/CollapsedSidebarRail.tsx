@@ -1,7 +1,7 @@
 import React from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
 import type { MiddleCategory, MiddleCategoryId, SubCategory, SubCategoryId } from "../../../types/moit";
 import CategoryIcon from "../../common/CategoryIcon";
+import SidebarAccordionChevron from "./SidebarAccordionChevron";
 import SidebarBrandButton from "./SidebarBrandButton";
 
 interface CollapsedSidebarRailProps {
@@ -37,21 +37,21 @@ export default function CollapsedSidebarRail({
                 aria-label={`${category.title} 세부 항목 ${isOpen ? "접기" : "펼치기"}`}
                 aria-expanded={isOpen}
                 title={category.title}
-                className={`relative flex h-11 w-11 items-center justify-center rounded-lg border outline-none transition-all hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring ${
+                className={`grid h-11 w-full max-w-[60px] grid-cols-[16px_1fr] items-center gap-1 rounded-lg border px-1 outline-none transition-all hover:bg-[var(--sidebar-item-hover)] focus-visible:ring-2 focus-visible:ring-sidebar-ring ${
                   isParentActive
-                    ? "border-accent bg-accent/15 text-accent shadow-sm"
+                    ? "border-[var(--sidebar-group-border)] bg-[var(--sidebar-group-bg)] text-accent shadow-sm"
                     : "border-transparent text-sidebar-foreground/75"
                 }`}
               >
-                <CategoryIcon fallback={category.icon} iconPath={category.iconPath} size={21} />
-                <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-foreground">
-                  {isOpen ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                <SidebarAccordionChevron isOpen={isOpen} size={13} />
+                <span className="flex h-9 w-9 items-center justify-center rounded-md">
+                  <CategoryIcon fallback={category.icon} iconPath={category.iconPath} size={20} />
                 </span>
               </button>
 
               <div className={`grid w-full transition-[grid-template-rows,opacity] duration-200 ease-out ${isOpen ? "mt-2 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                 <div className="min-h-0 overflow-hidden">
-                  <div className="flex flex-col items-center gap-2 border-l border-sidebar-border py-1">
+                  <div className="relative mx-auto flex w-[48px] flex-col items-center gap-2 rounded-xl border border-[var(--sidebar-group-border)] bg-[var(--sidebar-group-bg)] px-1 py-2 before:absolute before:-top-3 before:left-1/2 before:h-3 before:w-px before:bg-[var(--sidebar-tree-line)]">
                     {category.subCategories.map((item) => {
                       const isActive = item.id === activeSubCategoryId;
                       return (
@@ -62,9 +62,9 @@ export default function CollapsedSidebarRail({
                           aria-label={`${item.title} 챗봇으로 이동`}
                           aria-current={isActive ? "page" : undefined}
                           title={item.title}
-                          className={`relative flex h-9 w-9 items-center justify-center rounded-md border outline-none transition-all hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring ${
+                          className={`relative flex h-9 w-9 items-center justify-center rounded-md border outline-none transition-all hover:bg-[var(--sidebar-item-hover)] focus-visible:ring-2 focus-visible:ring-sidebar-ring ${
                             isActive
-                              ? "border-accent bg-accent text-accent-foreground shadow-sm before:absolute before:-left-[7px] before:h-4 before:w-1 before:rounded-full before:bg-accent"
+                              ? "border-[var(--sidebar-item-active)] bg-[var(--sidebar-item-active)] text-[var(--sidebar-item-active-text)] shadow-sm before:absolute before:-left-[5px] before:h-4 before:w-1 before:rounded-full before:bg-[var(--sidebar-item-active)]"
                               : "border-transparent text-sidebar-foreground/75"
                           }`}
                         >

@@ -44,6 +44,12 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-group-bg: color-mix(in srgb, var(--accent) 7%, var(--sidebar));
+  --sidebar-group-border: color-mix(in srgb, var(--accent) 28%, var(--sidebar-border));
+  --sidebar-tree-line: color-mix(in srgb, var(--accent) 40%, var(--sidebar-border));
+  --sidebar-item-hover: var(--sidebar-accent);
+  --sidebar-item-active: var(--accent);
+  --sidebar-item-active-text: var(--accent-foreground);
 }
 
 .dark {
@@ -87,6 +93,12 @@
   --sidebar-accent-foreground: #E7EDF4;
   --sidebar-border: rgba(202, 214, 226, 0.14);
   --sidebar-ring: #35D69B;
+  --sidebar-group-bg: color-mix(in srgb, var(--accent) 10%, var(--sidebar));
+  --sidebar-group-border: color-mix(in srgb, var(--accent) 32%, var(--sidebar-border));
+  --sidebar-tree-line: color-mix(in srgb, var(--accent) 44%, var(--sidebar-border));
+  --sidebar-item-hover: var(--sidebar-accent);
+  --sidebar-item-active: var(--accent);
+  --sidebar-item-active-text: var(--accent-foreground);
 }
 
 @theme inline {
