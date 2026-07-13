@@ -1,7 +1,7 @@
 import React from "react";
 import { CheckCircle2, ClipboardCheck, Star, TriangleAlert } from "lucide-react";
 import type { FlowResult } from "../../../features/chat-flow/core/types";
-import ProductRecommendationCard from "./ProductRecommendationCard";
+import RecommendationSelectionView from "../../../features/smart-shopping/recommendation/RecommendationSelectionView";
 
 interface DiagnosisResultCardProps {
   result: FlowResult;
@@ -11,18 +11,7 @@ const fmt = (n: number) => n.toLocaleString("ko-KR");
 
 export default function DiagnosisResultCard({ result }: DiagnosisResultCardProps) {
   if (result.recommendations) {
-    return (
-      <div className="w-full max-w-3xl space-y-4">
-        <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-black text-accent">MOIT mock 상품 추천</p><h3 className="mt-1 text-base font-black text-primary">{result.title}</h3></div>{result.grade && <span className="rounded-lg bg-brand-surface px-3 py-1.5 text-sm font-black text-brand-surface-foreground">{result.grade}</span>}</div>
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{result.summary}</p>
-          <div className="mt-3 rounded-lg bg-muted/35 p-3">{result.highlights.map((item) => <p key={item} className="text-xs leading-relaxed text-muted-foreground">- {item}</p>)}</div>
-          {result.warnings.map((item) => <p key={item} className="mt-3 text-xs font-bold text-amber-700 dark:text-amber-300">확인: {item}</p>)}
-          <p className="mt-3 rounded-lg bg-amber-100 p-3 text-xs font-bold leading-relaxed text-amber-800 dark:bg-amber-300/15 dark:text-amber-200">{result.mockNotice}</p>
-        </div>
-        {result.recommendations.map((recommendation) => <ProductRecommendationCard key={recommendation.product.id} recommendation={recommendation} />)}
-      </div>
-    );
+    return <RecommendationSelectionView result={result} />;
   }
   return (
     <div className="w-full max-w-xl rounded-lg border border-border bg-card p-5 shadow-sm">

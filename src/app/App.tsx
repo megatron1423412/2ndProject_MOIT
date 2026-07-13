@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import type { SubCategoryId, TopActionState } from "./types/moit";
 import ChatScreen from "./components/features/chat/ChatScreen";
 import MainStartScreen from "./components/features/start/MainStartScreen";
+import { currentUser } from "./features/smart-shopping/user/userProfile";
 
 export default function App() {
   const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<SubCategoryId | null>(null);
@@ -49,6 +50,7 @@ export default function App() {
             onBack={() => setSelectedSubCategoryId(null)}
             onSelectSubCategory={(item) => setSelectedSubCategoryId(item.id)}
             actions={appActions}
+            userProfile={currentUser}
           />
         ) : (
           <MainStartScreen

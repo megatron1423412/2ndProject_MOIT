@@ -30,5 +30,5 @@ export const rankVacuums = (products: VacuumProduct[], answers: FlowAnswers) => 
     const suctionLabel = product.specs.suctionAw !== undefined ? `${product.specs.suctionAw}AW` : product.specs.suctionPa !== undefined ? `${product.specs.suctionPa.toLocaleString("ko-KR")}Pa` : "흡입력 확인 필요";
     recommendations.push({ product, score: Math.round(score), matchedCoreCriteria: [String(a("powerType")), suctionLabel, product.specs.hepaGrade], unmatchedOrUnknownCriteria: [...(product.currentPrice > budget ? ["예산 초과"] : []), ...(product.specs.suctionAw === undefined ? ["AW 정보 없음"] : []), ...(product.specs.suctionPa === undefined ? ["Pa 정보 없음"] : [])], recommendationReasons: ["선택한 흡입력 단위만 독립 판정", "필터·편의 구성·현재 시세 위치를 점수화"], preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
   }
-  return { recommendations: sortRecommendations(recommendations).slice(0, 5), excludedProducts };
+  return { recommendations: sortRecommendations(recommendations).slice(0, 10), excludedProducts };
 };

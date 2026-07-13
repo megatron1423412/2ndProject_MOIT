@@ -29,5 +29,5 @@ export const rankRefrigerators = (products: RefrigeratorProduct[], answers: Flow
     const preferences = [product.currentPrice <= budget, product.specs.metalDoor, product.specs.energyGrade <= 2, product.specs.corePartWarrantyYears > 10].filter(Boolean).length;
     recommendations.push({ product, score: Math.round(score), matchedCoreCriteria: [String(a("doorType")), `${capacity.minLiters}~${capacity.maxLiters}L`, "인버터", `핵심부품 ${product.specs.corePartWarrantyYears}년 보증`], unmatchedOrUnknownCriteria: [...(!product.specs.metalDoor ? ["메탈 도어 아님"] : []), ...(product.currentPrice > budget ? ["예산 초과"] : [])], recommendationReasons: ["도어·용량·냉각 필수 조건 충족", "효율·보증·현재 시세 위치를 점수화"], preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
   }
-  return { recommendations: sortRecommendations(recommendations).slice(0, 5), excludedProducts };
+  return { recommendations: sortRecommendations(recommendations).slice(0, 10), excludedProducts };
 };

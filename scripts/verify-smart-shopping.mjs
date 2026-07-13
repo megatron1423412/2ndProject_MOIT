@@ -5,6 +5,20 @@ const server = await createServer({ server: { middlewareMode: true }, appType: "
 const load = (path) => server.ssrLoadModule(path);
 
 try {
+  const { currentUser } = await load("/src/app/features/smart-shopping/user/userProfile.ts");
+  const { buildSmartShoppingGreeting } = await load("/src/app/features/smart-shopping/greeting/buildSmartShoppingGreeting.ts");
+  const { getSubCategoryById } = await load("/src/app/data/categories.ts");
+  assert.equal(currentUser.displayName, "김철수", "기본 사용자 이름");
+  assert.equal(buildSmartShoppingGreeting("박영희", "TV"), "안녕하세요! 합리적인 소비 요정, 모잇이에요.\n박영희님이 고르신 TV, 후회 없는 소비가 되도록 제가 꼼꼼히 따져볼게요.", "사용자 이름 동적 인사말");
+  for (const [id, title] of [["air-conditioner", "에어컨"], ["tv", "TV"], ["refrigerator", "냉장고"], ["vacuum", "청소기"]]) {
+    assert.ok(buildSmartShoppingGreeting(currentUser.displayName, getSubCategoryById(id).title).includes(`${currentUser.displayName}님이 고르신 ${title}`), `${title} 동적 인사말`);
+  }
+
+  const recommendationState = await load("/src/app/features/smart-shopping/types/recommendation.ts");
+  assert.equal(recommendationState.initialRecommendationViewState.selectedProduct, null, "첫 상품 자동 선택 금지");
+  const choosingState = recommendationState.recommendationViewReducer(recommendationState.initialRecommendationViewState, { type: "recommendations-settled" });
+  assert.equal(choosingState.stage, "choosing-product", "추천 후 목록 선택 단계");
+
   const airCriteria = await load("/src/app/features/chat-flow/flows/appliances/air-conditioner/criteria.ts");
   assert.equal(airCriteria.calculateRecommendedCoolingArea(33), 17, "에어컨 냉방 면적 계수");
 
@@ -25,6 +39,39 @@ try {
   assert.ok(tvResult.excludedProducts.some(({ productId, reasons }) => productId === "tv-basic-55" && reasons.some((reason) => reason.includes("4K"))), "TV 4K 필터");
   assert.ok(tvResult.excludedProducts.some(({ productId, reasons }) => productId === "tv-android-43" && reasons.some((reason) => reason.includes("보증"))), "TV 보증 필터");
   assert.ok(tvResult.recommendations.every((item, index, list) => index === 0 || list[index - 1].score >= item.score), "필수 필터 후 선호 점수 정렬");
+
+  const { normalizeNaverShoppingItems } = await load("/src/app/features/smart-shopping/naver/NaverShoppingAdapter.ts");
+  const naverItems = normalizeNaverShoppingItems([
+    { productId: "2", title: "<b>비싼</b> TV", lprice: "900000", brand: "MOIT View" },
+    { productId: "1", title: "<b>저렴한</b> TV MV-G55", lprice: "700000", brand: "MOIT View" },
+    { productId: "1", title: "중복", lprice: "600000" },
+  ]);
+  assert.deepEqual(naverItems.map((item) => item.productId), ["1", "2"], "네이버 중복 제거·최저가 오름차순");
+  assert.equal(naverItems[0].title, "저렴한 TV MV-G55", "네이버 상품명 HTML 제거");
+
+  const { matchInternalProduct } = await load("/src/app/features/smart-shopping/naver/matchInternalProduct.ts");
+  const matchedTv = matchInternalProduct({ ...naverItems[0], modelNumber: "MV-G55" }, TV_PRODUCTS);
+  assert.equal(matchedTv?.id, "tv-google-55", "정규화 모델번호 정확 일치");
+  assert.equal(matchInternalProduct({ ...naverItems[0], productId: "x", title: "이름만 비슷한 상품", modelNumber: undefined, brand: "" }, TV_PRODUCTS), undefined, "상품명 유사도만으로 매칭 금지");
+
+  const { combineProductDetail } = await load("/src/app/features/smart-shopping/recommendation/combineProductDetail.ts");
+  const combinedMatch = combineProductDetail({ source: "naver", product: naverItems[0], matchedInternalProduct: matchedTv });
+  assert.equal(combinedMatch.currentPrice, 700000); assert.equal(combinedMatch.priceHistory.length >= 6, true, "매칭 시 네이버 가격+내부 이력 결합");
+  const combinedMiss = combineProductDetail({ source: "naver", product: naverItems[1] });
+  assert.equal(combinedMiss.reviewSummary, null); assert.deepEqual(combinedMiss.priceHistory, [], "미매칭 시 검증되지 않은 정보 생성 금지");
+
+  const detailState = recommendationState.recommendationViewReducer(choosingState, { type: "select-product", product: { source: "naver", product: naverItems[0], matchedInternalProduct: matchedTv } });
+  assert.equal(detailState.stage, "viewing-product-detail", "상품 클릭 후 상세 단계");
+  const returnedState = recommendationState.recommendationViewReducer(detailState, { type: "back-to-list" });
+  assert.equal(returnedState.stage, "choosing-product"); assert.equal(returnedState.selectedProduct, null, "목록 복귀 시 선택만 해제");
+
+  const { naverShoppingProxy } = await load("/server/naverShoppingProxy.ts");
+  let proxyHandler;
+  naverShoppingProxy({}).configureServer({ middlewares: { use: (handler) => { proxyHandler = handler; } } });
+  let proxyStatus = 0; let proxyBody = "";
+  await proxyHandler({ url: "/api/shopping/search?query=TV", method: "GET" }, { setHeader: () => {}, end: (body) => { proxyBody = body; }, set statusCode(value) { proxyStatus = value; } }, () => {});
+  assert.equal(proxyStatus, 503); assert.equal(JSON.parse(proxyBody).code, "NAVER_API_NOT_CONFIGURED", "API 키 미설정 상태 정규화");
+  assert.ok(airResult.recommendations.length > 0, "네이버 실패와 무관하게 내부 목록 유지");
 
   const { getRecommendedCapacityRange } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/criteria.ts");
   assert.deepEqual(getRecommendedCapacityRange(2), { maxPeople: 2, minLiters: 300, maxLiters: 500 }, "1~2인 용량 추천");
@@ -68,7 +115,7 @@ try {
   const registry = await load("/src/app/features/chat-flow/registry/loadFlows.ts");
   assert.ok(["air-conditioner", "tv", "refrigerator", "vacuum", "phone", "internet", "iptv", "bundle"].every((id) => registry.getFlowModule(id)), "전체 flow registry 검증");
 
-  console.log("smart-shopping focused checks: 10 passed");
+  console.log("smart-shopping focused checks: passed");
 } finally {
   await server.close();
 }

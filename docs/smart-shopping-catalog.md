@@ -2,6 +2,21 @@
 
 현재 구현은 실제 쇼핑 API, 리뷰, 가격, 환급 정책이 아닌 로컬 더미 데이터만 사용합니다. 모든 상품은 `dataStatus: "mock"`이고 UI에도 `MOCK DATA`가 표시됩니다.
 
+## 사용자와 상품군 인사말
+
+기본 mock 사용자는 `src/app/features/smart-shopping/user/userProfile.ts`의 `currentUser`이며 현재 표시명은 `김철수`입니다. 실제 인증을 붙일 때 이 값을 로그인 사용자 profile로 교체하면 됩니다. 인사말 문구는 `greeting/buildSmartShoppingGreeting.ts`에서 만들고, `ChatScreen`이 가전 세션에서만 한 번 렌더링합니다. 통신비 flow 메시지에는 적용하지 않습니다.
+
+상품군 표시명은 `src/app/data/categories.ts`의 각 `SubCategory.title`이 단일 기준입니다. 에어컨·TV·냉장고·청소기 인사말과 네이버 검색어가 이 값을 재사용하므로 flow마다 이름을 중복 저장하지 않습니다.
+
+## 추천 결과의 두 목록과 상세 단계
+
+구매 조건을 확인한 뒤 상태는 `loading-recommendations` → `choosing-product` → `viewing-product-detail`로 진행합니다. 조건 입력 중에는 `collecting-criteria`, 요약·확인 중에는 `reviewing-criteria`로 구분합니다. 추천 시작 직후 선택값은 `null`이며 첫 상품을 자동 선택하지 않습니다.
+
+- 왼쪽 `AI 최적화 재정렬`: `MockProductRepository` 상품을 각 상품군의 `rankProducts.ts`가 필수 조건으로 제외하고 점수 내림차순으로 정렬합니다.
+- 오른쪽 `낮은 가격순 TOP 10`: 상품군별 핵심 단어로 네이버 쇼핑을 검색한 후보이며, 네이버가 제공하지 않는 효율·설치·보증·리뷰 조건을 충족한다고 표시하지 않습니다.
+
+두 목록은 `features/smart-shopping/recommendation/RecommendationSelectionView.tsx`가 관리합니다. 상품을 클릭해야만 상세가 열리고, `목록으로 돌아가기`는 기존 조건과 불러온 목록을 유지한 채 선택만 해제합니다.
+
 ## 상품군별 파일 위치
 
 각 담당자는 대부분 자기 폴더만 수정하면 됩니다.
@@ -50,3 +65,26 @@
 공통 discriminated union과 상품군별 스펙은 `src/app/features/product-catalog/core/types.ts`에 있습니다. 공통 타입 변경이 필요할 때만 이 파일을 수정합니다.
 
 현재 각 `result.ts`는 자기 `products.ts`를 `MockProductRepository`에 주입하고 `getProducts(categoryId)`를 호출합니다. 향후 백엔드가 준비되면 `src/app/features/product-catalog/core/ProductRepository.ts`의 `getProducts(categoryId)`, `getProductById(id)`를 구현하는 `ApiProductRepository` adapter를 추가하고 주입 위치만 교체합니다. UI, 질문 flow, ranking 입력 형태는 유지할 수 있습니다. API key, 실제 DB client, LLM 호출 코드는 프론트엔드 상품 데이터 파일에 추가하지 않습니다.
+
+## 네이버 쇼핑 API 설정
+
+로컬 서버용 최소 프록시는 `server/naverShoppingProxy.ts`이고 브라우저는 `/api/shopping/search`만 호출합니다. 프로젝트 루트의 `.env.example`을 참고해 커밋되지 않는 `.env` 또는 배포 환경의 서버 비밀 저장소에 다음 값을 설정합니다.
+
+```text
+NAVER_CLIENT_ID=
+NAVER_CLIENT_SECRET=
+```
+
+`VITE_` 접두사는 브라우저 번들에 값을 노출하므로 사용하지 않습니다. 자격 증명은 서버가 네이버 요청 헤더에만 넣습니다. 현재 프록시는 네이버 공식 쇼핑 검색 API의 `display=10`, `sort=asc`를 사용합니다. 운영 배포에서는 같은 계약의 handler를 실제 백엔드/serverless route에 마운트해야 합니다. [네이버 쇼핑 검색 API 공식 문서](https://developers.naver.com/docs/serviceapi/search/shopping/shopping.md)
+
+응답 정규화는 `features/smart-shopping/naver/NaverShoppingAdapter.ts`에서 HTML 태그 제거, 가격 숫자 변환, productId 중복 제거, 최저가 오름차순 정렬을 수행합니다. 키가 없거나 요청이 실패하거나 결과가 비어도 왼쪽 내부 DB 목록은 유지되며 오른쪽만 미설정·오류·빈 결과 상태와 재시도 버튼을 표시합니다.
+
+## 내부 DB와 네이버 상품 결합
+
+`matchInternalProduct.ts`는 정규화된 명시적 모델번호 정확 일치 → alias/variant 모델번호 정확 일치 → 브랜드 일치와 상품명 안의 모델번호 포함 순으로만 매칭합니다. 상품명 유사도만으로는 매칭하지 않습니다.
+
+- 내부 상품 선택: 기존 mock 스펙, 더미 AI 리뷰 요약, 현재가와 가격 이력 사용
+- 매칭된 네이버 상품: 내부 스펙·더미 리뷰·더미 가격 이력과 네이버 조회 현재가 결합
+- 미매칭 네이버 상품: 네이버 기본 정보만 사용하고 검증 정보·리뷰·가격 이력은 없음으로 표시
+
+실제 가격 이력으로 교체할 때는 `ProductRepository`가 반환하는 `priceHistory`를 실제 API 데이터로 바꾸고 `product-catalog/core/priceHistory.ts` 계산 helper는 유지합니다.

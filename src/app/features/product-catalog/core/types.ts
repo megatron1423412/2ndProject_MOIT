@@ -10,6 +10,8 @@ interface ProductBase<C extends ProductCategoryId, S> {
   categoryId: C;
   brand: string;
   modelNumber: string;
+  modelAliases?: string[];
+  naverSearchKeyword?: string;
   name: string;
   imagePath: string;
   shortInfo: string;

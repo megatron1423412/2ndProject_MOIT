@@ -119,6 +119,7 @@ export interface FlowResult {
   recommendedActions: string[];
   mockNotice: string;
   recommendations?: import("../../product-catalog/core/types").ProductRecommendation[];
+  catalogProducts?: import("../../product-catalog/core/types").CatalogProduct[];
   excludedProducts?: import("../../product-catalog/core/types").ExcludedProduct[];
   metadata?: Record<string, unknown>;
 }

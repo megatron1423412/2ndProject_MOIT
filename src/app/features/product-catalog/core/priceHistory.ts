@@ -15,7 +15,7 @@ export const summarizePriceHistory = (
   if (prices.length === 0) {
     return { allTimeLow: currentPrice, averagePrice: currentPrice, differenceFromLow: 0, percentAboveLow: 0 };
   }
-  const allTimeLow = Math.min(...prices, currentPrice);
+  const allTimeLow = Math.min(...prices);
   const averagePrice = Math.round(prices.reduce((sum, price) => sum + price, 0) / prices.length);
   const differenceFromLow = currentPrice - allTimeLow;
   const percentAboveLow = allTimeLow > 0 ? Math.round((differenceFromLow / allTimeLow) * 1000) / 10 : 0;

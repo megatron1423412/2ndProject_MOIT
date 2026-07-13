@@ -27,5 +27,5 @@ export const rankTvs = (products: TvProduct[], answers: FlowAnswers) => {
     const preferences = [product.currentPrice <= budget, matchedPanel, matchedSize, matchedOs, product.specs.hdr, product.specs.energyGrade <= 2, product.specs.mockRebateEligible].filter(Boolean).length;
     recommendations.push({ product, score: Math.round(score), matchedCoreCriteria: [...(fourKRequired ? ["4K UHD"] : []), `보증 ${product.specs.warrantyYears}년`, ...(matchedSize ? [`${product.specs.screenSizeInches}인치 선호 일치`] : []), ...(matchedOs ? ["OS 선호 일치"] : [])], unmatchedOrUnknownCriteria: [...(!matchedSize ? [`화면 크기 선호 불일치 (${product.specs.screenSizeInches}인치)`] : []), ...(!matchedOs ? ["OS 선호 불일치"] : []), ...(!matchedPanel ? ["패널 선호 불일치"] : []), ...(product.currentPrice > budget ? ["예산 초과"] : []), ...(!product.specs.mockRebateEligible ? ["더미 환급 대상 아님"] : [])], recommendationReasons: ["필수 화질·보증 조건 충족", "크기·OS·패널 선호와 가격 위치 반영"], preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
   }
-  return { recommendations: sortRecommendations(recommendations).slice(0, 5), excludedProducts };
+  return { recommendations: sortRecommendations(recommendations).slice(0, 10), excludedProducts };
 };

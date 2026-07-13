@@ -7,15 +7,18 @@ import ChatHeader from "./ChatHeader";
 import ChatMessage from "./ChatMessage";
 import ChatSidebar from "./ChatSidebar";
 import DiagnosisResultCard from "./DiagnosisResultCard";
+import { buildSmartShoppingGreeting } from "../../../features/smart-shopping/greeting/buildSmartShoppingGreeting";
+import type { UserProfile } from "../../../features/smart-shopping/user/userProfile";
 
 interface ChatScreenProps {
   subCategoryId: SubCategoryId;
   onBack: () => void;
   onSelectSubCategory: (item: SubCategory) => void;
   actions: TopActionState;
+  userProfile: UserProfile;
 }
 
-export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory, actions }: ChatScreenProps) {
+export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory, actions, userProfile }: ChatScreenProps) {
   const item = getSubCategoryById(subCategoryId);
   const flow = useChatFlow(subCategoryId);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -60,6 +63,9 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
 
         <main className="flex-1 overflow-y-auto p-5">
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+            {item.parentCategory === "appliances" && (
+              <ChatMessage sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} />
+            )}
             {flow.messages.map((message) => (
               <React.Fragment key={message.id}>
                 {message.text && (

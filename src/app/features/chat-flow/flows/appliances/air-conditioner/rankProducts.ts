@@ -39,5 +39,5 @@ export const rankAirConditioners = (products: AirConditionerProduct[], answers: 
       ...(product.currentPrice > budget ? ["예산 초과"] : []), ...(!product.specs.basicInstallationIncluded ? ["기본 설치비 별도"] : []), ...(!product.specs.mockRebateEligible ? ["더미 환급 대상 아님"] : []),
     ], recommendationReasons: [`필수 타입·면적 조건 충족`, `효율 ${product.specs.energyGrade}등급과 현재 시세 위치를 점수에 반영`], preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
   }
-  return { recommendations: sortRecommendations(recommendations).slice(0, 5), excludedProducts };
+  return { recommendations: sortRecommendations(recommendations).slice(0, 10), excludedProducts };
 };
