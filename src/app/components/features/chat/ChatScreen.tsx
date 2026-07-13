@@ -9,6 +9,7 @@ import ChatSidebar from "./ChatSidebar";
 import DiagnosisResultCard from "./DiagnosisResultCard";
 import { buildSmartShoppingGreeting } from "../../../features/smart-shopping/greeting/buildSmartShoppingGreeting";
 import type { UserProfile } from "../../../features/smart-shopping/user/userProfile";
+import type { PriceAlertDraft } from "../../../features/smart-shopping/price-alerts/types";
 
 interface ChatScreenProps {
   subCategoryId: SubCategoryId;
@@ -16,9 +17,11 @@ interface ChatScreenProps {
   onSelectSubCategory: (item: SubCategory) => void;
   actions: TopActionState;
   userProfile: UserProfile;
+  onEndSmartShoppingChat: () => void;
+  onCreatePriceAlert: (draft: PriceAlertDraft) => unknown;
 }
 
-export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory, actions, userProfile }: ChatScreenProps) {
+export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory, actions, userProfile, onEndSmartShoppingChat, onCreatePriceAlert }: ChatScreenProps) {
   const item = getSubCategoryById(subCategoryId);
   const flow = useChatFlow(subCategoryId);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -73,7 +76,7 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
                 )}
                 {message.type === "result" && flow.result && (
                   <div className="w-full self-start pl-11">
-                    <DiagnosisResultCard result={flow.result} supplementalMessages={flow.supplementalMessages} onAppendSupplementalMessage={flow.appendSupplementalMessage} onClearSupplementalMessages={flow.clearSupplementalMessages} />
+                    <DiagnosisResultCard result={flow.result} supplementalMessages={flow.supplementalMessages} onAppendSupplementalMessage={flow.appendSupplementalMessage} onClearSupplementalMessages={flow.clearSupplementalMessages} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} userId={userProfile.id} />
                   </div>
                 )}
               </React.Fragment>

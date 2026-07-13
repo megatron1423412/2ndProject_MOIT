@@ -1,6 +1,7 @@
 import React from "react";
 import BrandHeader from "./BrandHeader";
 import TopActionBar from "./TopActionBar";
+import type { PriceAlertNotification } from "../../features/smart-shopping/price-alerts/types";
 
 interface PageShellProps {
   children: React.ReactNode;
@@ -11,6 +12,8 @@ interface PageShellProps {
   onToggleLogin: () => void;
   onToggleTheme: () => void;
   onToggleFavorite: () => void;
+  priceNotifications?: PriceAlertNotification[];
+  onMarkPriceNotificationRead?: (notificationId: string) => void;
 }
 
 export default function PageShell({
@@ -22,6 +25,8 @@ export default function PageShell({
   onToggleLogin,
   onToggleTheme,
   onToggleFavorite,
+  priceNotifications,
+  onMarkPriceNotificationRead,
 }: PageShellProps) {
   return (
     <div className="h-screen w-screen overflow-y-auto bg-background text-foreground">
@@ -35,6 +40,8 @@ export default function PageShell({
             onToggleLogin={onToggleLogin}
             onToggleTheme={onToggleTheme}
             onToggleFavorite={onToggleFavorite}
+            priceNotifications={priceNotifications}
+            onMarkPriceNotificationRead={onMarkPriceNotificationRead}
           />
         </header>
         {children}
