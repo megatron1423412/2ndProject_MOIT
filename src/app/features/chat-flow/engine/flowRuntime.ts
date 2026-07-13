@@ -164,3 +164,16 @@ export const submitFlowAnswer = (
 
   return advanceToStep(module, stateWithAnswer, nextStepId);
 };
+
+// 💡 조원들이 추가한 누락된 함수 코드를 하단에 병합합니다.
+export const appendSupplementalFlowMessage = (
+  state: FlowRuntimeState,
+  text: string,
+  sender: "ai" | "user" = "ai",
+): FlowRuntimeState => {
+  return appendMessage(state, {
+    sender,
+    text,
+    type: "text",
+  });
+};
