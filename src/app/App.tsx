@@ -1,36 +1,59 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { SubCategoryId, TopActionState } from "./types/moit";
 import ChatScreen from "./components/features/chat/ChatScreen";
 import MainStartScreen from "./components/features/start/MainStartScreen";
 import { currentUser } from "./features/smart-shopping/user/userProfile";
 import { LocalStoragePriceAlertRepository } from "./features/smart-shopping/price-alerts/LocalStoragePriceAlertRepository";
-import type { PriceAlertDraft, PriceAlertNotification } from "./features/smart-shopping/price-alerts/types";
+import type { PriceAlert, PriceAlertDraft, PriceAlertNotification } from "./features/smart-shopping/price-alerts/types";
+import { LocalFavoriteRepository } from "./features/favorites/LocalFavoriteRepository";
+import FavoritesPage from "./features/favorites/FavoritesPage";
+import NotificationsPage from "./features/notifications/NotificationsPage";
 
 export default function App() {
   const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<SubCategoryId | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [utilityPage, setUtilityPage] = useState<"favorites" | "notifications" | null>(null);
   const alertRepository = useMemo(() => new LocalStoragePriceAlertRepository(), []);
+  const favoriteRepository = useMemo(() => new LocalFavoriteRepository(), []);
   const [priceNotifications, setPriceNotifications] = useState<PriceAlertNotification[]>(() => alertRepository.getNotificationsForUser(currentUser.id));
+  const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>(() => alertRepository.getAlertsForUser(currentUser.id));
+  const [favoritesRevision, setFavoritesRevision] = useState(0);
+  const favorites = useMemo(() => favoriteRepository.getFavoritesForUser(currentUser.id), [favoriteRepository, favoritesRevision]);
+  const refreshAlerts = () => {
+    setPriceAlerts(alertRepository.getAlertsForUser(currentUser.id));
+    setPriceNotifications(alertRepository.getNotificationsForUser(currentUser.id));
+  };
+  useEffect(() => {
+    if (!utilityPage || typeof window === "undefined") return;
+    window.history.pushState({ ...(window.history.state ?? {}), moitUtilityPage: utilityPage }, "");
+    const closeOnBrowserBack = () => setUtilityPage(null);
+    window.addEventListener("popstate", closeOnBrowserBack);
+    return () => window.removeEventListener("popstate", closeOnBrowserBack);
+  }, [utilityPage]);
+  const closeUtilityPage = () => {
+    if (typeof window !== "undefined" && window.history.state?.moitUtilityPage) window.history.back();
+    else setUtilityPage(null);
+  };
   const createPriceAlert = (draft: PriceAlertDraft) => {
     const alert = alertRepository.createAlert(draft);
     alertRepository.evaluateAlerts(draft.userId, [{ productId: alert.productId, currentPrice: alert.currentPrice }]);
-    setPriceNotifications(alertRepository.getNotificationsForUser(currentUser.id));
+    refreshAlerts();
     return alert;
   };
 
   const appActions: TopActionState = {
     isLoggedIn,
     isDarkMode,
-    isFavorite,
+    isFavorite: favorites.length > 0,
     onToggleLogin: () => setIsLoggedIn((value) => !value),
     onToggleTheme: () => setIsDarkMode((value) => !value),
-    onToggleFavorite: () => setIsFavorite((value) => !value),
+    onToggleFavorite: () => setUtilityPage("favorites"),
+    onOpenNotifications: () => setUtilityPage("notifications"),
     priceNotifications,
     onMarkPriceNotificationRead: (notificationId) => {
       alertRepository.markNotificationRead(notificationId);
-      setPriceNotifications(alertRepository.getNotificationsForUser(currentUser.id));
+      refreshAlerts();
     },
   };
 
@@ -75,6 +98,8 @@ export default function App() {
             onSelectSubCategory={(item) => setSelectedSubCategoryId(item.id)}
           />
         )}
+        {utilityPage === "favorites" && <FavoritesPage favorites={favorites} alerts={priceAlerts} onBack={closeUtilityPage} onDelete={(favoriteId) => { favoriteRepository.removeFavorite(favoriteId); setFavoritesRevision((value) => value + 1); }} onCreatePriceAlert={createPriceAlert} />}
+        {utilityPage === "notifications" && <NotificationsPage notifications={priceNotifications} alerts={priceAlerts} onBack={closeUtilityPage} onMarkRead={(notificationId) => { alertRepository.markNotificationRead(notificationId); refreshAlerts(); }} onDelete={(notificationId) => { alertRepository.deleteNotification(notificationId); refreshAlerts(); }} />}
       </div>
     </>
   );

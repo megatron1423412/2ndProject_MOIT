@@ -1,0 +1,10 @@
+import React from "react";
+import { Trash2 } from "lucide-react";
+import UtilityPageShell from "../navigation/UtilityPageShell";
+import type { PriceAlert, PriceAlertNotification } from "../smart-shopping/price-alerts/types";
+
+export default function NotificationsPage({ notifications, alerts, onBack, onDelete, onMarkRead }: { notifications: PriceAlertNotification[]; alerts: PriceAlert[]; onBack: () => void; onDelete: (notificationId: string) => void; onMarkRead: (notificationId: string) => void }) {
+  return <UtilityPageShell title="알림" onBack={onBack}>{notifications.length === 0 ? <EmptyNotifications /> : <div className="space-y-3">{notifications.map((notification) => { const alert = alerts.find((item) => item.id === notification.alertId); return <article key={notification.id} className={`rounded-xl border bg-card p-4 shadow-sm ${notification.read ? "border-border" : "border-accent/50"}`}><div className="flex items-start justify-between gap-3"><button type="button" onClick={() => onMarkRead(notification.id)} className="min-w-0 text-left"><p className="text-sm font-black text-primary">{notification.read ? "읽은 알림" : "새 가격 알림"}</p><p className="mt-2 text-sm text-primary">{notification.message}</p><p className="mt-2 text-xs text-muted-foreground">상품: {notification.productName} · {new Date(notification.createdAt).toLocaleString("ko-KR")}</p>{alert && <p className="mt-1 text-xs text-muted-foreground">목표가 {alert.targetPrice.toLocaleString("ko-KR")}원 · 확인가 {alert.currentPrice.toLocaleString("ko-KR")}원</p>}</button><button type="button" aria-label="알림 삭제" onClick={() => onDelete(notification.id)} className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-accent/40"><Trash2 size={16} /></button></div></article>; })}</div>}</UtilityPageShell>;
+}
+
+function EmptyNotifications() { return <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center"><h2 className="text-base font-black text-primary">새로운 알림이 없어요.</h2><p className="mt-2 text-sm text-muted-foreground">설정한 최저가 알람이 발생하면 이곳에서 확인할 수 있어요.</p></div>; }

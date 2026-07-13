@@ -21,8 +21,8 @@ export default function ChatHeaderActions({ isCollapsed, onToggleCollapsed, acti
           onToggleLogin={actions.onToggleLogin}
           onToggleTheme={actions.onToggleTheme}
           onToggleFavorite={actions.onToggleFavorite}
+          onOpenNotifications={actions.onOpenNotifications}
           priceNotifications={actions.priceNotifications}
-          onMarkPriceNotificationRead={actions.onMarkPriceNotificationRead}
         />
       )}
       <IconButton label={isCollapsed ? "액션 펼치기" : "액션 접기"} onClick={onToggleCollapsed}>

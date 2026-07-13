@@ -7,4 +7,5 @@ export interface PriceAlertRepository {
   updateAlert(alert: PriceAlert): PriceAlert;
   evaluateAlerts(userId: string, currentPrices: Array<{ productId: string; currentPrice: number }>): PriceAlertNotification[];
   markNotificationRead(notificationId: string): void;
+  deleteNotification(notificationId: string): void;
 }

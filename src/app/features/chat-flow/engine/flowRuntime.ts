@@ -165,15 +165,17 @@ export const submitFlowAnswer = (
   return advanceToStep(module, stateWithAnswer, nextStepId);
 };
 
-// 💡 조원들이 추가한 누락된 함수 코드를 하단에 병합합니다.
+/** Flow 결과 후 보조 대화를 별도 배열에 누적합니다. 기존 문자열 호출도 호환합니다. */
 export const appendSupplementalFlowMessage = (
   state: FlowRuntimeState,
-  text: string,
+  message: Omit<ChatFlowMessage, "id" | "timestamp"> | string,
   sender: "ai" | "user" = "ai",
 ): FlowRuntimeState => {
-  return appendMessage(state, {
-    sender,
-    text,
-    type: "text",
-  });
+  const normalized = typeof message === "string" ? { sender, text: message, type: "text" as const } : message;
+  const supplementalMessages = (state as FlowRuntimeState & { supplementalMessages?: ChatFlowMessage[] }).supplementalMessages ?? [];
+  return {
+    ...state,
+    messageSequence: state.messageSequence + 1,
+    supplementalMessages: [...supplementalMessages, { ...normalized, id: `${state.flowId}-supplemental-${state.messageSequence + 1}`, timestamp: getTimeString() }],
+  } as FlowRuntimeState;
 };

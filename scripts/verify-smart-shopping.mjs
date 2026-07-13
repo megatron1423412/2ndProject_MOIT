@@ -164,6 +164,23 @@ try {
   assert.equal(alertNotifications.length, 1, "목표가 이하에서 알림 발생");
   alertRepository.markNotificationRead(alertNotifications[0].id);
   assert.equal(alertRepository.getNotificationsForUser("mock-user")[0].read, true, "알림 읽음 처리");
+  const { LocalFavoriteRepository } = await load("/src/app/features/favorites/LocalFavoriteRepository.ts");
+  const favoriteRepository = new LocalFavoriteRepository();
+  const favorite = favoriteRepository.addFavorite({ userId: "mock-user", productId: "tv-google-55", source: "internal", categoryId: "tv", name: "클리어 Google 55", brand: "MOIT View", modelNumber: "MV-G55", imagePath: "/assets/products/mock/tv/tv-google-55.svg", currentPrice: 900000, allTimeLow: 750000, purchaseLink: "https://example.test/naver-offer", internalProductId: "tv-google-55", dataStatus: "mock" });
+  assert.equal(favoriteRepository.getFavoritesForUser("mock-user").length, 1, "즐겨찾기 localStorage 저장");
+  assert.equal(favoriteRepository.addFavorite({ ...favorite, id: undefined, createdAt: undefined, lastCheckedAt: undefined }).id, favorite.id, "같은 상품 중복 즐겨찾기 방지");
+  favoriteRepository.removeFavorite(favorite.id);
+  assert.equal(favoriteRepository.getFavoritesForUser("mock-user").length, 0, "즐겨찾기 개별 삭제");
+  assert.equal(alertRepository.getAlertsForUser("mock-user").length, 1, "즐겨찾기 삭제가 가격 알람을 삭제하지 않음");
+  alertRepository.deleteNotification(alertNotifications[0].id);
+  assert.equal(alertRepository.getNotificationsForUser("mock-user").length, 0, "알림 개별 삭제");
+  assert.equal(alertRepository.getAlertsForUser("mock-user").length, 1, "알림 삭제가 가격 알람을 삭제하지 않음");
+  const topActionSource = await readFile("src/app/components/layout/TopActionBar.tsx", "utf8");
+  const appSource = await readFile("src/app/App.tsx", "utf8");
+  const favoritesPageSource = await readFile("src/app/features/favorites/FavoritesPage.tsx", "utf8");
+  assert.ok(topActionSource.includes("onOpenNotifications") && appSource.includes('setUtilityPage("favorites")'), "상단 알림·즐겨찾기 전용 페이지 진입");
+  assert.ok(appSource.includes("utilityPage === \"favorites\"") && appSource.includes("utilityPage === \"notifications\""), "원래 화면 위의 보조 페이지 오버레이");
+  assert.ok(favoritesPageSource.indexOf("상세 정보 보기") < favoritesPageSource.indexOf("구매 링크") && favoritesPageSource.indexOf("구매 링크") < favoritesPageSource.indexOf("최저가 알람 가격 설정") && favoritesPageSource.indexOf("최저가 알람 가격 설정") < favoritesPageSource.indexOf("즐겨찾기 삭제"), "즐겨찾기 카드 액션 순서");
   const { endSmartShoppingChat } = await load("/src/app/features/smart-shopping/next-actions/endSmartShoppingChat.ts");
   let didEndChat = false; endSmartShoppingChat(() => { didEndChat = true; }); assert.equal(didEndChat, true, "동일 종료 함수 재사용");
 

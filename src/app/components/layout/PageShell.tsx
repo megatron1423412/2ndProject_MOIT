@@ -12,8 +12,8 @@ interface PageShellProps {
   onToggleLogin: () => void;
   onToggleTheme: () => void;
   onToggleFavorite: () => void;
+  onOpenNotifications: () => void;
   priceNotifications?: PriceAlertNotification[];
-  onMarkPriceNotificationRead?: (notificationId: string) => void;
 }
 
 export default function PageShell({
@@ -25,8 +25,8 @@ export default function PageShell({
   onToggleLogin,
   onToggleTheme,
   onToggleFavorite,
+  onOpenNotifications,
   priceNotifications,
-  onMarkPriceNotificationRead,
 }: PageShellProps) {
   return (
     <div className="h-screen w-screen overflow-y-auto bg-background text-foreground">
@@ -40,8 +40,8 @@ export default function PageShell({
             onToggleLogin={onToggleLogin}
             onToggleTheme={onToggleTheme}
             onToggleFavorite={onToggleFavorite}
+            onOpenNotifications={onOpenNotifications}
             priceNotifications={priceNotifications}
-            onMarkPriceNotificationRead={onMarkPriceNotificationRead}
           />
         </header>
         {children}

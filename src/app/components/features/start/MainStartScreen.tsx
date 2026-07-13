@@ -34,8 +34,8 @@ export default function MainStartScreen({
       onToggleLogin={actions.onToggleLogin}
       onToggleTheme={actions.onToggleTheme}
       onToggleFavorite={actions.onToggleFavorite}
+      onOpenNotifications={actions.onOpenNotifications}
       priceNotifications={actions.priceNotifications}
-      onMarkPriceNotificationRead={actions.onMarkPriceNotificationRead}
     >
       <main className="flex-1 py-8">
         <div className="mx-auto w-full max-w-[1180px]">
