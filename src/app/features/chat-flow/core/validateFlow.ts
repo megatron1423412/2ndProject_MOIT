@@ -64,7 +64,7 @@ export const validateFlowDefinition = (definition: FlowDefinition): FlowValidati
         if (!option.next && !step.next) errors.push(`${prefix} step '${step.id}'의 '${option.label}' 선택지에 next가 없습니다.`);
       });
     }
-    for (const target of getTargets(step)) {
+    for (const target of getTargets(step).filter((target) => target !== "$restart")) {
       if (!stepMap.has(target)) errors.push(`${prefix} step '${step.id}'의 next '${target}'를 찾을 수 없습니다.`);
     }
   }
@@ -74,7 +74,7 @@ export const validateFlowDefinition = (definition: FlowDefinition): FlowValidati
     if (reachable.has(stepId)) return;
     reachable.add(stepId);
     const step = stepMap.get(stepId);
-    if (step) getTargets(step).forEach(visitReachable);
+    if (step) getTargets(step).filter((target) => target !== "$restart").forEach(visitReachable);
   };
   visitReachable(definition.startStepId);
 
@@ -94,7 +94,7 @@ export const validateFlowDefinition = (definition: FlowDefinition): FlowValidati
     if (!step) return false;
     if (step.type === "result") return true;
     visiting.add(stepId);
-    const targets = getTargets(step);
+    const targets = getTargets(step).filter((target) => target !== "$restart");
     const result = targets.length > 0 && targets.every(reachesResult);
     visiting.delete(stepId);
     memo.set(stepId, result);

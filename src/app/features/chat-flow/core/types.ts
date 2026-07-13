@@ -17,6 +17,8 @@ interface FlowStepBase {
 export interface AssistantMessageStep extends FlowStepBase {
   type: "assistant-message";
   message: string;
+  /** 답변 요약처럼 런타임 값이 필요한 문구만 사용합니다. */
+  buildMessage?: (answers: FlowAnswers) => string;
   next: string;
 }
 
@@ -116,6 +118,8 @@ export interface FlowResult {
   warnings: string[];
   recommendedActions: string[];
   mockNotice: string;
+  recommendations?: import("../../product-catalog/core/types").ProductRecommendation[];
+  excludedProducts?: import("../../product-catalog/core/types").ExcludedProduct[];
   metadata?: Record<string, unknown>;
 }
 

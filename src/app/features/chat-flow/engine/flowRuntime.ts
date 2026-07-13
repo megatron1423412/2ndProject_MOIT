@@ -48,7 +48,7 @@ const advanceToStep = (
     if (!step) return { ...state, currentStepId: null, error: `step '${stepId}'를 찾을 수 없습니다.` };
 
     if (step.type === "assistant-message") {
-      state = appendMessage(state, { sender: "ai", text: step.message, type: "text" });
+      state = appendMessage(state, { sender: "ai", text: step.buildMessage?.(state.answers) ?? step.message, type: "text" });
       stepId = step.next;
       continue;
     }
@@ -129,6 +129,8 @@ export const submitFlowAnswer = (
     },
     { sender: "user", text: answer.displayValue, type: "text" },
   );
+
+  if (nextStepId === "$restart") return createInitialFlowState(module);
 
   return advanceToStep(module, stateWithAnswer, nextStepId);
 };

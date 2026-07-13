@@ -1,65 +1,29 @@
-import { composeFlow } from "../../../core/composeFlow";
 import type { FlowDefinition, FlowStep } from "../../../core/types";
-import { createAppliancePurchaseBlock } from "../../../shared/appliances/blocks";
+import { getRecommendedCapacityRange } from "./criteria";
 
-const namespace = "refrigerator";
-
-const beforeCommon: FlowStep[] = [
-  { id: "refrigerator-intro", type: "assistant-message", message: "냉장고 진단은 가족 수와 실제 설치 치수부터 확인할게요.", next: "refrigerator-household-size" },
-  { id: "refrigerator-household-size", type: "number-input", message: "함께 사용하는 가족은 몇 명인가요?", answerKey: `${namespace}.householdSize`, placeholder: "예: 4", min: 1, unit: "명", next: "refrigerator-capacity" },
-  {
-    id: "refrigerator-capacity",
-    type: "single-choice",
-    message: "원하는 용량은 어느 정도인가요?",
-    answerKey: `${namespace}.capacity`,
-    options: [
-      { value: "under-600", label: "600L 미만" },
-      { value: "600-800", label: "600~800L" },
-      { value: "over-800", label: "800L 이상" },
-      { value: "unknown", label: "추천받고 싶어요" },
-    ],
-    next: "refrigerator-install-width",
-  },
-  { id: "refrigerator-install-width", type: "number-input", message: "설치 가능한 최대 폭은 몇 cm인가요?", answerKey: `${namespace}.installWidth`, placeholder: "예: 95", min: 40, unit: "cm", next: "refrigerator-door-type" },
-  {
-    id: "refrigerator-door-type",
-    type: "single-choice",
-    message: "선호하는 도어 형태가 있나요?",
-    answerKey: `${namespace}.doorType`,
-    options: [
-      { value: "four", label: "4도어" },
-      { value: "side", label: "양문형" },
-      { value: "top-bottom", label: "상하형" },
-      { value: "none", label: "상관없어요" },
-    ],
-    next: `${namespace}-common-budget`,
-  },
+const n = "refrigerator";
+const v = (a: Record<string, unknown>, key: string) => a[`${n}.${key}`];
+const steps: FlowStep[] = [
+  { id: "rf-intro", type: "assistant-message", message: "냉장고의 도어·가구원·용량을 먼저 확인한 뒤 냉각·보증 조건을 볼게요.", next: "rf-door" },
+  { id: "rf-door", type: "single-choice", message: "원하는 도어 구조는요?", answerKey: `${n}.doorType`, options: [
+    { value: "two-door", label: "2도어" }, { value: "four-door-value", label: "실속형 4도어" },
+  ], next: "rf-household" },
+  { id: "rf-household", type: "number-input", message: "함께 사용하는 가구원은 몇 명인가요?", answerKey: `${n}.householdSize`, min: 1, max: 20, unit: "명", next: "rf-capacity" },
+  { id: "rf-capacity", type: "single-choice", message: "원하는 용량을 골라주세요.", answerKey: `${n}.capacityMode`, options: [
+    { value: "300-500", label: "300~500L" }, { value: "600-800", label: "600~800L" }, { value: "recommended", label: "가구원 수에 따라 추천" },
+  ], next: "rf-capacity-info" },
+  { id: "rf-capacity-info", type: "assistant-message", message: "용량 기준을 정했어요.", buildMessage: (a) => { const r = getRecommendedCapacityRange(Number(v(a, "householdSize"))); return v(a, "capacityMode") === "recommended" ? `${v(a, "householdSize")}명 기준 설정 용량은 ${r.minLiters}~${r.maxLiters}L예요.` : `선택한 ${String(v(a, "capacityMode"))}L 구간을 적용할게요.`; }, next: "rf-metal" },
+  { id: "rf-metal", type: "confirmation", message: "메탈 소재 도어가 필수인가요?", answerKey: `${n}.metalRequired`, confirmLabel: "필수", cancelLabel: "선호", confirmNext: "rf-defaults", cancelNext: "rf-defaults" },
+  { id: "rf-defaults", type: "single-choice", message: "모잇 기본 기준인 간접/간랭식·인버터·핵심부품 10년 보증·프리스탠딩을 필수로 적용할까요?", answerKey: `${n}.useDefaults`, options: [
+    { value: "yes", label: "기본 기준 적용", next: "rf-budget" }, { value: "custom", label: "직접 선택", next: "rf-cooling" },
+  ] },
+  { id: "rf-cooling", type: "confirmation", message: "간접 냉각 또는 간랭식이 필수인가요?", answerKey: `${n}.coolingRequired`, confirmLabel: "필수", cancelLabel: "상관없음", confirmNext: "rf-inverter", cancelNext: "rf-inverter" },
+  { id: "rf-inverter", type: "confirmation", message: "인버터 컴프레서가 필수인가요?", answerKey: `${n}.inverterRequired`, confirmLabel: "필수", cancelLabel: "상관없음", confirmNext: "rf-warranty", cancelNext: "rf-warranty" },
+  { id: "rf-warranty", type: "confirmation", message: "핵심 부품 10년 이상 무상 보증이 필수인가요?", answerKey: `${n}.warrantyRequired`, confirmLabel: "필수", cancelLabel: "선호", confirmNext: "rf-freestanding", cancelNext: "rf-freestanding" },
+  { id: "rf-freestanding", type: "confirmation", message: "프리스탠딩 설치 형태가 필수인가요?", answerKey: `${n}.freestandingRequired`, confirmLabel: "필수", cancelLabel: "상관없음", confirmNext: "rf-budget", cancelNext: "rf-budget" },
+  { id: "rf-budget", type: "number-input", message: "구매 예산 상한을 입력해주세요.", answerKey: `${n}.budget`, min: 0, unit: "원", next: "rf-summary" },
+  { id: "rf-summary", type: "assistant-message", message: "조건을 요약했어요.", buildMessage: (a) => `적용 조건: ${String(v(a, "doorType"))}, ${String(v(a, "capacityMode"))} 용량, ${v(a, "metalRequired") ? "메탈 필수" : "메탈 선호"}, ${v(a, "useDefaults") === "yes" ? "기본 성능 4종 필수" : "직접 선택 기준"}, 예산 ${Number(v(a, "budget")).toLocaleString("ko-KR")}원이에요.`, next: "rf-confirm" },
+  { id: "rf-confirm", type: "confirmation", message: "추천을 시작하거나 처음부터 조건을 수정할 수 있어요.", answerKey: `${n}.confirmed`, confirmLabel: "추천 시작", cancelLabel: "조건 수정", confirmNext: "rf-result", cancelNext: "$restart" },
+  { id: "rf-result", type: "result", message: "필수 조건을 통과한 냉장고를 선호 점수순으로 정리했어요." },
 ];
-
-const afterCommon: FlowStep[] = [
-  {
-    id: "refrigerator-energy",
-    type: "single-choice",
-    message: "에너지 효율과 부가기능 중 어느 쪽이 더 중요한가요?",
-    answerKey: `${namespace}.energyPriority`,
-    options: [
-      { value: "efficiency", label: "에너지 효율" },
-      { value: "features", label: "제빙·정수 등 기능" },
-      { value: "balanced", label: "둘 다 균형" },
-    ],
-    next: "refrigerator-result",
-  },
-  { id: "refrigerator-result", type: "result", message: "가족 수와 설치 조건을 기준으로 mock 결과를 만들었어요." },
-];
-
-export const refrigeratorFlow: FlowDefinition = {
-  id: "refrigerator-flow",
-  subCategoryId: "refrigerator",
-  categoryId: "appliances",
-  startStepId: "refrigerator-intro",
-  steps: composeFlow(
-    beforeCommon,
-    createAppliancePurchaseBlock({ namespace, next: "refrigerator-energy", includeSpaceLimit: false }),
-    afterCommon,
-  ),
-};
+export const refrigeratorFlow: FlowDefinition = { id: "refrigerator-flow", subCategoryId: "refrigerator", categoryId: "appliances", startStepId: "rf-intro", steps };

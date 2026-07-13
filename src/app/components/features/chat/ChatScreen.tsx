@@ -66,7 +66,7 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
                   <ChatMessage sender={message.sender} text={message.text} timestamp={message.timestamp} />
                 )}
                 {message.type === "result" && flow.result && (
-                  <div className="self-start pl-11">
+                  <div className="w-full self-start pl-11">
                     <DiagnosisResultCard result={flow.result} />
                   </div>
                 )}
