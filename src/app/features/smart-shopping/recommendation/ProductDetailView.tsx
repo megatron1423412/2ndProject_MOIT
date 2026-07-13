@@ -16,32 +16,34 @@ import { combineProductDetail } from "./combineProductDetail";
 interface Props {
   selected: SelectedShoppingProduct;
   internalRecommendations: ProductRecommendation[];
-  messages: ChatFlowMessage[];
-  showAlternative: boolean;
-  questionOpen: boolean;
-  questionLoading: boolean;
-  questionError: string;
-  onAction: (action: ProductDetailActionId) => void;
-  onQuestionSubmit: (question: string) => void;
-  onQuestionRetry: (question: string) => void;
-  onQuestionCancel: () => void;
-  onBack: () => void;
-  onNext: () => void;
+  messages?: ChatFlowMessage[];
+  showAlternative?: boolean;
+  questionOpen?: boolean;
+  questionLoading?: boolean;
+  questionError?: string;
+  onAction?: (action: ProductDetailActionId) => void;
+  onQuestionSubmit?: (question: string) => void;
+  onQuestionRetry?: (question: string) => void;
+  onQuestionCancel?: () => void;
+  onBack?: () => void;
+  onNext?: () => void;
+  /** Timeline history reuses the card without mounting a second interactive action area. */
+  interactive?: boolean;
 }
 
 export default function ProductDetailView(props: Props) {
   const { selected, internalRecommendations } = props;
+  const interactive = props.interactive ?? true;
   const content = selected.source === "internal"
     ? <ProductRecommendationCard recommendation={selected.recommendation} />
     : <NaverProductDetail selected={selected} internalRecommendations={internalRecommendations} />;
   return (
     <div className="space-y-4" data-stage="viewing-product-detail">
       {content}
-      <ProductDetailConversation messages={props.messages} />
-      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-        <ProductDetailActionBar showAlternative={props.showAlternative} isQuestionLoading={props.questionLoading} onAction={props.onAction} onBack={props.onBack} onNext={props.onNext} />
-        {props.questionOpen && <div className="mt-3"><ProductQuestionInput isLoading={props.questionLoading} errorMessage={props.questionError} onSubmit={props.onQuestionSubmit} onRetry={props.onQuestionRetry} onCancel={props.onQuestionCancel} /></div>}
-      </div>
+      {interactive && <><ProductDetailConversation messages={props.messages ?? []} /><div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <ProductDetailActionBar showAlternative={props.showAlternative ?? false} isQuestionLoading={props.questionLoading ?? false} onAction={props.onAction ?? (() => {})} onBack={props.onBack ?? (() => {})} onNext={props.onNext ?? (() => {})} />
+        {props.questionOpen && <div className="mt-3"><ProductQuestionInput isLoading={props.questionLoading ?? false} errorMessage={props.questionError ?? ""} onSubmit={props.onQuestionSubmit ?? (() => {})} onRetry={props.onQuestionRetry ?? (() => {})} onCancel={props.onQuestionCancel ?? (() => {})} /></div>}
+      </div></>}
     </div>
   );
 }

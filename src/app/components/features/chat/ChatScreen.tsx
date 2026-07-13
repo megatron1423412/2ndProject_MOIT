@@ -28,10 +28,22 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
   const [areActionsCollapsed, setAreActionsCollapsed] = useState(false);
   const [notice, setNotice] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLElement>(null);
+  const shouldStickToBottomRef = useRef(true);
+  const [timelineRevision, setTimelineRevision] = useState(0);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [flow.messages, flow.supplementalMessages]);
+    if (!shouldStickToBottomRef.current) return;
+    const container = scrollContainerRef.current;
+    if (container) container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    else messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [flow.messages, flow.supplementalMessages, timelineRevision]);
+
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    shouldStickToBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 96;
+  };
 
   if (!item) {
     return (
@@ -64,7 +76,7 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
           onToggleActionsCollapsed={() => setAreActionsCollapsed((value) => !value)}
         />
 
-        <main className="flex-1 overflow-y-auto p-5">
+        <main ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-5">
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
             {item.parentCategory === "appliances" && (
               <ChatMessage sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} />
@@ -76,7 +88,7 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
                 )}
                 {message.type === "result" && flow.result && (
                   <div className="w-full self-start pl-11">
-                    <DiagnosisResultCard result={flow.result} supplementalMessages={flow.supplementalMessages} onAppendSupplementalMessage={flow.appendSupplementalMessage} onClearSupplementalMessages={flow.clearSupplementalMessages} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} userId={userProfile.id} />
+                    <DiagnosisResultCard result={flow.result} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} onTimelineChange={() => setTimelineRevision((value) => value + 1)} userId={userProfile.id} />
                   </div>
                 )}
               </React.Fragment>

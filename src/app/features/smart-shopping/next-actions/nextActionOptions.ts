@@ -10,3 +10,5 @@ export type NextActionId = (typeof NEXT_ACTION_OPTIONS)[number]["id"];
 
 export const getVisibleNextActionOptions = (showPurchaseGrade = true) =>
   NEXT_ACTION_OPTIONS.filter((option) => showPurchaseGrade || option.id !== "purchase-grade");
+
+export const getNextActionLabel = (id: NextActionId) => NEXT_ACTION_OPTIONS.find((option) => option.id === id)?.label ?? id;
