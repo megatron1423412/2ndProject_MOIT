@@ -59,7 +59,8 @@ export const validateFlowDefinition = (definition: FlowDefinition): FlowValidati
       answerKeys.set(step.answerKey, step.id);
     }
     if (step.type === "single-choice") {
-      if (step.options.length === 0) errors.push(`${prefix} step '${step.id}'에 선택지가 없습니다.`);
+      const hasResolver = typeof (step as any).optionsResolver === "function";
+      if (step.options.length === 0 && !hasResolver) errors.push(`${prefix} step '${step.id}'에 선택지가 없습니다.`);
       step.options.forEach((option) => {
         if (!option.next && !step.next) errors.push(`${prefix} step '${step.id}'의 '${option.label}' 선택지에 next가 없습니다.`);
       });

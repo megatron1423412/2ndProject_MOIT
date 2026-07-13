@@ -16,7 +16,7 @@ interface FlowStepBase {
 
 export interface AssistantMessageStep extends FlowStepBase {
   type: "assistant-message";
-  message: string;
+  message: string | ((answers: any) => string);
   next: string;
 }
 
@@ -28,12 +28,14 @@ interface AnswerStepBase extends FlowStepBase {
 export interface SingleChoiceStep extends AnswerStepBase {
   type: "single-choice";
   options: FlowChoiceOption[];
+  optionsResolver?: (answers: FlowAnswers) => FlowChoiceOption[];
   next?: string;
 }
 
 export interface MultiChoiceStep extends AnswerStepBase {
   type: "multi-choice";
   options: FlowChoiceOption[];
+  optionsResolver?: (answers: FlowAnswers) => FlowChoiceOption[];
   minSelections?: number;
   next: string;
 }
@@ -78,7 +80,8 @@ export interface BranchStep extends FlowStepBase {
 
 export interface ResultStep extends FlowStepBase {
   type: "result";
-  message?: string;
+  message?: string | ((answers: any) => string);
+  next?: string;
 }
 
 export type AnswerInputStep =
@@ -132,6 +135,7 @@ export interface ChatFlowMessage {
   text?: string;
   timestamp: string;
   type: "text" | "result";
+  result?: FlowResult;
 }
 
 export interface FlowRuntimeState {

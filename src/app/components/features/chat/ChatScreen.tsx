@@ -60,18 +60,36 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
 
         <main className="flex-1 overflow-y-auto p-5">
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-            {flow.messages.map((message) => (
-              <React.Fragment key={message.id}>
-                {message.text && (
-                  <ChatMessage sender={message.sender} text={message.text} timestamp={message.timestamp} />
-                )}
-                {message.type === "result" && flow.result && (
-                  <div className="self-start pl-11">
-                    <DiagnosisResultCard result={flow.result} />
-                  </div>
-                )}
-              </React.Fragment>
-            ))}
+            {flow.messages.map((message, index) => {
+              const isLast = index === flow.messages.length - 1;
+              const isAi = message.sender === "ai";
+              
+              // 선택형 단계이거나 완료 상태인 경우에만 인라인 선택지를 표시합니다.
+              const isSelectionStep = flow.currentStep && ["single-choice", "multi-choice", "confirmation"].includes(flow.currentStep.type);
+              const showInlineInput = isLast && isAi && (isSelectionStep || flow.completed);
+              const currentStepForMessage = showInlineInput ? flow.currentStep : undefined;
+
+              return (
+                <React.Fragment key={message.id}>
+                  {message.text && (
+                    <ChatMessage
+                      sender={message.sender}
+                      text={message.text}
+                      timestamp={message.timestamp}
+                      step={currentStepForMessage}
+                      completed={isLast ? flow.completed : false}
+                      onSubmit={flow.submitAnswer}
+                      onReset={flow.reset}
+                    />
+                  )}
+                  {message.type === "result" && message.result && (
+                    <div className="self-start pl-11">
+                      <DiagnosisResultCard result={message.result} />
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
             {flow.error && (
               <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm font-bold text-destructive">
                 {flow.error}
@@ -81,6 +99,21 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
           </div>
         </main>
 
+        {/* 입력형 단계(number-input, text-input)인 경우에만 화면 하단에 입력창을 노출 */}
+        {flow.currentStep && ["number-input", "text-input"].includes(flow.currentStep.type) && (
+          <footer className="flex-shrink-0 border-t border-border bg-card p-4">
+            <div className="mx-auto flex w-full max-w-4xl flex-col gap-3">
+              <ChatFlowInput
+                step={flow.currentStep}
+                completed={flow.completed}
+                onSubmit={flow.submitAnswer}
+                onReset={flow.reset}
+              />
+            </div>
+          </footer>
+        )}
+
+        {/* 기존 하단 입력창 백업용 주석 처리
         <footer className="flex-shrink-0 border-t border-border bg-card p-4">
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-3">
             <ChatFlowInput
@@ -91,6 +124,8 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
             />
           </div>
         </footer>
+        */}
+
       </div>
 
       {notice && (
