@@ -137,6 +137,8 @@ export interface ChatFlowMessage {
   text?: string;
   timestamp: string;
   type: "text" | "result";
+  /** 상세 화면의 보조 카드 같은 선택적 렌더링 데이터입니다. */
+  metadata?: Record<string, unknown>;
 }
 
 export interface FlowRuntimeState {
@@ -144,6 +146,7 @@ export interface FlowRuntimeState {
   currentStepId: string | null;
   answers: FlowAnswers;
   messages: ChatFlowMessage[];
+  supplementalMessages: ChatFlowMessage[];
   completed: boolean;
   result: FlowResult | null;
   error: string | null;

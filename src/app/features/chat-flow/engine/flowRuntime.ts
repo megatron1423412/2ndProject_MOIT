@@ -29,6 +29,23 @@ const appendMessage = (
   ],
 });
 
+/** Flow 밖의 상세 후속 대화도 기존 ChatFlowMessage 형식으로 추가합니다. */
+export const appendSupplementalFlowMessage = (
+  state: FlowRuntimeState,
+  message: Omit<ChatFlowMessage, "id" | "timestamp">,
+): FlowRuntimeState => ({
+  ...state,
+  messageSequence: state.messageSequence + 1,
+  supplementalMessages: [
+    ...state.supplementalMessages,
+    {
+      ...message,
+      id: `${state.flowId}-supplemental-${state.messageSequence + 1}`,
+      timestamp: getTimeString(),
+    },
+  ],
+});
+
 const getStep = (module: ChatFlowModule, stepId: string): FlowStep | undefined =>
   module.definition.steps.find((step) => step.id === stepId);
 
@@ -86,6 +103,7 @@ export const createInitialFlowState = (module: ChatFlowModule): FlowRuntimeState
       currentStepId: null,
       answers: {},
       messages: [],
+      supplementalMessages: [],
       completed: false,
       result: null,
       error: null,

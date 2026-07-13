@@ -5,7 +5,8 @@ export type SmartShoppingStage =
   | "reviewing-criteria"
   | "loading-recommendations"
   | "choosing-product"
-  | "viewing-product-detail";
+  | "viewing-product-detail"
+  | "purchase-grade-diagnosis";
 
 export interface NaverShoppingProduct {
   productId: string;
@@ -27,9 +28,23 @@ export type SelectedShoppingProduct =
   | { source: "internal"; recommendation: ProductRecommendation }
   | { source: "naver"; product: NaverShoppingProduct; matchedInternalProduct?: CatalogProduct };
 
+export interface PurchaseGradeDiagnosisInput {
+  selectedProduct: SelectedShoppingProduct;
+  userCriteria: import("../../chat-flow/core/types").FlowAnswers;
+  score?: number;
+  matchedCriteria: string[];
+  unmatchedCriteria: string[];
+  currentPrice: number;
+  allTimeLow?: number;
+  priceRisePct?: number | null;
+  additionalCostCheck: string;
+  priceDataConfidence: "mock-history" | "naver-candidate" | "no-history";
+}
+
 export interface RecommendationViewState {
-  stage: "loading-recommendations" | "choosing-product" | "viewing-product-detail";
+  stage: "loading-recommendations" | "choosing-product" | "viewing-product-detail" | "purchase-grade-diagnosis";
   selectedProduct: SelectedShoppingProduct | null;
+  purchaseGradeInput?: PurchaseGradeDiagnosisInput;
 }
 
 export const initialRecommendationViewState: RecommendationViewState = {
@@ -41,7 +56,8 @@ export type RecommendationViewAction =
   | { type: "start-loading" }
   | { type: "recommendations-settled" }
   | { type: "select-product"; product: SelectedShoppingProduct }
-  | { type: "back-to-list" };
+  | { type: "back-to-list" }
+  | { type: "start-purchase-grade"; input: PurchaseGradeDiagnosisInput };
 
 export const recommendationViewReducer = (
   state: RecommendationViewState,
@@ -52,6 +68,7 @@ export const recommendationViewReducer = (
     case "recommendations-settled": return { ...state, stage: "choosing-product" };
     case "select-product": return { stage: "viewing-product-detail", selectedProduct: action.product };
     case "back-to-list": return { stage: "choosing-product", selectedProduct: null };
+    case "start-purchase-grade": return { stage: "purchase-grade-diagnosis", selectedProduct: action.input.selectedProduct, purchaseGradeInput: action.input };
   }
 };
 

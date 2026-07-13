@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { AnswerInputStep, FlowRuntimeState, SubmittedFlowAnswer } from "../core/types";
 import { getFlowModule } from "../registry/loadFlows";
-import { createInitialFlowState, submitFlowAnswer } from "./flowRuntime";
+import { appendSupplementalFlowMessage, createInitialFlowState, submitFlowAnswer } from "./flowRuntime";
 import type { SubCategoryId } from "../../../types/moit";
 
 const EMPTY_STATE: FlowRuntimeState = {
@@ -9,6 +9,7 @@ const EMPTY_STATE: FlowRuntimeState = {
   currentStepId: null,
   answers: {},
   messages: [],
+  supplementalMessages: [],
   completed: false,
   result: null,
   error: null,
@@ -38,12 +39,23 @@ export const useChatFlow = (subCategoryId: SubCategoryId) => {
 
   return {
     messages: isCurrentFlow ? state.messages : [],
+    supplementalMessages: isCurrentFlow ? state.supplementalMessages : [],
     answers: isCurrentFlow ? state.answers : {},
     currentStep: inputStep,
     completed: isCurrentFlow && state.completed,
     result: isCurrentFlow ? state.result : null,
     error: module ? state.error : `이 챗봇의 Flow Definition을 찾을 수 없습니다: ${subCategoryId}`,
     submitAnswer,
+    appendSupplementalMessage: (message: { sender: "ai" | "user"; text: string; metadata?: Record<string, unknown> }) => {
+      if (!module) return;
+      setState((current) => current.flowId === module.id
+        ? appendSupplementalFlowMessage(current, { ...message, type: "text" })
+        : current);
+    },
+    clearSupplementalMessages: () => {
+      if (!module) return;
+      setState((current) => current.flowId === module.id ? { ...current, supplementalMessages: [] } : current);
+    },
     reset: () => module && setState(createInitialFlowState(module)),
   };
 };

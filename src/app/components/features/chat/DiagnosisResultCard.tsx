@@ -2,16 +2,20 @@ import React from "react";
 import { CheckCircle2, ClipboardCheck, Star, TriangleAlert } from "lucide-react";
 import type { FlowResult } from "../../../features/chat-flow/core/types";
 import RecommendationSelectionView from "../../../features/smart-shopping/recommendation/RecommendationSelectionView";
+import type { ChatFlowMessage } from "../../../features/chat-flow/core/types";
 
 interface DiagnosisResultCardProps {
   result: FlowResult;
+  supplementalMessages?: ChatFlowMessage[];
+  onAppendSupplementalMessage?: (message: { sender: "ai" | "user"; text: string; metadata?: Record<string, unknown> }) => void;
+  onClearSupplementalMessages?: () => void;
 }
 
 const fmt = (n: number) => n.toLocaleString("ko-KR");
 
-export default function DiagnosisResultCard({ result }: DiagnosisResultCardProps) {
+export default function DiagnosisResultCard({ result, supplementalMessages = [], onAppendSupplementalMessage, onClearSupplementalMessages }: DiagnosisResultCardProps) {
   if (result.recommendations) {
-    return <RecommendationSelectionView result={result} />;
+    return <RecommendationSelectionView result={result} supplementalMessages={supplementalMessages} onAppendSupplementalMessage={onAppendSupplementalMessage ?? (() => {})} onClearSupplementalMessages={onClearSupplementalMessages ?? (() => {})} />;
   }
   return (
     <div className="w-full max-w-xl rounded-lg border border-border bg-card p-5 shadow-sm">

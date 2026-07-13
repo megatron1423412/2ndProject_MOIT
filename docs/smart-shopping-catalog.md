@@ -88,3 +88,42 @@ NAVER_CLIENT_SECRET=
 - 미매칭 네이버 상품: 네이버 기본 정보만 사용하고 검증 정보·리뷰·가격 이력은 없음으로 표시
 
 실제 가격 이력으로 교체할 때는 `ProductRepository`가 반환하는 `priceHistory`를 실제 API 데이터로 바꾸고 `product-catalog/core/priceHistory.ts` 계산 helper는 유지합니다.
+
+## 상품 상세 후속 액션
+
+상세 카드 최하단에는 다음 순서의 액션 그룹이 있습니다. `다른 제품 추천`은 조건에 맞을 때만 두 번째에 표시됩니다.
+
+1. 예상 세일 달 제안
+2. 다른 제품 추천
+3. 싸게 구매하는 법 TIP
+4. 기타 · 직접 질문 입력
+5. 목록으로 돌아가기
+6. 다음 단계로
+
+버튼 설정은 `features/smart-shopping/actions/productDetailActions.ts`, 렌더링은 `product-detail/ProductDetailActionBar.tsx`에 있습니다. 액션 결과는 기존 `ChatFlowMessage` 형식으로 추가되고, 상세 카드 아래의 최신 대화 다음에 하나의 액션바만 다시 보입니다.
+
+### 프로모션과 구매 팁
+
+프로모션 더미 일정은 `promotions/promotionEvents.ts`, 현재 날짜에 가까운 메시지 선택과 가격 이력 보조 문구는 `getUpcomingPromotionMessage.ts`에서 관리합니다. 실제 세일이나 할인율을 보장하지 않습니다.
+
+공통·상품군별 구매 팁은 `actions/buildPurchaseTipMessage.ts`에서 관리합니다. 에어컨은 기본 설치비, 배관 길이·연장, 타공, 앵글, 철거비 확인을 안내합니다.
+
+### 대체 상품 기준
+
+대체 상품 버튼의 기본 상승률 임계값은 `product-detail/productDetailSettings.ts`의 `alternativeRecommendationThresholdPct`(15%)입니다. 가격 이력이 있고 현재가가 역대 최저가보다 높으며 이 임계값 이상일 때만 표시됩니다.
+
+대체 상품은 `findAlternativeProducts.ts`가 현재 상품군의 필수 조건을 통과한 내부 추천 목록에서 찾습니다. 현재 상품과 같거나 높은 적합도이면서 현재가가 낮거나 가격 이력 위치가 더 유리한 상품을 최대 3개 반환합니다.
+
+## 자유 질문과 OpenAI 서버 경계
+
+브라우저는 `POST /api/ai/product-question`만 호출합니다. 요청 문맥 생성은 `product-detail/productQuestionContext.ts`, 클라이언트 호출은 `productQuestionClient.ts`, 서버 OpenAI Responses API 호출은 `server/productQuestionRoute.ts`에 있습니다.
+
+`OPENAI_API_KEY`는 `.env` 또는 배포 환경의 서버 비밀 저장소에만 설정합니다. `.env.example`에는 변수명만 있으며 `VITE_OPENAI_API_KEY`는 사용하지 않습니다. 키가 없거나 호출이 실패하면 입력 영역에 명확한 오류와 재시도 UI를 표시하고, 목록 복귀·팁·프로모션 등 다른 액션은 계속 사용할 수 있습니다.
+
+서버는 제공된 선택 상품, 구매 조건, 적합도, 가격 이력, 리뷰 요약, 장단점과 검증되지 않은 정보 목록만 모델에 전달합니다. 실제로 확인되지 않은 설치비·할인·스펙을 만들지 않도록 시스템 지침을 설정합니다.
+
+## 구매등급진단 시작
+
+`다음 단계로`는 `grade/startPurchaseGradeDiagnosis.ts`의 전용 상태를 시작합니다. 선택 상품·출처·내부 매칭 정보, 구매 조건, 적합도, 충족·미충족 조건, 현재가·역대 최저가·상승률, 추가비용 확인 상태, 가격 데이터 신뢰도를 전달합니다.
+
+이번 단계는 첫 안내 메시지와 데이터 전달까지만 구현하며 골드·실버·브론즈 최종 계산 기준은 확정하지 않습니다. 목록으로 돌아가기는 추천 목록, 네이버 검색 결과, 구매 조건을 다시 호출하지 않고 현재 `RecommendationSelectionView` 상태를 유지합니다.

@@ -3,6 +3,7 @@ import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { naverShoppingProxy } from './server/naverShoppingProxy'
+import { productQuestionRoute } from './server/productQuestionRoute'
 
 
 function figmaAssetResolver() {
@@ -30,6 +31,7 @@ export default defineConfig(({ mode }) => {
       clientId: serverEnv.NAVER_CLIENT_ID,
       clientSecret: serverEnv.NAVER_CLIENT_SECRET,
     }),
+    productQuestionRoute({ apiKey: serverEnv.OPENAI_API_KEY }),
   ],
   resolve: {
     alias: {

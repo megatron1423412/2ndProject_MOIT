@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { createServer } from "vite";
 
 const server = await createServer({ server: { middlewareMode: true }, appType: "custom" });
@@ -85,6 +86,9 @@ try {
   vacuumState = runtime.submitFlowAnswer(vacuumModule, vacuumState, { value: "aw", displayValue: "200AW 이상" });
   assert.equal(vacuumState.currentStepId, "vc-hepa", "유선은 배터리·거치대 질문 건너뛰기");
   assert.equal(vacuumState.answers["vacuum.replaceableBatteryRequired"], undefined);
+  const detailedConversationState = runtime.appendSupplementalFlowMessage(vacuumState, { sender: "user", text: "싸게 구매하는 법 TIP", type: "text" });
+  const detailedConversationReply = runtime.appendSupplementalFlowMessage(detailedConversationState, { sender: "ai", text: "제공된 정보만 기준으로 안내해요.", type: "text" });
+  assert.equal(detailedConversationReply.supplementalMessages.length, 2, "상세 후속 대화도 기존 ChatFlowMessage 형식 사용");
 
   const { VACUUM_PRODUCTS } = await load("/src/app/features/chat-flow/flows/appliances/vacuum/products.ts");
   const { rankVacuums } = await load("/src/app/features/chat-flow/flows/appliances/vacuum/rankProducts.ts");
@@ -96,6 +100,36 @@ try {
 
   const { summarizePriceHistory } = await load("/src/app/features/product-catalog/core/priceHistory.ts");
   assert.deepEqual(summarizePriceHistory(120, [{ date: "a", lowestPrice: 100 }, { date: "b", lowestPrice: 140 }]), { allTimeLow: 100, averagePrice: 120, differenceFromLow: 20, percentAboveLow: 20 }, "가격 이력 계산");
+
+  const { PRODUCT_DETAIL_ACTIONS } = await load("/src/app/features/smart-shopping/actions/productDetailActions.ts");
+  assert.deepEqual(PRODUCT_DETAIL_ACTIONS.map((item) => item.label), ["예상 세일 달 제안", "다른 제품 추천", "싸게 구매하는 법 TIP", "기타 · 직접 질문 입력", "목록으로 돌아가기", "다음 단계로"], "상세 하단 액션 순서");
+  const detailViewSource = await readFile("src/app/features/smart-shopping/recommendation/ProductDetailView.tsx", "utf8");
+  assert.ok(!detailViewSource.includes("ArrowLeft") && !detailViewSource.includes("BackButton"), "상세 최상단 목록 복귀 버튼 제거");
+  const { getSelectedPriceRisePct, findAlternativeProducts } = await load("/src/app/features/smart-shopping/actions/findAlternativeProducts.ts");
+  const elevatedRecommendation = { ...tvResult.recommendations[0], product: { ...tvResult.recommendations[0].product, currentPrice: tvResult.recommendations[0].product.priceHistory[0].lowestPrice * 1.2 } };
+  const elevatedSelected = { source: "internal", recommendation: elevatedRecommendation };
+  assert.ok(getSelectedPriceRisePct(elevatedSelected) >= 15, "대체 상품 버튼 가격 상승률 임계값");
+  const noHistorySelected = { source: "internal", recommendation: { ...elevatedRecommendation, product: { ...elevatedRecommendation.product, priceHistory: [] } } };
+  assert.equal(getSelectedPriceRisePct(noHistorySelected), null, "가격 이력 없으면 대체 상품 조건 숨김");
+  assert.ok(Array.isArray(findAlternativeProducts({ selected: elevatedSelected, recommendations: tvResult.recommendations })), "대체 상품은 내부 추천 목록에서 검색");
+
+  const { getUpcomingPromotionMessage } = await load("/src/app/features/smart-shopping/promotions/getUpcomingPromotionMessage.ts");
+  assert.ok(getUpcomingPromotionMessage({ categoryId: "tv", currentPrice: 100, priceHistory: [], now: new Date("2026-08-21") }).includes("추석"), "가까운 추석 프로모션 메시지 선택");
+  const { buildPurchaseTipMessage } = await load("/src/app/features/smart-shopping/actions/buildPurchaseTipMessage.ts");
+  assert.ok(buildPurchaseTipMessage("air-conditioner").includes("기본 배관 길이"), "에어컨 설치비 구매 팁");
+
+  const { startPurchaseGradeDiagnosis } = await load("/src/app/features/smart-shopping/grade/startPurchaseGradeDiagnosis.ts");
+  const gradeInput = startPurchaseGradeDiagnosis({ selected: elevatedSelected, recommendations: tvResult.recommendations, userCriteria: tvAnswers });
+  assert.equal(gradeInput.selectedProduct, elevatedSelected); assert.equal(gradeInput.userCriteria, tvAnswers); assert.equal(gradeInput.score, elevatedRecommendation.score, "구매등급진단에 선택 상품·조건·점수 전달");
+  const gradeState = recommendationState.recommendationViewReducer(detailState, { type: "start-purchase-grade", input: gradeInput });
+  assert.equal(gradeState.stage, "purchase-grade-diagnosis", "구매등급진단 전용 상태 전환");
+
+  const { productQuestionRoute } = await load("/server/productQuestionRoute.ts");
+  let productQuestionHandler;
+  productQuestionRoute({}).configureServer({ middlewares: { use: (handler) => { productQuestionHandler = handler; } } });
+  let questionStatus = 0; let questionBody = "";
+  await productQuestionHandler({ url: "/api/ai/product-question", method: "POST" }, { setHeader: () => {}, end: (body) => { questionBody = body; }, set statusCode(value) { questionStatus = value; } }, () => {});
+  assert.equal(questionStatus, 503); assert.equal(JSON.parse(questionBody).code, "OPENAI_API_NOT_CONFIGURED", "OpenAI 키 미설정 안내");
 
   const { airConditionerFlow } = await load("/src/app/features/chat-flow/flows/appliances/air-conditioner/flow.ts");
   const airModule = { id: "air-conditioner", categoryId: "appliances", definition: airConditionerFlow, buildResult: () => ({}) };

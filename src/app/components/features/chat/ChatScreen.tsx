@@ -28,7 +28,7 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [flow.messages]);
+  }, [flow.messages, flow.supplementalMessages]);
 
   if (!item) {
     return (
@@ -73,7 +73,7 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
                 )}
                 {message.type === "result" && flow.result && (
                   <div className="w-full self-start pl-11">
-                    <DiagnosisResultCard result={flow.result} />
+                    <DiagnosisResultCard result={flow.result} supplementalMessages={flow.supplementalMessages} onAppendSupplementalMessage={flow.appendSupplementalMessage} onClearSupplementalMessages={flow.clearSupplementalMessages} />
                   </div>
                 )}
               </React.Fragment>
