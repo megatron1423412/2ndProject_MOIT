@@ -7,7 +7,6 @@ interface PageShellProps {
   children: React.ReactNode;
   isLoggedIn: boolean;
   isDarkMode: boolean;
-  isFavorite: boolean;
   onBrandClick?: () => void;
   onToggleLogin: () => void;
   onToggleTheme: () => void;
@@ -20,7 +19,6 @@ export default function PageShell({
   children,
   isLoggedIn,
   isDarkMode,
-  isFavorite,
   onBrandClick,
   onToggleLogin,
   onToggleTheme,
@@ -36,7 +34,6 @@ export default function PageShell({
           <TopActionBar
             isLoggedIn={isLoggedIn}
             isDarkMode={isDarkMode}
-            isFavorite={isFavorite}
             onToggleLogin={onToggleLogin}
             onToggleTheme={onToggleTheme}
             onToggleFavorite={onToggleFavorite}

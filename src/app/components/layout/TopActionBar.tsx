@@ -5,7 +5,6 @@ import type { PriceAlertNotification } from "../../features/smart-shopping/price
 interface TopActionBarProps {
   isLoggedIn: boolean;
   isDarkMode: boolean;
-  isFavorite: boolean;
   onToggleLogin: () => void;
   onToggleTheme: () => void;
   onToggleFavorite: () => void;
@@ -16,7 +15,6 @@ interface TopActionBarProps {
 export default function TopActionBar({
   isLoggedIn,
   isDarkMode,
-  isFavorite,
   onToggleLogin,
   onToggleTheme,
   onToggleFavorite,
@@ -30,8 +28,8 @@ export default function TopActionBar({
       <IconButton label={isLoggedIn ? "로그아웃" : "로그인"} onClick={onToggleLogin}>
         {isLoggedIn ? <LogOut size={18} /> : <LogIn size={18} />}
       </IconButton>
-      <IconButton label="즐겨찾기" active={isFavorite} onClick={onToggleFavorite}>
-        <Star size={18} className={isFavorite ? "fill-amber-400" : ""} />
+      <IconButton label="즐겨찾기" onClick={onToggleFavorite}>
+        <Star size={18} />
       </IconButton>
       <IconButton label={isDarkMode ? "라이트 모드" : "다크 모드"} onClick={onToggleTheme}>
         {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}

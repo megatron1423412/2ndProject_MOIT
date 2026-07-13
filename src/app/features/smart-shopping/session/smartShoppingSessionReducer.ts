@@ -36,7 +36,12 @@ export const smartShoppingSessionReducer = (state: SmartShoppingSession, action:
     case "append-recommendation-list": return {
       ...state,
       recommendationSnapshot: action.item.snapshot,
-      timeline: [...state.timeline.map((item) => item.type === "recommendation-list" ? { ...item, isActive: false } : item), action.item],
+      timeline: [
+        ...state.timeline
+          .filter((item) => item.type !== "recommendation-list" || item.snapshot.snapshotId !== action.item.snapshot.snapshotId)
+          .map((item) => item.type === "recommendation-list" ? { ...item, isActive: false } : item),
+        action.item,
+      ],
     };
     case "append-action-group": return {
       ...state,

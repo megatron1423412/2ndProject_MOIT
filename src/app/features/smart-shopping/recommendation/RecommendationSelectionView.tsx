@@ -23,6 +23,9 @@ import { createActionGroupTimelineItem, createCriteriaSnapshot, createPriceAlert
 import SmartShoppingTimeline from "../timeline/SmartShoppingTimeline";
 import type { NaverShoppingProduct, SelectedShoppingProduct } from "../types/recommendation";
 import { initialRecommendationViewState, recommendationViewReducer } from "../types/recommendation";
+import type { FavoriteDraft, FavoriteProduct } from "../../favorites/types";
+import { createFavoriteDraft } from "../../favorites/createFavoriteDraft";
+import { getFavoriteProductIdentity } from "../../favorites/favoriteIdentity";
 
 interface Props {
   result: FlowResult;
@@ -30,9 +33,11 @@ interface Props {
   onCreatePriceAlert: (draft: PriceAlertDraft) => unknown;
   onTimelineChange?: () => void;
   userId: string;
+  favorites: FavoriteProduct[];
+  onToggleFavorite: (draft: FavoriteDraft) => void;
 }
 
-export default function RecommendationSelectionView({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId }: Props) {
+export default function RecommendationSelectionView({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId, favorites, onToggleFavorite }: Props) {
   const metadata = result.metadata as { category?: ProductCategoryId; answers?: FlowAnswers } | undefined;
   const category = metadata?.category ?? "tv";
   const criteria = metadata?.answers ?? {};
@@ -45,6 +50,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const [questionError, setQuestionError] = useState("");
   const [returnActionGroup, setReturnActionGroup] = useState<TimelineActionGroupKind>("next");
   const query = useMemo(() => buildNaverSearchQuery(category, criteria), [category, criteria]);
+  const favoriteIdentities = useMemo(() => new Set(favorites.map(getFavoriteProductIdentity)), [favorites]);
 
   useEffect(() => { sessionDispatch({ type: "set-stage", stage: view.stage }); }, [view.stage]);
   useEffect(() => { if (session.timeline.length) onTimelineChange?.(); }, [session.timeline.length, onTimelineChange]);
@@ -203,7 +209,9 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const cancelPurchaseLink = () => { appendText("user-action", "취소"); appendText("assistant-text", "구매 링크 연결을 취소했어요."); returnToActions(); };
   const cancelPriceAlert = () => { appendText("user-action", "취소"); appendText("assistant-text", "최저가 알람 설정을 취소했어요."); returnToActions(); };
 
+  const favoriteDraftFor = (selectedProduct: SelectedShoppingProduct) => createFavoriteDraft({ userId, categoryId: category, selected: selectedProduct, naverItems });
+
   return <div className="w-full" data-stage={session.currentStage}>
-    <SmartShoppingTimeline timeline={session.timeline} questionLoading={questionLoading} questionError={questionError} onSelectRecommendation={(recommendation) => selectProduct({ source: "internal", recommendation })} onSelectNaverProduct={(product) => selectProduct({ source: "naver", product, matchedInternalProduct: matchInternalProduct(product, result.catalogProducts ?? []) })} onRetryNaver={() => void loadNaver()} onDetailAction={handleDetailAction} onBackToList={backToList} onNextStep={nextStep} onQuestionSubmit={(question) => void handleQuestionSubmit(question)} onQuestionRetry={(question) => void handleQuestionSubmit(question, false)} onQuestionCancel={() => { sessionDispatch({ type: "deactivate-interactions" }); appendText("user-action", "질문 입력 취소"); appendActionGroup("detail", showAlternative); }} onNextAction={handleNextAction} onCancelPurchaseLink={cancelPurchaseLink} onSavePriceAlert={savePriceAlert} onCancelPriceAlert={cancelPriceAlert} />
+    <SmartShoppingTimeline timeline={session.timeline} questionLoading={questionLoading} questionError={questionError} onSelectRecommendation={(recommendation) => selectProduct({ source: "internal", recommendation })} onSelectNaverProduct={(product) => selectProduct({ source: "naver", product, matchedInternalProduct: matchInternalProduct(product, result.catalogProducts ?? []) })} onRetryNaver={() => void loadNaver()} onDetailAction={handleDetailAction} onBackToList={backToList} onNextStep={nextStep} onQuestionSubmit={(question) => void handleQuestionSubmit(question)} onQuestionRetry={(question) => void handleQuestionSubmit(question, false)} onQuestionCancel={() => { sessionDispatch({ type: "deactivate-interactions" }); appendText("user-action", "질문 입력 취소"); appendActionGroup("detail", showAlternative); }} onNextAction={handleNextAction} onCancelPurchaseLink={cancelPurchaseLink} onSavePriceAlert={savePriceAlert} onCancelPriceAlert={cancelPriceAlert} catalogProducts={result.catalogProducts ?? []} isFavorite={(selectedProduct) => favoriteIdentities.has(getFavoriteProductIdentity(favoriteDraftFor(selectedProduct)))} onToggleFavorite={(selectedProduct) => onToggleFavorite(favoriteDraftFor(selectedProduct))} />
   </div>;
 }

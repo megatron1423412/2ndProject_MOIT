@@ -17,7 +17,6 @@ export default function ChatHeaderActions({ isCollapsed, onToggleCollapsed, acti
         <TopActionBar
           isLoggedIn={actions.isLoggedIn}
           isDarkMode={actions.isDarkMode}
-          isFavorite={actions.isFavorite}
           onToggleLogin={actions.onToggleLogin}
           onToggleTheme={actions.onToggleTheme}
           onToggleFavorite={actions.onToggleFavorite}

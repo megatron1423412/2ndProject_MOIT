@@ -29,7 +29,6 @@ export default function MainStartScreen({
     <PageShell
       isLoggedIn={actions.isLoggedIn}
       isDarkMode={actions.isDarkMode}
-      isFavorite={actions.isFavorite}
       onBrandClick={() => setActiveTab("start")}
       onToggleLogin={actions.onToggleLogin}
       onToggleTheme={actions.onToggleTheme}

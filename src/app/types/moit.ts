@@ -66,7 +66,6 @@ export interface ConversationHistoryItem {
 export interface TopActionState {
   isLoggedIn: boolean;
   isDarkMode: boolean;
-  isFavorite: boolean;
   onToggleLogin: () => void;
   onToggleTheme: () => void;
   onToggleFavorite: () => void;

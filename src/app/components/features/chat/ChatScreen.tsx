@@ -10,6 +10,7 @@ import DiagnosisResultCard from "./DiagnosisResultCard";
 import { buildSmartShoppingGreeting } from "../../../features/smart-shopping/greeting/buildSmartShoppingGreeting";
 import type { UserProfile } from "../../../features/smart-shopping/user/userProfile";
 import type { PriceAlertDraft } from "../../../features/smart-shopping/price-alerts/types";
+import type { FavoriteDraft, FavoriteProduct } from "../../../features/favorites/types";
 
 interface ChatScreenProps {
   subCategoryId: SubCategoryId;
@@ -19,9 +20,11 @@ interface ChatScreenProps {
   userProfile: UserProfile;
   onEndSmartShoppingChat: () => void;
   onCreatePriceAlert: (draft: PriceAlertDraft) => unknown;
+  favorites: FavoriteProduct[];
+  onToggleFavorite: (draft: FavoriteDraft) => void;
 }
 
-export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory, actions, userProfile, onEndSmartShoppingChat, onCreatePriceAlert }: ChatScreenProps) {
+export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory, actions, userProfile, onEndSmartShoppingChat, onCreatePriceAlert, favorites, onToggleFavorite }: ChatScreenProps) {
   const item = getSubCategoryById(subCategoryId);
   const flow = useChatFlow(subCategoryId);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -105,7 +108,7 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
                   )}
                   {message.type === "result" && (message.result ?? flow.result) && (
                     <div className="w-full self-start pl-11">
-                      <DiagnosisResultCard result={(message.result ?? flow.result)!} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} onTimelineChange={() => setTimelineRevision((value) => value + 1)} userId={userProfile.id} />
+                      <DiagnosisResultCard result={(message.result ?? flow.result)!} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} onTimelineChange={() => setTimelineRevision((value) => value + 1)} userId={userProfile.id} favorites={favorites} onToggleFavorite={onToggleFavorite} />
                     </div>
                   )}
                 </React.Fragment>

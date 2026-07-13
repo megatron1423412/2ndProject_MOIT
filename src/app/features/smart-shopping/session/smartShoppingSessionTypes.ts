@@ -7,6 +7,7 @@ export type TimelineTextKind = "user-action" | "user-text" | "assistant-text";
 export type TimelineActionGroupKind = "detail" | "next" | "grade-followup";
 
 export interface RecommendationSnapshot {
+  snapshotId: string;
   query: string;
   recommendations: ProductRecommendation[];
   naverItems: NaverShoppingProduct[];

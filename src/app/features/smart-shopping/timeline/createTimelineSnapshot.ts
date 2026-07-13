@@ -9,13 +9,22 @@ const timestamp = () => new Date().toLocaleTimeString("ko-KR", { hour: "2-digit"
 let timelineSequence = 0;
 const id = (sessionId: string) => `${sessionId}-timeline-${++timelineSequence}`;
 
-export const createRecommendationSnapshot = ({ query, recommendations, naverItems, naverStatus, naverErrorMessage }: { query: string; recommendations: ProductRecommendation[]; naverItems: NaverShoppingProduct[]; naverStatus: RecommendationSnapshot["naverStatus"]; naverErrorMessage: string }): RecommendationSnapshot => clone({ query, recommendations, naverItems, naverStatus, naverErrorMessage });
+const stableHash = (value: string) => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) hash = Math.imul(hash ^ value.charCodeAt(index), 16777619);
+  return (hash >>> 0).toString(36);
+};
+
+export const createRecommendationSnapshotId = (query: string, recommendations: ProductRecommendation[]) =>
+  `recommendation-${stableHash(`${query.trim().toLowerCase()}|${recommendations.map(({ product, score }) => `${product.id}:${score}`).join(",")}`)}`;
+
+export const createRecommendationSnapshot = ({ query, recommendations, naverItems, naverStatus, naverErrorMessage }: { query: string; recommendations: ProductRecommendation[]; naverItems: NaverShoppingProduct[]; naverStatus: RecommendationSnapshot["naverStatus"]; naverErrorMessage: string }): RecommendationSnapshot => clone({ snapshotId: createRecommendationSnapshotId(query, recommendations), query, recommendations, naverItems, naverStatus, naverErrorMessage });
 
 export const createProductDetailSnapshot = ({ selected, internalRecommendations, showAlternative }: { selected: SelectedShoppingProduct; internalRecommendations: ProductRecommendation[]; showAlternative: boolean }): ProductDetailSnapshot => clone({ selected, internalRecommendations, showAlternative });
 
 export const createTextTimelineItem = (sessionId: string, type: TimelineTextKind, text: string, metadata?: Record<string, unknown>): SmartShoppingTimelineItem => ({ id: id(sessionId), type, text, timestamp: timestamp(), metadata: metadata ? clone(metadata) : undefined });
 
-export const createRecommendationListTimelineItem = (sessionId: string, snapshot: RecommendationSnapshot): Extract<SmartShoppingTimelineItem, { type: "recommendation-list" }> => ({ id: id(sessionId), type: "recommendation-list", snapshot: clone(snapshot), isActive: true });
+export const createRecommendationListTimelineItem = (sessionId: string, snapshot: RecommendationSnapshot): Extract<SmartShoppingTimelineItem, { type: "recommendation-list" }> => ({ id: `${sessionId}-${snapshot.snapshotId}`, type: "recommendation-list", snapshot: clone(snapshot), isActive: true });
 
 export const createProductDetailTimelineItem = (sessionId: string, snapshot: ProductDetailSnapshot): Extract<SmartShoppingTimelineItem, { type: "product-detail" }> => ({ id: id(sessionId), type: "product-detail", snapshot: clone(snapshot) });
 

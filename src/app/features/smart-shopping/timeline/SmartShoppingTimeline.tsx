@@ -14,6 +14,9 @@ import type { NextActionId } from "../next-actions/nextActionOptions";
 import type { NaverShoppingProduct } from "../types/recommendation";
 import type { SmartShoppingTimelineItem } from "../session/smartShoppingSessionTypes";
 import type { ProductRecommendation } from "../../product-catalog/core/types";
+import type { CatalogProduct } from "../../product-catalog/core/types";
+import type { SelectedShoppingProduct } from "../types/recommendation";
+import { matchInternalProduct } from "../naver/matchInternalProduct";
 
 interface Props {
   timeline: SmartShoppingTimelineItem[];
@@ -32,6 +35,9 @@ interface Props {
   onCancelPurchaseLink: () => void;
   onSavePriceAlert: (targetPrice: number) => void;
   onCancelPriceAlert: () => void;
+  catalogProducts: CatalogProduct[];
+  isFavorite: (product: SelectedShoppingProduct) => boolean;
+  onToggleFavorite: (product: SelectedShoppingProduct) => void;
 }
 
 export default function SmartShoppingTimeline(props: Props) {
@@ -43,8 +49,12 @@ function TimelineItemRenderer({ item, ...props }: Props & { item: SmartShoppingT
     const alternatives = item.metadata?.alternatives as ProductRecommendation[] | undefined;
     return <><ChatMessage sender={item.type === "assistant-text" ? "ai" : "user"} text={item.text} timestamp={item.timestamp} />{alternatives?.length ? <AlternativeCards items={alternatives} /> : null}</>;
   }
-  if (item.type === "recommendation-list") return <div className="grid items-start gap-4 xl:grid-cols-2"><OptimizedRecommendationList items={item.snapshot.recommendations} isActive={item.isActive} onSelect={props.onSelectRecommendation} /><NaverLowestPriceList items={item.snapshot.naverItems} status={item.snapshot.naverStatus} errorMessage={item.snapshot.naverErrorMessage} isActive={item.isActive} onRetry={props.onRetryNaver} onSelect={props.onSelectNaverProduct} /></div>;
-  if (item.type === "product-detail") return <ProductDetailView selected={item.snapshot.selected} internalRecommendations={item.snapshot.internalRecommendations} interactive={false} />;
+  if (item.type === "recommendation-list") {
+    const asInternal = (recommendation: ProductRecommendation): SelectedShoppingProduct => ({ source: "internal", recommendation });
+    const asNaver = (product: NaverShoppingProduct): SelectedShoppingProduct => ({ source: "naver", product, matchedInternalProduct: matchInternalProduct(product, props.catalogProducts) });
+    return <div className="grid items-start gap-4 xl:grid-cols-2"><OptimizedRecommendationList items={item.snapshot.recommendations} isActive={item.isActive} onSelect={props.onSelectRecommendation} isFavorite={(recommendation) => props.isFavorite(asInternal(recommendation))} onToggleFavorite={(recommendation) => props.onToggleFavorite(asInternal(recommendation))} /><NaverLowestPriceList items={item.snapshot.naverItems} status={item.snapshot.naverStatus} errorMessage={item.snapshot.naverErrorMessage} isActive={item.isActive} onRetry={props.onRetryNaver} onSelect={props.onSelectNaverProduct} isFavorite={(product) => props.isFavorite(asNaver(product))} onToggleFavorite={(product) => props.onToggleFavorite(asNaver(product))} /></div>;
+  }
+  if (item.type === "product-detail") return <ProductDetailView selected={item.snapshot.selected} internalRecommendations={item.snapshot.internalRecommendations} interactive={false} isFavorite={props.isFavorite(item.snapshot.selected)} onToggleFavorite={() => props.onToggleFavorite(item.snapshot.selected)} />;
   if (item.type === "action-group" && item.group === "detail") return <div className="rounded-xl border border-border bg-card p-4 shadow-sm"><ProductDetailActionBar showAlternative={item.showAlternative ?? false} isQuestionLoading={props.questionLoading} isActive={item.isActive} onAction={props.onDetailAction} onBack={props.onBackToList} onNext={props.onNextStep} /></div>;
   if (item.type === "action-group") return <NextActionSelection showPurchaseGrade={item.group === "next"} isActive={item.isActive} onSelect={props.onNextAction} />;
   if (item.type === "question-input") return item.isActive ? <div className="rounded-xl border border-border bg-card p-4 shadow-sm"><ProductQuestionInput isLoading={props.questionLoading} errorMessage={props.questionError} onSubmit={props.onQuestionSubmit} onRetry={props.onQuestionRetry} onCancel={props.onQuestionCancel} /></div> : <p className="text-xs text-muted-foreground">직접 질문 입력을 완료했어요.</p>;

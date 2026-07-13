@@ -7,6 +7,7 @@ import InternetDiagnosisReport from "../../../features/chat-flow/flows/telecom/i
 import IptvDiagnosisReport from "../../../features/chat-flow/flows/telecom/iptv/IptvDiagnosisReport";
 import RecommendationSelectionView from "../../../features/smart-shopping/recommendation/RecommendationSelectionView";
 import type { PriceAlertDraft } from "../../../features/smart-shopping/price-alerts/types";
+import type { FavoriteDraft, FavoriteProduct } from "../../../features/favorites/types";
 
 interface DiagnosisResultCardProps {
   result: FlowResult;
@@ -14,14 +15,16 @@ interface DiagnosisResultCardProps {
   onCreatePriceAlert?: (draft: PriceAlertDraft) => unknown;
   onTimelineChange?: () => void;
   userId?: string;
+  favorites?: FavoriteProduct[];
+  onToggleFavorite?: (draft: FavoriteDraft) => void;
 }
 
 const fmt = (n: number) => n.toLocaleString("ko-KR");
 
-export default function DiagnosisResultCard({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId }: DiagnosisResultCardProps) {
+export default function DiagnosisResultCard({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId, favorites, onToggleFavorite }: DiagnosisResultCardProps) {
   if (result.recommendations) {
     const category = (result.metadata as { category?: string } | undefined)?.category ?? "unknown";
-    return <RecommendationSelectionView key={`${category}-${result.title}`} result={result} onEndSmartShoppingChat={onEndSmartShoppingChat ?? (() => {})} onCreatePriceAlert={onCreatePriceAlert ?? (() => {})} onTimelineChange={onTimelineChange} userId={userId ?? "mock-user"} />;
+    return <RecommendationSelectionView key={`${category}-${result.title}`} result={result} onEndSmartShoppingChat={onEndSmartShoppingChat ?? (() => {})} onCreatePriceAlert={onCreatePriceAlert ?? (() => {})} onTimelineChange={onTimelineChange} userId={userId ?? "mock-user"} favorites={favorites ?? []} onToggleFavorite={onToggleFavorite ?? (() => {})} />;
   }
   if (result.metadata?.category === "phone") {
     return <PhoneDiagnosisReport result={result} />;
