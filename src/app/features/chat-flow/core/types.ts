@@ -17,6 +17,8 @@ interface FlowStepBase {
 export interface AssistantMessageStep extends FlowStepBase {
   type: "assistant-message";
   message: string;
+  /** 답변 요약처럼 런타임 값이 필요한 문구만 사용합니다. */
+  buildMessage?: (answers: FlowAnswers) => string;
   next: string;
 }
 
@@ -116,6 +118,9 @@ export interface FlowResult {
   warnings: string[];
   recommendedActions: string[];
   mockNotice: string;
+  recommendations?: import("../../product-catalog/core/types").ProductRecommendation[];
+  catalogProducts?: import("../../product-catalog/core/types").CatalogProduct[];
+  excludedProducts?: import("../../product-catalog/core/types").ExcludedProduct[];
   metadata?: Record<string, unknown>;
 }
 
@@ -132,6 +137,8 @@ export interface ChatFlowMessage {
   text?: string;
   timestamp: string;
   type: "text" | "result";
+  /** 상세 화면의 보조 카드 같은 선택적 렌더링 데이터입니다. */
+  metadata?: Record<string, unknown>;
 }
 
 export interface FlowRuntimeState {
@@ -139,6 +146,7 @@ export interface FlowRuntimeState {
   currentStepId: string | null;
   answers: FlowAnswers;
   messages: ChatFlowMessage[];
+  supplementalMessages: ChatFlowMessage[];
   completed: boolean;
   result: FlowResult | null;
   error: string | null;

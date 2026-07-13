@@ -70,4 +70,6 @@ export interface TopActionState {
   onToggleLogin: () => void;
   onToggleTheme: () => void;
   onToggleFavorite: () => void;
+  priceNotifications?: import("../features/smart-shopping/price-alerts/types").PriceAlertNotification[];
+  onMarkPriceNotificationRead?: (notificationId: string) => void;
 }

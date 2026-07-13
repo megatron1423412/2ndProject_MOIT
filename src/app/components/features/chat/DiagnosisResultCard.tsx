@@ -1,14 +1,24 @@
 import React from "react";
 import { CheckCircle2, ClipboardCheck, Star, TriangleAlert } from "lucide-react";
 import type { FlowResult } from "../../../features/chat-flow/core/types";
+import RecommendationSelectionView from "../../../features/smart-shopping/recommendation/RecommendationSelectionView";
+import type { PriceAlertDraft } from "../../../features/smart-shopping/price-alerts/types";
 
 interface DiagnosisResultCardProps {
   result: FlowResult;
+  onEndSmartShoppingChat?: () => void;
+  onCreatePriceAlert?: (draft: PriceAlertDraft) => unknown;
+  onTimelineChange?: () => void;
+  userId?: string;
 }
 
 const fmt = (n: number) => n.toLocaleString("ko-KR");
 
-export default function DiagnosisResultCard({ result }: DiagnosisResultCardProps) {
+export default function DiagnosisResultCard({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId }: DiagnosisResultCardProps) {
+  if (result.recommendations) {
+    const category = (result.metadata as { category?: string } | undefined)?.category ?? "unknown";
+    return <RecommendationSelectionView key={`${category}-${result.title}`} result={result} onEndSmartShoppingChat={onEndSmartShoppingChat ?? (() => {})} onCreatePriceAlert={onCreatePriceAlert ?? (() => {})} onTimelineChange={onTimelineChange} userId={userId ?? "mock-user"} />;
+  }
   return (
     <div className="w-full max-w-xl rounded-lg border border-border bg-card p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">

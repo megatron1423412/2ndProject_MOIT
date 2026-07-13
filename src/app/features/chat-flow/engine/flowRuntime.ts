@@ -29,6 +29,23 @@ const appendMessage = (
   ],
 });
 
+/** Flow 밖의 상세 후속 대화도 기존 ChatFlowMessage 형식으로 추가합니다. */
+export const appendSupplementalFlowMessage = (
+  state: FlowRuntimeState,
+  message: Omit<ChatFlowMessage, "id" | "timestamp">,
+): FlowRuntimeState => ({
+  ...state,
+  messageSequence: state.messageSequence + 1,
+  supplementalMessages: [
+    ...state.supplementalMessages,
+    {
+      ...message,
+      id: `${state.flowId}-supplemental-${state.messageSequence + 1}`,
+      timestamp: getTimeString(),
+    },
+  ],
+});
+
 const getStep = (module: ChatFlowModule, stepId: string): FlowStep | undefined =>
   module.definition.steps.find((step) => step.id === stepId);
 
@@ -48,7 +65,7 @@ const advanceToStep = (
     if (!step) return { ...state, currentStepId: null, error: `step '${stepId}'를 찾을 수 없습니다.` };
 
     if (step.type === "assistant-message") {
-      state = appendMessage(state, { sender: "ai", text: step.message, type: "text" });
+      state = appendMessage(state, { sender: "ai", text: step.buildMessage?.(state.answers) ?? step.message, type: "text" });
       stepId = step.next;
       continue;
     }
@@ -86,6 +103,7 @@ export const createInitialFlowState = (module: ChatFlowModule): FlowRuntimeState
       currentStepId: null,
       answers: {},
       messages: [],
+      supplementalMessages: [],
       completed: false,
       result: null,
       error: null,
@@ -129,6 +147,8 @@ export const submitFlowAnswer = (
     },
     { sender: "user", text: answer.displayValue, type: "text" },
   );
+
+  if (nextStepId === "$restart") return createInitialFlowState(module);
 
   return advanceToStep(module, stateWithAnswer, nextStepId);
 };

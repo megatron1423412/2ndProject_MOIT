@@ -7,10 +7,9 @@ src/app/features/chat-flow/
   core/                   # 안정된 FlowStep 타입, 조합, 조건, 검증, 외부 action 경계
   engine/                 # 현재 step·답변·메시지·결과를 실행하는 runtime과 React hook
   registry/loadFlows.ts   # flows/**/index.ts 자동 발견(import.meta.glob)
-  shared/appliances/      # 가전제품 공통 질문과 결과 helper
   shared/telecom/         # 통신비 공통 질문과 결과 helper
   flows/
-    appliances/<소분류>/  # flow.ts, result.ts, mockData.ts, index.ts
+    appliances/<소분류>/  # flow.ts, criteria.ts, products.ts, rankProducts.ts, result.ts, index.ts
     telecom/<소분류>/     # flow.ts, result.ts, mockData.ts, index.ts
 ```
 
@@ -67,7 +66,7 @@ src/app/features/chat-flow/
 
 ## 중분류 공통 블록
 
-가전은 `shared/appliances/blocks.ts`의 `createAppliancePurchaseBlock`, 통신은 `shared/telecom/blocks.ts`의 `createTelecomPlanBlock`을 사용합니다.
+통신은 `shared/telecom/blocks.ts`의 `createTelecomPlanBlock`을 사용합니다. 가전 4종은 구매 조건이 달라 각 소분류 폴더에서 질문을 독립 관리합니다.
 
 ```ts
 createTelecomPlanBlock({
@@ -84,14 +83,14 @@ createTelecomPlanBlock({
 
 - `flow.ts`: 질문, 선택지, 순서, 분기
 - `result.ts`: 답변 context를 `FlowResult`로 바꾸는 임시 계산
-- `mockData.ts`: mock 결과 문구와 고정 데이터
+- `criteria.ts`, `products.ts`, `rankProducts.ts`: 가전 전용 구매 기준, 상품, 순위 계산
 - `index.ts`: 자동 registry가 읽는 `flowModule` export
 
 실제 비즈니스 계산은 각 소분류의 `result.ts`에 연결합니다. 현재 단순 계산은 정확한 서비스 진단이 아니며 `mockNotice`로 표시됩니다.
 
 ## 새 소분류 추가
 
-1. 올바른 중분류 아래에 새 폴더와 `flow.ts`, `result.ts`, `mockData.ts`, `index.ts`를 만듭니다.
+1. 올바른 중분류 아래에 필요한 `flow.ts`, `result.ts`, 데이터 파일과 `index.ts`를 만듭니다.
 2. `index.ts`에서 이름이 정확히 `flowModule`인 값을 export합니다.
 3. 중앙 import 목록은 수정하지 않습니다. `registry/loadFlows.ts`가 `flows/**/index.ts`를 자동 발견합니다.
 4. `npm run build`를 실행합니다. 중복 flow id나 잘못된 step 연결은 validator 오류로 표시됩니다.
