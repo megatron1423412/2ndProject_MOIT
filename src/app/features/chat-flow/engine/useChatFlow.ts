@@ -28,8 +28,23 @@ export const useChatFlow = (subCategoryId: SubCategoryId) => {
   const currentStep = isCurrentFlow && state.currentStepId
     ? module!.definition.steps.find((step) => step.id === state.currentStepId)
     : undefined;
-  const inputStep = currentStep && ["single-choice", "multi-choice", "text-input", "number-input", "confirmation"].includes(currentStep.type)
-    ? currentStep as AnswerInputStep
+
+  const resolvedStep = useMemo(() => {
+    if (!currentStep) return null;
+    if (currentStep.type === "single-choice" || currentStep.type === "multi-choice") {
+      const stepWithResolver = currentStep as any;
+      if (typeof stepWithResolver.optionsResolver === "function") {
+        return {
+          ...currentStep,
+          options: stepWithResolver.optionsResolver(state.answers),
+        } as AnswerInputStep;
+      }
+    }
+    return currentStep as AnswerInputStep;
+  }, [currentStep, state.answers]);
+
+  const inputStep = resolvedStep && ["single-choice", "multi-choice", "text-input", "number-input", "confirmation"].includes(resolvedStep.type)
+    ? resolvedStep
     : null;
 
   const submitAnswer = (answer: SubmittedFlowAnswer) => {

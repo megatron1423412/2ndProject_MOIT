@@ -29,28 +29,26 @@ const appendMessage = (
   ],
 });
 
-/** Flow 밖의 상세 후속 대화도 기존 ChatFlowMessage 형식으로 추가합니다. */
-export const appendSupplementalFlowMessage = (
-  state: FlowRuntimeState,
-  message: Omit<ChatFlowMessage, "id" | "timestamp">,
-): FlowRuntimeState => ({
-  ...state,
-  messageSequence: state.messageSequence + 1,
-  supplementalMessages: [
-    ...state.supplementalMessages,
-    {
-      ...message,
-      id: `${state.flowId}-supplemental-${state.messageSequence + 1}`,
-      timestamp: getTimeString(),
-    },
-  ],
-});
-
 const getStep = (module: ChatFlowModule, stepId: string): FlowStep | undefined =>
   module.definition.steps.find((step) => step.id === stepId);
 
 const isInputStep = (step: FlowStep): step is AnswerInputStep =>
   ["single-choice", "multi-choice", "text-input", "number-input", "confirmation"].includes(step.type);
+
+export const getNestedAnswers = (answers: Record<string, any>) => {
+  const nested: Record<string, any> = {};
+  Object.entries(answers).forEach(([key, value]) => {
+    const parts = key.split(".");
+    if (parts.length === 2) {
+      const [ns, field] = parts;
+      if (!nested[ns]) nested[ns] = {};
+      nested[ns][field] = value;
+    } else {
+      nested[key] = value;
+    }
+  });
+  return nested;
+};
 
 const advanceToStep = (
   module: ChatFlowModule,
@@ -65,7 +63,8 @@ const advanceToStep = (
     if (!step) return { ...state, currentStepId: null, error: `step '${stepId}'를 찾을 수 없습니다.` };
 
     if (step.type === "assistant-message") {
-      state = appendMessage(state, { sender: "ai", text: step.buildMessage?.(state.answers) ?? step.message, type: "text" });
+      const text = typeof step.message === "function" ? (step.message as Function)(getNestedAnswers(state.answers)) : step.message;
+      state = appendMessage(state, { sender: "ai", text, type: "text" });
       stepId = step.next;
       continue;
     }
@@ -79,8 +78,18 @@ const advanceToStep = (
     if (step.type === "result") {
       try {
         const result = module.buildResult(state.answers);
-        if (step.message) state = appendMessage(state, { sender: "ai", text: step.message, type: "text" });
-        state = appendMessage(state, { sender: "ai", type: "result" });
+        if (step.message) {
+          const text = typeof step.message === "function" ? (step.message as Function)(getNestedAnswers(state.answers)) : step.message;
+          state = appendMessage(state, { sender: "ai", text, type: "text" });
+        }
+        state = appendMessage(state, { sender: "ai", type: "result", result });
+        
+        if (step.next) {
+          stepId = step.next;
+          state = { ...state, result };
+          continue;
+        }
+
         return { ...state, currentStepId: step.id, completed: true, result };
       } catch (error) {
         const message = error instanceof Error ? error.message : "결과를 만들지 못했습니다.";
@@ -88,7 +97,8 @@ const advanceToStep = (
       }
     }
 
-    state = appendMessage(state, { sender: "ai", text: step.message, type: "text" });
+    const text = typeof step.message === "function" ? (step.message as Function)(getNestedAnswers(state.answers)) : step.message;
+    state = appendMessage(state, { sender: "ai", text, type: "text" });
     return { ...state, currentStepId: step.id };
   }
 
@@ -103,7 +113,6 @@ export const createInitialFlowState = (module: ChatFlowModule): FlowRuntimeState
       currentStepId: null,
       answers: {},
       messages: [],
-      supplementalMessages: [],
       completed: false,
       result: null,
       error: null,
@@ -112,10 +121,15 @@ export const createInitialFlowState = (module: ChatFlowModule): FlowRuntimeState
     module.definition.startStepId,
   );
 
-const getNextStepId = (step: AnswerInputStep, answer: SubmittedFlowAnswer): string => {
+// 매개변수 내부 충돌을 막기 위해 FlowAnswers 대신 Record<string, any> 타입을 매칭했습니다.
+const getNextStepId = (step: AnswerInputStep, answer: SubmittedFlowAnswer, answers: Record<string, any>): string => {
   switch (step.type) {
     case "single-choice": {
-      const option = step.options.find((item) => item.value === answer.value);
+      const stepWithResolver = step as any;
+      const options = typeof stepWithResolver.optionsResolver === "function"
+        ? stepWithResolver.optionsResolver(answers)
+        : step.options;
+      const option = options.find((item: any) => item.value === answer.value);
       return option?.next ?? step.next ?? "";
     }
     case "confirmation":
@@ -136,7 +150,7 @@ export const submitFlowAnswer = (
   const step = getStep(module, currentState.currentStepId);
   if (!step || !isInputStep(step)) return { ...currentState, error: "현재 step은 사용자 답변을 받을 수 없습니다." };
 
-  const nextStepId = getNextStepId(step, answer);
+  const nextStepId = getNextStepId(step, answer, currentState.answers);
   if (!nextStepId) return { ...currentState, error: `step '${step.id}'의 다음 step이 없습니다.` };
 
   const stateWithAnswer = appendMessage(
@@ -147,8 +161,6 @@ export const submitFlowAnswer = (
     },
     { sender: "user", text: answer.displayValue, type: "text" },
   );
-
-  if (nextStepId === "$restart") return createInitialFlowState(module);
 
   return advanceToStep(module, stateWithAnswer, nextStepId);
 };

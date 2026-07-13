@@ -25,6 +25,123 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
   if (!step) return null;
 
   if (step.type === "single-choice") {
+    if (step.id === "phone-current-plan-api") {
+      const planOption = step.options.find(
+        (o) => o.value !== "direct-select" && o.value !== "direct-input"
+      );
+      
+      const directSelectOption = step.options.find((o) => o.value === "direct-select");
+      const directInputOption = step.options.find((o) => o.value === "direct-input");
+      
+      return (
+        <div className="flex flex-col gap-3 w-full max-w-md">
+          {planOption && (
+            <div 
+              onClick={() => onSubmit({ value: planOption.value, displayValue: planOption.label })}
+              className="group relative cursor-pointer rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 shadow-sm hover:shadow-md hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all duration-200 active:scale-[0.99] flex flex-col gap-2"
+            >
+              <div className="flex items-center justify-between">
+                <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                  조회된 기존 요금제 (추정)
+                </span>
+                <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 group-hover:underline">
+                  이 요금제 선택하기 →
+                </span>
+              </div>
+              <h4 className="text-sm font-black text-primary group-hover:text-emerald-600 transition-colors">
+                {planOption.label}
+              </h4>
+              <p className="text-xs text-muted-foreground leading-normal">
+                고객님이 입력하신 납부 금액 정보를 기반으로 통신사 API에서 조회 및 추정한 기존 가입 요금제 스펙입니다.
+              </p>
+            </div>
+          )}
+          
+          <div className="flex flex-wrap gap-2 justify-center">
+            {directSelectOption && (
+              <button
+                type="button"
+                onClick={() => onSubmit({ value: directSelectOption.value, displayValue: directSelectOption.label })}
+                className="rounded-full border border-border bg-card px-4 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
+              >
+                {directSelectOption.label}
+              </button>
+            )}
+            {directInputOption && (
+              <button
+                type="button"
+                onClick={() => onSubmit({ value: directInputOption.value, displayValue: directInputOption.label })}
+                className="rounded-full border border-border bg-card px-4 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
+              >
+                {directInputOption.label}
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+    if (step.id === "phone-recommendation-api") {
+      const rec1 = step.options.find((o) => o.value === "rec-mock-1");
+      const rec2 = step.options.find((o) => o.value === "rec-mock-2");
+      const directChoose = step.options.find((o) => o.value === "direct-choose");
+      
+      return (
+        <div className="flex flex-col gap-3 w-full max-w-md">
+          <div className="grid grid-cols-2 gap-3">
+            {rec1 && (
+              <div 
+                onClick={() => onSubmit({ value: rec1.value, displayValue: rec1.label })}
+                className="group cursor-pointer rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 shadow-sm hover:shadow-md hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all duration-200 active:scale-[0.99] flex flex-col gap-2 h-full justify-between"
+              >
+                <div className="flex flex-col gap-1">
+                  <span className="self-start rounded bg-emerald-600 px-1.5 py-0.5 text-[8px] font-black text-white uppercase">
+                    1순위 추천
+                  </span>
+                  <h4 className="text-xs font-black text-primary group-hover:text-emerald-600 transition-colors mt-1">
+                    {rec1.label.replace("[추천 1순위] ", "")}
+                  </h4>
+                </div>
+                <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 group-hover:underline text-right mt-2">
+                  선택하기 →
+                </span>
+              </div>
+            )}
+            
+            {rec2 && (
+              <div 
+                onClick={() => onSubmit({ value: rec2.value, displayValue: rec2.label })}
+                className="group cursor-pointer rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4 shadow-sm hover:shadow-md hover:border-blue-500/50 hover:bg-blue-500/10 transition-all duration-200 active:scale-[0.99] flex flex-col gap-2 h-full justify-between"
+              >
+                <div className="flex flex-col gap-1">
+                  <span className="self-start rounded bg-blue-600 px-1.5 py-0.5 text-[8px] font-black text-white uppercase">
+                    2순위 추천
+                  </span>
+                  <h4 className="text-xs font-black text-primary group-hover:text-blue-600 transition-colors mt-1">
+                    {rec2.label.replace("[추천 2순위] ", "")}
+                  </h4>
+                </div>
+                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 group-hover:underline text-right mt-2">
+                  선택하기 →
+                </span>
+              </div>
+            )}
+          </div>
+          
+          {directChoose && (
+            <div className="flex justify-center mt-1">
+              <button
+                type="button"
+                onClick={() => onSubmit({ value: directChoose.value, displayValue: directChoose.label })}
+                className="rounded-full border border-border bg-card px-5 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
+              >
+                {directChoose.label}
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return (
       <QuickReplyChips
         replies={step.options.map((option) => option.label)}
