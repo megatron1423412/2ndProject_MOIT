@@ -35,14 +35,15 @@ const getStep = (module: ChatFlowModule, stepId: string): FlowStep | undefined =
 const isInputStep = (step: FlowStep): step is AnswerInputStep =>
   ["single-choice", "multi-choice", "text-input", "number-input", "confirmation"].includes(step.type);
 
-export const getNestedAnswers = (answers: Record<string, any>) => {
-  const nested: Record<string, any> = {};
+export const getNestedAnswers = (answers: Record<string, unknown>) => {
+  const nested: Record<string, unknown> = {};
   Object.entries(answers).forEach(([key, value]) => {
     const parts = key.split(".");
     if (parts.length === 2) {
       const [ns, field] = parts;
-      if (!nested[ns]) nested[ns] = {};
-      nested[ns][field] = value;
+      const namespace = (nested[ns] ?? {}) as Record<string, unknown>;
+      namespace[field] = value;
+      nested[ns] = namespace;
     } else {
       nested[key] = value;
     }
@@ -63,7 +64,8 @@ const advanceToStep = (
     if (!step) return { ...state, currentStepId: null, error: `step '${stepId}'를 찾을 수 없습니다.` };
 
     if (step.type === "assistant-message") {
-      const text = typeof step.message === "function" ? (step.message as Function)(getNestedAnswers(state.answers)) : step.message;
+      const text = step.buildMessage?.(state.answers)
+        ?? (typeof step.message === "function" ? step.message(getNestedAnswers(state.answers)) : step.message);
       state = appendMessage(state, { sender: "ai", text, type: "text" });
       stepId = step.next;
       continue;
@@ -117,19 +119,18 @@ export const createInitialFlowState = (module: ChatFlowModule): FlowRuntimeState
       result: null,
       error: null,
       messageSequence: 0,
+      supplementalMessages: [],
     },
     module.definition.startStepId,
   );
 
-// 매개변수 내부 충돌을 막기 위해 FlowAnswers 대신 Record<string, any> 타입을 매칭했습니다.
-const getNextStepId = (step: AnswerInputStep, answer: SubmittedFlowAnswer, answers: Record<string, any>): string => {
+const getNextStepId = (step: AnswerInputStep, answer: SubmittedFlowAnswer, answers: FlowRuntimeState["answers"]): string => {
   switch (step.type) {
     case "single-choice": {
-      const stepWithResolver = step as any;
-      const options = typeof stepWithResolver.optionsResolver === "function"
-        ? stepWithResolver.optionsResolver(answers)
+      const options = typeof step.optionsResolver === "function"
+        ? step.optionsResolver(answers)
         : step.options;
-      const option = options.find((item: any) => item.value === answer.value);
+      const option = options.find((item) => item.value === answer.value);
       return option?.next ?? step.next ?? "";
     }
     case "confirmation":
@@ -162,6 +163,8 @@ export const submitFlowAnswer = (
     { sender: "user", text: answer.displayValue, type: "text" },
   );
 
+  if (nextStepId === "$restart") return createInitialFlowState(module);
+
   return advanceToStep(module, stateWithAnswer, nextStepId);
 };
 
@@ -172,10 +175,9 @@ export const appendSupplementalFlowMessage = (
   sender: "ai" | "user" = "ai",
 ): FlowRuntimeState => {
   const normalized = typeof message === "string" ? { sender, text: message, type: "text" as const } : message;
-  const supplementalMessages = (state as FlowRuntimeState & { supplementalMessages?: ChatFlowMessage[] }).supplementalMessages ?? [];
   return {
     ...state,
     messageSequence: state.messageSequence + 1,
-    supplementalMessages: [...supplementalMessages, { ...normalized, id: `${state.flowId}-supplemental-${state.messageSequence + 1}`, timestamp: getTimeString() }],
-  } as FlowRuntimeState;
+    supplementalMessages: [...state.supplementalMessages, { ...normalized, id: `${state.flowId}-supplemental-${state.messageSequence + 1}`, timestamp: getTimeString() }],
+  };
 };

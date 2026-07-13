@@ -5,14 +5,24 @@ import PhoneDiagnosisReport from "../../../features/chat-flow/flows/telecom/phon
 import PhoneGradeReport from "../../../features/chat-flow/flows/telecom/phone/PhoneGradeReport";
 import InternetDiagnosisReport from "../../../features/chat-flow/flows/telecom/internet/InternetDiagnosisReport";
 import IptvDiagnosisReport from "../../../features/chat-flow/flows/telecom/iptv/IptvDiagnosisReport";
+import RecommendationSelectionView from "../../../features/smart-shopping/recommendation/RecommendationSelectionView";
+import type { PriceAlertDraft } from "../../../features/smart-shopping/price-alerts/types";
 
 interface DiagnosisResultCardProps {
   result: FlowResult;
+  onEndSmartShoppingChat?: () => void;
+  onCreatePriceAlert?: (draft: PriceAlertDraft) => unknown;
+  onTimelineChange?: () => void;
+  userId?: string;
 }
 
 const fmt = (n: number) => n.toLocaleString("ko-KR");
 
-export default function DiagnosisResultCard({ result }: DiagnosisResultCardProps) {
+export default function DiagnosisResultCard({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId }: DiagnosisResultCardProps) {
+  if (result.recommendations) {
+    const category = (result.metadata as { category?: string } | undefined)?.category ?? "unknown";
+    return <RecommendationSelectionView key={`${category}-${result.title}`} result={result} onEndSmartShoppingChat={onEndSmartShoppingChat ?? (() => {})} onCreatePriceAlert={onCreatePriceAlert ?? (() => {})} onTimelineChange={onTimelineChange} userId={userId ?? "mock-user"} />;
+  }
   if (result.metadata?.category === "phone") {
     return <PhoneDiagnosisReport result={result} />;
   }

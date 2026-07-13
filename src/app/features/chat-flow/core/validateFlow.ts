@@ -16,13 +16,13 @@ const getTargets = (step: FlowStep): string[] => {
     case "number-input":
       return [step.next];
     case "single-choice":
-      return step.options.map((option) => option.next ?? step.next).filter((next): next is string => Boolean(next));
+      return [...step.options.map((option) => option.next ?? step.next), step.next].filter((next): next is string => Boolean(next));
     case "confirmation":
       return [step.confirmNext, step.cancelNext];
     case "branch":
       return [...step.conditions.map((condition) => condition.next), step.defaultNext];
     case "result":
-      return [];
+      return step.next ? [step.next] : [];
   }
 };
 

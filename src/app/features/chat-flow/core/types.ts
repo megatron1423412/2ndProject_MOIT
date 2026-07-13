@@ -16,7 +16,9 @@ interface FlowStepBase {
 
 export interface AssistantMessageStep extends FlowStepBase {
   type: "assistant-message";
-  message: string | ((answers: any) => string);
+  message: string | ((answers: Record<string, unknown>) => string);
+  /** Appliance flows use flat, namespaced answer keys for calculated summaries. */
+  buildMessage?: (answers: FlowAnswers) => string;
   next: string;
 }
 
@@ -80,7 +82,7 @@ export interface BranchStep extends FlowStepBase {
 
 export interface ResultStep extends FlowStepBase {
   type: "result";
-  message?: string | ((answers: any) => string);
+  message?: string | ((answers: Record<string, unknown>) => string);
   next?: string;
 }
 
@@ -119,6 +121,9 @@ export interface FlowResult {
   warnings: string[];
   recommendedActions: string[];
   mockNotice: string;
+  recommendations?: import("../../product-catalog/core/types").ProductRecommendation[];
+  catalogProducts?: import("../../product-catalog/core/types").CatalogProduct[];
+  excludedProducts?: import("../../product-catalog/core/types").ExcludedProduct[];
   metadata?: Record<string, unknown>;
 }
 
@@ -135,6 +140,9 @@ export interface ChatFlowMessage {
   text?: string;
   timestamp: string;
   type: "text" | "result";
+  /** Supplemental smart-shopping timeline data. */
+  metadata?: Record<string, unknown>;
+  /** Result snapshots let living-cost flows continue after an intermediate result. */
   result?: FlowResult;
 }
 
@@ -143,6 +151,7 @@ export interface FlowRuntimeState {
   currentStepId: string | null;
   answers: FlowAnswers;
   messages: ChatFlowMessage[];
+  supplementalMessages: ChatFlowMessage[];
   completed: boolean;
   result: FlowResult | null;
   error: string | null;
