@@ -89,10 +89,8 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
 
       {/* 현재 사용중 요약 */}
       <div className="mt-5 rounded-xl bg-muted/20 p-4 border border-border/40 text-xs sm:text-sm">
-        <p className="text-xs font-bold text-muted-foreground">현재 이용 중인 인터넷 정보</p>
-        <p className="mt-1 font-black text-primary leading-relaxed">
-          현재 이용 통신사는 <span className="text-accent">{carrierMap[carrier] || carrier}</span> 이며,{" "}
-          속도 스펙은 <span className="text-accent">"{speedMap[currentSpeedKey]}"</span> 요금제입니다.
+        <p className="font-black text-primary leading-relaxed text-center">
+          현재 당신의 요금제는 <span className="text-accent font-extrabold">"{speedMap[currentSpeedKey] || currentSpeedKey}"</span> 입니다.
         </p>
       </div>
 
@@ -172,24 +170,23 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
 
       {/* 3. 금액 변동 문구 */}
       <div className="mt-5 rounded-xl bg-blue-500/5 border border-blue-500/20 p-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 border-b border-blue-500/10 pb-2">
           <ArrowRightLeft className="text-blue-500" size={15} />
-          <h4 className="text-xs font-black text-primary">매월 고정 지출비 변동 안내</h4>
+          <h4 className="text-xs font-black text-primary">"{speedMap[recommendedSpeedKey]}"를 선택한다면</h4>
         </div>
         <p className="mt-2 text-xs leading-relaxed text-primary/95 font-medium">
           {priceDiff > 0 ? (
             <>
-              권장 스펙으로 조정 시 기존 요금보다 매달 고정비 <span className="font-extrabold text-blue-600">{fmt(priceDiff)}원</span>을 아끼고, 
-              1년이면 총 <span className="font-extrabold text-blue-600">{fmt(priceDiff * 12)}원</span>을 아낄 수 있어요!
+              인터넷 속도를 일상 실속형(~200Mbps)으로 낮추면, 매달 고정비 <span className="font-extrabold text-blue-600">{fmt(priceDiff)}원</span> / 연 <span className="font-extrabold text-blue-600">{fmt(priceDiff * 12)}원</span>을 아낄 수 있어요!<br />
+              (기존 속도 대비 요금만 줄어들 뿐, 웹서핑이나 4K 유튜브 시청은 똑같이 끊김 없이 가능합니다.)
             </>
           ) : priceDiff < 0 ? (
             <>
-              매달 요금이 약 <span className="font-extrabold text-destructive">{fmt(Math.abs(priceDiff))}원</span> 가량 인상될 수 있지만, 
-              현재 연결 기기 대수({deviceCount}대)와 사용 목적에 최적화되어 재택근무 및 게임 시 끊김 현상이 완전히 해결됩니다.
+              매달 <span className="font-extrabold text-destructive">{fmt(Math.abs(priceDiff))}원</span> / 연 <span className="font-extrabold text-destructive">{fmt(Math.abs(priceDiff) * 12)}원</span>이 더 지출되지만, 인터넷 속도가 초고속 기가(~1Gbps)로 빨라져 대용량 게임 다운로드나 재택근무 환경이 훨씬 쾌적해집니다.
             </>
           ) : (
             <>
-              현재 납부하고 계신 요금({fmt(currentFee)}원)은 권장 속도 등급 대비 표준 요금과 동일합니다.
+              현재 납부하고 계신 요금({fmt(currentFee)}원)은 권장 요금제 스펙 요금과 동일하여 금액 변동이 없습니다.
             </>
           )}
         </p>

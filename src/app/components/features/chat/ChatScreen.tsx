@@ -11,6 +11,8 @@ import { buildSmartShoppingGreeting } from "../../../features/smart-shopping/gre
 import type { UserProfile } from "../../../features/smart-shopping/user/userProfile";
 import type { PriceAlertDraft } from "../../../features/smart-shopping/price-alerts/types";
 
+import type { FavoriteProduct, FavoriteDraft } from "../../../features/favorites/types";
+
 interface ChatScreenProps {
   subCategoryId: SubCategoryId;
   onBack: () => void;
@@ -19,9 +21,21 @@ interface ChatScreenProps {
   userProfile: UserProfile;
   onEndSmartShoppingChat: () => void;
   onCreatePriceAlert: (draft: PriceAlertDraft) => unknown;
+  favorites?: FavoriteProduct[];
+  onToggleFavoriteProduct?: (productId: string, draft: FavoriteDraft) => void;
 }
 
-export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory, actions, userProfile, onEndSmartShoppingChat, onCreatePriceAlert }: ChatScreenProps) {
+export default function ChatScreen({
+  subCategoryId,
+  onBack,
+  onSelectSubCategory,
+  actions,
+  userProfile,
+  onEndSmartShoppingChat,
+  onCreatePriceAlert,
+  favorites,
+  onToggleFavoriteProduct,
+}: ChatScreenProps) {
   const item = getSubCategoryById(subCategoryId);
   const flow = useChatFlow(subCategoryId);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -88,7 +102,7 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
               // 선택형 단계이거나 완료 상태인 경우에만 인라인 선택지를 표시합니다.
               const isSelectionStep = flow.currentStep && ["single-choice", "multi-choice", "confirmation"].includes(flow.currentStep.type);
               const showInlineInput = isLast && isAi && (isSelectionStep || flow.completed);
-              const currentStepForMessage = showInlineInput ? flow.currentStep : undefined;
+              const currentStepForMessage = showInlineInput ? flow.currentStep : (isAi ? message.step : undefined);
 
               return (
                 <React.Fragment key={message.id}>
@@ -101,9 +115,16 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
                       completed={isLast ? flow.completed : false}
                       onSubmit={flow.submitAnswer}
                       onReset={flow.reset}
+                      favorites={favorites}
+                      onToggleFavoriteProduct={onToggleFavoriteProduct}
+                      subCategoryId={subCategoryId}
+                      userId={userProfile.id}
+                      isHistorical={!isLast}
+                      answers={flow.answers}
+                      onEndSmartShoppingChat={onEndSmartShoppingChat}
                     />
                   )}
-                  {message.type === "result" && (message.result ?? flow.result) && (
+                  {message.type === "result" && (message.result ?? flow.result) && (message.result ?? flow.result)?.metadata?.category !== "completed-exit" && (
                     <div className="w-full self-start pl-11">
                       <DiagnosisResultCard result={(message.result ?? flow.result)!} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} onTimelineChange={() => setTimelineRevision((value) => value + 1)} userId={userProfile.id} />
                     </div>
@@ -124,11 +145,15 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
         {flow.currentStep && ["number-input", "text-input"].includes(flow.currentStep.type) && (
           <footer className="flex-shrink-0 border-t border-border bg-card p-4">
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-3">
-              <ChatFlowInput
+               <ChatFlowInput
                 step={flow.currentStep}
                 completed={flow.completed}
                 onSubmit={flow.submitAnswer}
                 onReset={flow.reset}
+                favorites={favorites}
+                onToggleFavoriteProduct={onToggleFavoriteProduct}
+                subCategoryId={subCategoryId}
+                userId={userProfile.id}
               />
             </div>
           </footer>

@@ -1,16 +1,107 @@
 import React, { useEffect, useState } from "react";
-import { Send } from "lucide-react";
+import { Send, Star } from "lucide-react";
 import type { AnswerInputStep, SubmittedFlowAnswer } from "../../../features/chat-flow/core/types";
 import QuickReplyChips from "./QuickReplyChips";
+import type { FavoriteProduct, FavoriteDraft } from "../../../features/favorites/types";
+
+const getPlanDetails = (value: string, label: string, subCategoryId: string) => {
+  let name = label;
+  let price = 0;
+  let brand = "통신사";
+
+  // 1. Remove ranking prefix
+  name = name.replace(/^\[추천 \d순위\]\s*/, "");
+
+  // 2. Parse price (e.g. "월 33,000원", "월 33000원")
+  const priceMatch = label.match(/월\s*([\d,]+)원/);
+  if (priceMatch) {
+    price = parseInt(priceMatch[1].replace(/,/g, ""), 10);
+  }
+
+  // 3. Clean price parts from name
+  name = name.replace(/\s*\(월\s*[\d,]+원\)/, "").trim();
+  name = name.replace(/\s*-\s*월\s*[\d,]+원/, "").trim();
+
+  // 4. Determine brand/carrier
+  const valLower = value.toLowerCase();
+  const catLower = subCategoryId.toLowerCase();
+
+  if (catLower === "phone") {
+    if (value === "rec-mock-1") {
+      brand = "알뜰폰";
+    } else if (value === "rec-mock-2") {
+      brand = "KT";
+    } else if (valLower.includes("skt") || valLower.includes("sk-")) {
+      brand = "SKT";
+    } else if (valLower.includes("kt")) {
+      brand = "KT";
+    } else if (valLower.includes("lgu") || valLower.includes("lg-")) {
+      brand = "LGU+";
+    }
+  } else if (catLower === "internet") {
+    if (valLower.includes("sk")) {
+      brand = "SK브로드밴드";
+    } else if (valLower.includes("kt")) {
+      brand = "KT올레";
+    } else if (valLower.includes("lg")) {
+      brand = "LG유플러스";
+    } else {
+      brand = "인터넷";
+    }
+  } else if (catLower === "iptv") {
+    if (valLower.includes("sk")) {
+      brand = "SKT";
+    } else if (valLower.includes("kt")) {
+      brand = "KT";
+    } else if (valLower.includes("lg")) {
+      brand = "LGU+";
+    } else {
+      brand = "IPTV";
+    }
+  } else if (catLower === "bundle") {
+    if (valLower.includes("sk")) {
+      brand = "SK";
+    } else if (valLower.includes("kt")) {
+      brand = "KT";
+    } else if (valLower.includes("lg")) {
+      brand = "LGU";
+    } else if (valLower.includes("skylife")) {
+      brand = "SKYLIFE";
+    } else {
+      brand = "결합상품";
+    }
+  }
+
+  return { name, price, brand };
+};
 
 interface ChatFlowInputProps {
   step: AnswerInputStep | null;
   completed: boolean;
   onSubmit: (answer: SubmittedFlowAnswer) => void;
   onReset: () => void;
+  userId?: string;
+  favorites?: FavoriteProduct[];
+  onToggleFavoriteProduct?: (productId: string, draft: FavoriteDraft) => void;
+  subCategoryId?: string;
+  isHistorical?: boolean;
+  answers?: Record<string, any>;
+  onEndSmartShoppingChat?: () => void;
 }
 
-export default function ChatFlowInput({ step, completed, onSubmit, onReset }: ChatFlowInputProps) {
+export default function ChatFlowInput({
+  step,
+  completed,
+  onSubmit,
+  onReset,
+  userId,
+  favorites,
+  onToggleFavoriteProduct,
+  subCategoryId,
+  isHistorical = false,
+  answers,
+  onEndSmartShoppingChat,
+}: ChatFlowInputProps) {
   const [inputValue, setInputValue] = useState("");
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
 
@@ -25,6 +116,59 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
   if (!step) return null;
 
   if (step.type === "single-choice") {
+    if (
+      step.id === "phone-ask-grade" ||
+      step.id === "internet-ask-grade" ||
+      step.id === "iptv-ask-grade-diagnosis" ||
+      step.id === "bundle-ask-grade"
+    ) {
+      const userSelectedYes = answers && answers[step.answerKey] === "yes";
+
+      let borderClass = "";
+      if (isHistorical) {
+        if (userSelectedYes) {
+          borderClass = "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed";
+        } else {
+          borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
+        }
+      } else {
+        borderClass = "border-emerald-500 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-400/10 dark:hover:bg-emerald-400/15 cursor-pointer";
+      }
+
+      return (
+        <div className="w-full max-w-md space-y-3">
+          <div
+            onClick={isHistorical ? undefined : () => onSubmit({ value: "yes", displayValue: "YES" })}
+            className={`w-full rounded-xl border-2 p-5 text-left shadow-sm transition-all duration-200 ${borderClass}`}
+          >
+            <p className="text-lg font-black text-emerald-800 dark:text-emerald-200">
+              ⭐구매등급진단⭐
+            </p>
+            <p className="mt-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
+              해당 물건을 구매하시면 얼마나 가성비 있게 소비하시는지 알려드려요😇
+            </p>
+            {isHistorical && userSelectedYes && (
+              <span className="mt-2 inline-block rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                선택됨 ✓
+              </span>
+            )}
+          </div>
+          
+          {!isHistorical && (
+            <div className="flex justify-start">
+              <button
+                type="button"
+                onClick={onEndSmartShoppingChat}
+                className="rounded-lg border border-border bg-card px-4 py-2 text-xs font-black text-primary hover:bg-muted focus:outline-none transition-all active:scale-[0.98]"
+              >
+                채팅 종료하기
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (step.id === "phone-current-plan-api" || step.id === "internet-current-plan-api" || step.id === "iptv-current-plan-api") {
       const planOption = step.options.find(
         (o) => o.value !== "direct-select" && o.value !== "direct-input"
@@ -32,23 +176,36 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
       
       const directSelectOption = step.options.find((o) => o.value === "direct-select");
       const directInputOption = step.options.find((o) => o.value === "direct-input");
-      
+
+      const userSelectedThis = planOption && answers && answers[step.answerKey] === planOption.value;
+
+      let borderClass = "";
+      if (isHistorical) {
+        if (userSelectedThis) {
+          borderClass = "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed";
+        } else {
+          borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
+        }
+      } else {
+        borderClass = "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10";
+      }
+
       return (
         <div className="flex flex-col gap-3 w-full max-w-md">
           {planOption && (
             <div 
-              onClick={() => onSubmit({ value: planOption.value, displayValue: planOption.label })}
-              className="group relative cursor-pointer rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 shadow-sm hover:shadow-md hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all duration-200 active:scale-[0.99] flex flex-col gap-2"
+              onClick={isHistorical ? undefined : () => onSubmit({ value: planOption.value, displayValue: planOption.label })}
+              className={`group relative rounded-2xl border p-5 shadow-sm transition-all duration-200 flex flex-col gap-2 ${!isHistorical ? "cursor-pointer active:scale-[0.99] hover:shadow-md" : ""} ${borderClass}`}
             >
               <div className="flex items-center justify-between">
                 <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                   조회된 기존 요금제 (추정)
                 </span>
                 <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 group-hover:underline">
-                  이 요금제 선택하기 →
+                  {isHistorical ? (userSelectedThis ? "선택됨 ✓" : "") : "이 요금제 선택하기 →"}
                 </span>
               </div>
-              <h4 className="text-sm font-black text-primary group-hover:text-emerald-600 transition-colors">
+              <h4 className="text-sm font-black text-primary transition-colors">
                 {planOption.label}
               </h4>
               <p className="text-xs text-muted-foreground leading-normal">
@@ -57,48 +214,41 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
             </div>
           )}
           
-          <div className="flex flex-wrap gap-2 justify-center">
-            {directSelectOption && (
-              <button
-                type="button"
-                onClick={() => onSubmit({ value: directSelectOption.value, displayValue: directSelectOption.label })}
-                className="rounded-full border border-border bg-card px-4 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
-              >
-                {directSelectOption.label}
-              </button>
-            )}
-            {directInputOption && (
-              <button
-                type="button"
-                onClick={() => onSubmit({ value: directInputOption.value, displayValue: directInputOption.label })}
-                className="rounded-full border border-border bg-card px-4 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
-              >
-                {directInputOption.label}
-              </button>
-            )}
-          </div>
+          {!isHistorical && (
+            <div className="flex flex-wrap gap-2 justify-center">
+              {directSelectOption && (
+                <button
+                  type="button"
+                  onClick={() => onSubmit({ value: directSelectOption.value, displayValue: directSelectOption.label })}
+                  className="rounded-full border border-border bg-card px-4 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
+                >
+                  {directSelectOption.label}
+                </button>
+              )}
+              {directInputOption && (
+                <button
+                  type="button"
+                  onClick={() => onSubmit({ value: directInputOption.value, displayValue: directInputOption.label })}
+                  className="rounded-full border border-border bg-card px-4 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
+                >
+                  {directInputOption.label}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       );
     }
-    if (step.id === "phone-recommendation-api" || step.id === "internet-recommendation-api" || step.id === "iptv-select-new-plan" || step.id === "bundle-recommendation-api") {
-      const isInternet = step.id === "internet-recommendation-api";
-      const isIptv = step.id === "iptv-select-new-plan";
-      const isBundle = step.id === "bundle-recommendation-api";
-
-      let rec1 = null;
-      let rec2 = null;
-
-      if (isIptv || isBundle) {
-        const validOptions = step.options.filter((o) => o.value !== "direct-choose" && o.value !== "direct-select" && o.value !== "direct-input");
-        rec1 = validOptions[0];
-        rec2 = validOptions[1];
-      } else {
-        const rec1Val = isInternet ? "rec-internet-1" : "rec-mock-1";
-        const rec2Val = isInternet ? "rec-internet-2" : "rec-mock-2";
-        rec1 = step.options.find((o) => o.value === rec1Val);
-        rec2 = step.options.find((o) => o.value === rec2Val);
-      }
-
+    if (
+      step.id === "phone-recommendation-api" ||
+      step.id === "internet-recommendation-api" ||
+      step.id === "iptv-select-new-plan" ||
+      step.id === "bundle-recommendation-api" ||
+      step.id === "bundle-all-plans-select"
+    ) {
+      const cardOptions = step.options.filter(
+        (o) => !["direct-choose", "direct-select", "direct-input"].includes(o.value)
+      );
       const directChoose = step.options.find((o) => o.value === "direct-choose");
       const directSelect = step.options.find((o) => o.value === "direct-select");
       const directInput = step.options.find((o) => o.value === "direct-input");
@@ -106,77 +256,137 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
       return (
         <div className="flex flex-col gap-3 w-full max-w-md">
           <div className="grid grid-cols-2 gap-3">
-            {rec1 && (
-              <div 
-                onClick={() => onSubmit({ value: rec1.value, displayValue: rec1.label })}
-                className="group cursor-pointer rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 shadow-sm hover:shadow-md hover:border-emerald-500/50 hover:bg-emerald-500/10 transition-all duration-200 active:scale-[0.99] flex flex-col gap-2 h-full justify-between"
-              >
-                <div className="flex flex-col gap-1">
-                  <span className="self-start rounded bg-emerald-600 px-1.5 py-0.5 text-[8px] font-black text-white uppercase">
-                    1순위 추천
+            {cardOptions.map((opt, idx) => {
+              const isFav = favorites?.some((f) => f.productId === opt.value);
+              const cleanLabel = opt.label
+                .replace("[추천 1순위] ", "")
+                .replace("[추천 2순위] ", "");
+              
+              const isRec1 = opt.label.includes("1순위") || idx === 0;
+              const isRec2 = opt.label.includes("2순위") || idx === 1;
+              
+              const userSelectedThis = answers && answers[step.answerKey] === opt.value;
+
+              let borderClass = "";
+              if (isHistorical) {
+                if (userSelectedThis) {
+                  borderClass = isRec1
+                    ? "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed"
+                    : isRec2
+                      ? "border-blue-500 bg-blue-500/10 opacity-90 cursor-not-allowed"
+                      : "border-accent bg-accent/10 opacity-90 cursor-not-allowed";
+                } else {
+                  borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
+                }
+              } else {
+                borderClass = isRec1 
+                  ? "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10" 
+                  : isRec2 
+                    ? "border-blue-500/20 bg-blue-500/5 hover:border-blue-500/50 hover:bg-blue-500/10"
+                    : "border-border bg-card hover:border-accent/50 hover:bg-secondary";
+              }
+              
+              const textClass = isRec1 
+                ? "text-emerald-600 dark:text-emerald-400" 
+                : isRec2 
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-accent";
+
+              const badgeBg = isRec1 ? "bg-emerald-600" : isRec2 ? "bg-blue-600" : "bg-accent";
+              const badgeLabel = opt.label.includes("1순위") 
+                ? "1순위 추천" 
+                : opt.label.includes("2순위") 
+                  ? "2순위 추천" 
+                  : `선택안 ${idx + 1}`;
+
+              return (
+                <div 
+                  key={opt.value}
+                  onClick={isHistorical ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
+                  className={`group relative rounded-2xl border p-4 shadow-sm transition-all duration-200 flex flex-col gap-2 h-full justify-between ${!isHistorical ? "cursor-pointer active:scale-[0.99] hover:shadow-md" : ""} ${borderClass}`}
+                >
+                  <div className="flex flex-col gap-1 pr-6">
+                    <span className={`self-start rounded px-1.5 py-0.5 text-[8px] font-black text-white uppercase ${badgeBg}`}>
+                      {badgeLabel}
+                    </span>
+                    <h4 className="text-xs font-black text-primary transition-colors mt-1">
+                      {cleanLabel}
+                    </h4>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onToggleFavoriteProduct) {
+                        const details = getPlanDetails(opt.value, opt.label, subCategoryId || "");
+                        onToggleFavoriteProduct(opt.value, {
+                          userId: userId || "mock-user",
+                          productId: opt.value,
+                          source: "internal",
+                          categoryId: subCategoryId as any,
+                          name: details.name,
+                          brand: details.brand,
+                          currentPrice: details.price,
+                          dataStatus: "mock",
+                          imagePath: "",
+                        });
+                      }
+                    }}
+                    className="absolute right-2 top-2 p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors z-10"
+                  >
+                    {isFav ? (
+                      <Star size={15} className="fill-yellow-400 text-yellow-400" />
+                    ) : (
+                      <Star size={15} className="text-muted-foreground" />
+                    )}
+                  </button>
+
+                  <span className={`text-[9px] font-bold group-hover:underline text-right mt-2 ${textClass}`}>
+                    {isHistorical ? (userSelectedThis ? "선택됨 ✓" : "") : "선택하기 →"}
                   </span>
-                  <h4 className="text-xs font-black text-primary group-hover:text-emerald-600 transition-colors mt-1">
-                    {rec1.label.replace("[추천 1순위] ", "")}
-                  </h4>
                 </div>
-                <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 group-hover:underline text-right mt-2">
-                  선택하기 →
-                </span>
-              </div>
-            )}
-            
-            {rec2 && (
-              <div 
-                onClick={() => onSubmit({ value: rec2.value, displayValue: rec2.label })}
-                className="group cursor-pointer rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4 shadow-sm hover:shadow-md hover:border-blue-500/50 hover:bg-blue-500/10 transition-all duration-200 active:scale-[0.99] flex flex-col gap-2 h-full justify-between"
-              >
-                <div className="flex flex-col gap-1">
-                  <span className="self-start rounded bg-blue-600 px-1.5 py-0.5 text-[8px] font-black text-white uppercase">
-                    2순위 추천
-                  </span>
-                  <h4 className="text-xs font-black text-primary group-hover:text-blue-600 transition-colors mt-1">
-                    {rec2.label.replace("[추천 2순위] ", "")}
-                  </h4>
-                </div>
-                <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 group-hover:underline text-right mt-2">
-                  선택하기 →
-                </span>
-              </div>
-            )}
+              );
+            })}
           </div>
           
-          <div className="flex flex-wrap gap-2 justify-center mt-1">
-            {directChoose && (
-              <button
-                type="button"
-                onClick={() => onSubmit({ value: directChoose.value, displayValue: directChoose.label })}
-                className="rounded-full border border-border bg-card px-5 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
-              >
-                {directChoose.label}
-              </button>
-            )}
-            {directSelect && (
-              <button
-                type="button"
-                onClick={() => onSubmit({ value: directSelect.value, displayValue: directSelect.label })}
-                className="rounded-full border border-border bg-card px-5 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
-              >
-                {directSelect.label}
-              </button>
-            )}
-            {directInput && (
-              <button
-                type="button"
-                onClick={() => onSubmit({ value: directInput.value, displayValue: directInput.label })}
-                className="rounded-full border border-border bg-card px-5 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
-              >
-                {directInput.label}
-              </button>
-            )}
-          </div>
+          {!isHistorical && (
+            <div className="flex flex-wrap gap-2 justify-center mt-1">
+              {directChoose && (
+                <button
+                  type="button"
+                  onClick={() => onSubmit({ value: directChoose.value, displayValue: directChoose.label })}
+                  className="rounded-full border border-border bg-card px-5 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
+                >
+                  {directChoose.label}
+                </button>
+              )}
+              {directSelect && (
+                <button
+                  type="button"
+                  onClick={() => onSubmit({ value: directSelect.value, displayValue: directSelect.label })}
+                  className="rounded-full border border-border bg-card px-5 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
+                >
+                  {directSelect.label}
+                </button>
+              )}
+              {directInput && (
+                <button
+                  type="button"
+                  onClick={() => onSubmit({ value: directInput.value, displayValue: directInput.label })}
+                  className="rounded-full border border-border bg-card px-5 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
+                >
+                  {directInput.label}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       );
     }
+
+    const selectedOpt = step.options.find(o => answers && answers[step.answerKey] === o.value);
+    const selectedLabel = selectedOpt?.label;
 
     return (
       <QuickReplyChips
@@ -185,6 +395,8 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
           const option = step.options.find((item) => item.label === label);
           if (option) onSubmit({ value: option.value, displayValue: option.label });
         }}
+        disabled={isHistorical}
+        selectedValue={selectedLabel}
       />
     );
   }
@@ -192,45 +404,66 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
   if (step.type === "confirmation") {
     const confirmLabel = step.confirmLabel ?? "확인";
     const cancelLabel = step.cancelLabel ?? "취소";
+    const selectedVal = answers && answers[step.answerKey];
+    const selectedLabel = selectedVal === true ? confirmLabel : (selectedVal === false ? cancelLabel : undefined);
+
     return (
       <QuickReplyChips
         replies={[confirmLabel, cancelLabel]}
         onSelect={(label) => onSubmit({ value: label === confirmLabel, displayValue: label })}
+        disabled={isHistorical}
+        selectedValue={selectedLabel}
       />
     );
   }
 
   if (step.type === "multi-choice") {
     const minimum = step.minSelections ?? 1;
+    const currentSelections = answers ? (answers[step.answerKey] as string[] || []) : [];
+
     return (
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
           {step.options.map((option) => {
-            const selected = selectedValues.includes(option.value);
+            const selected = isHistorical 
+              ? currentSelections.includes(option.value)
+              : selectedValues.includes(option.value);
+
+            const btnClass = isHistorical
+              ? selected
+                ? "border-accent bg-accent text-accent-foreground opacity-90 cursor-not-allowed"
+                : "border-border bg-card text-primary opacity-40 cursor-not-allowed"
+              : selected
+                ? "border-accent bg-accent text-accent-foreground"
+                : "border-border bg-card text-primary hover:border-accent/50 hover:bg-secondary";
+
             return (
               <button
                 key={option.value}
                 type="button"
                 aria-pressed={selected}
-                onClick={() => setSelectedValues((current) => selected ? current.filter((value) => value !== option.value) : [...current, option.value])}
-                className={`rounded-full border px-3.5 py-2 text-xs font-bold shadow-sm transition-all active:scale-[0.98] ${selected ? "border-accent bg-accent text-accent-foreground" : "border-border bg-card text-primary hover:border-accent/50 hover:bg-secondary"}`}
+                disabled={isHistorical}
+                onClick={() => !isHistorical && setSelectedValues((current) => selected ? current.filter((value) => value !== option.value) : [...current, option.value])}
+                className={`rounded-full border px-3.5 py-2 text-xs font-bold shadow-sm transition-all active:scale-[0.98] ${btnClass}`}
               >
                 {option.label}
               </button>
             );
           })}
         </div>
-        <button
-          type="button"
-          disabled={selectedValues.length < minimum}
-          onClick={() => {
-            const labels = step.options.filter((option) => selectedValues.includes(option.value)).map((option) => option.label);
-            onSubmit({ value: selectedValues, displayValue: labels.join(", ") });
-          }}
-          className="self-start rounded-lg bg-brand-surface px-4 py-2 text-xs font-black text-brand-surface-foreground transition-all enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          선택 완료
-        </button>
+        {!isHistorical && (
+          <button
+            type="button"
+            disabled={selectedValues.length < minimum}
+            onClick={() => {
+              const labels = step.options.filter((option) => selectedValues.includes(option.value)).map((option) => option.label);
+              onSubmit({ value: selectedValues, displayValue: labels.join(", ") });
+            }}
+            className="self-start rounded-lg bg-brand-surface px-4 py-2 text-xs font-black text-brand-surface-foreground transition-all enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            선택 완료
+          </button>
+        )}
       </div>
     );
   }

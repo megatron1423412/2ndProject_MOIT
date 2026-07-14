@@ -77,10 +77,8 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
 
       {/* 2. 대조 요약 */}
       <div className="mt-5 rounded-xl bg-muted/20 p-4 border border-border/40 text-xs sm:text-sm">
-        <p className="text-xs font-bold text-muted-foreground">현재 요금제 대조 요약</p>
-        <p className="mt-1 font-black text-primary leading-relaxed">
-          기존 이용 요금제는 <span className="text-accent">"{currentSpec.name}"</span> 이며, 
-          새롭게 추천된 요금제는 <span className="text-accent">"{recommendedSpec.name}"</span> 입니다.
+        <p className="font-black text-primary leading-relaxed text-center">
+          현재 당신의 요금제는 <span className="text-accent font-extrabold">"{currentSpec.name}"</span> 입니다.
         </p>
       </div>
 
@@ -162,30 +160,48 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
         </div>
       </div>
 
-      {/* 4. 금액 변동 문구 */}
+      {/* 3. 금액 변동 */}
       <div className="mt-5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 border-b border-emerald-500/10 pb-2">
           <ArrowRightLeft className="text-emerald-500" size={15} />
-          <h4 className="text-xs font-black text-primary">매월 고정 지출비 변동 안내</h4>
+          <h4 className="text-xs font-black text-primary">금액 변동 솔루션</h4>
         </div>
-        <p className="mt-2 text-xs leading-relaxed text-primary/95 font-medium">
+        <div className="mt-2 space-y-2 text-xs leading-relaxed text-primary/95 font-medium">
           {priceDiff > 0 ? (
-            <>
-              기존 요금제보다 매달 고정비 <span className="font-extrabold text-emerald-600">{fmt(priceDiff)}원</span>을 아끼고, 
-              1년이면 총 <span className="font-extrabold text-emerald-600">{fmt(priceDiff * 12)}원</span>을 저축할 수 있어요!
-            </>
+            <p>
+              • 기존 요금제보다 매달 고정비 <span className="font-extrabold text-emerald-600">{fmt(priceDiff)}원</span>을 아끼고, 1년이면 총 <span className="font-extrabold text-emerald-600">{fmt(priceDiff * 12)}원</span>을 저축할 수 있어요!
+            </p>
           ) : priceDiff < 0 ? (
-            <>
-              매달 <span className="font-extrabold text-destructive">{fmt(Math.abs(priceDiff))}원</span>이 더 
-              지출되지만, 이용 패턴에 필요한 스펙(데이터 및 결합 속도 등)을 안정적으로 추가 확보하는 경제적인 투자입니다.
-            </>
-          ) : (
-            <>
-              현재 납부하고 계신 요금({fmt(currentSpec.price)}원)은 모잇에서 산정한 맞춤 설계안 요금과 정확히 매칭됩니다. 
-              스펙 낭비 없이 현명하게 소비 중이십니다.
-            </>
-          )}
-        </p>
+            <p>
+              • 매달 <span className="font-extrabold text-destructive">{fmt(Math.abs(priceDiff))}원</span>이 더 지출되지만, 늘어난 데이터 스펙을 돈으로 환산하면 <span className="font-bold text-accent">{fmt(dataBenefit)}원</span>어치라 오히려 이득이에요.
+            </p>
+          ) : null}
+          <p>
+            • 기존 요금제 대비 숨은 통신 생활비 고정 지출이 매달 <span className="font-extrabold">{fmt(Math.abs(priceDiff))}원</span> {priceDiff > 0 ? "감소" : priceDiff < 0 ? "증가" : "변동"}됩니다.
+          </p>
+        </div>
+      </div>
+
+      {/* 4. 기본 제공량 */}
+      <div className="mt-5 rounded-xl bg-muted/20 border border-border/40 p-4">
+        <div className="flex items-center gap-2 border-b border-border/20 pb-2">
+          <Activity className="text-accent" size={15} />
+          <h4 className="text-xs font-black text-primary">기본 제공량 상세 분석</h4>
+        </div>
+        <ul className="mt-2 space-y-2 text-xs leading-relaxed text-muted-foreground font-medium">
+          <li>
+            • 매달 <span className="font-bold text-primary">{recommendedSpec.voiceMin === 9999 ? "무제한" : `${recommendedSpec.voiceMin}분`}</span>의 음성 통화가 제공됩니다. 
+            {recommendedSpec.voiceMin !== 9999 && ` (표준 요율 기준 ${fmt(voiceValue)}원 상당의 통화 가치 포함)`}
+          </li>
+          <li>
+            • 매달 <span className="font-bold text-primary">{recommendedSpec.smsCount === 9999 ? "기본제공" : `${recommendedSpec.smsCount}건`}</span>의 기본 문자가 제공됩니다.
+            {recommendedSpec.smsCount !== 9999 && ` (표준 요율 기준 월 ${fmt(smsValue)}원어치의 문자 요금이 기본 포함된 스펙입니다.)`}
+          </li>
+          <li>
+            • 기존 <span className="font-bold text-primary">{currentSpec.data}</span>에서 <span className="font-bold text-primary">{recommendedSpec.data}</span>로 매달 <span className="font-bold text-accent">{dataDiffLabel}</span>을 {dataDiffMB >= 0 ? "더 씁니다" : "이용하게 됩니다"}.
+            {dataDiffMB > 0 && ` 이를 표준 초과 요금으로 환산하면 무려 월 ${fmt(dataBenefit)}원어치의 데이터를 보너스로 받는 셈입니다.`}
+          </li>
+        </ul>
       </div>
 
       {/* 5. 데이터 업그레이드 체감 가이드 */}
@@ -196,13 +212,13 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
           {/* 5GB ~ 15GB 미만 */}
           {isMidRange && (
             <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              <p className="font-black text-accent">알뜰한 업그레이드 구간</p>
+              <p className="font-black text-emerald-600 dark:text-emerald-400">알뜰한 업그레이드</p>
               <p className="mt-1">
-                기본 데이터가 {dataDiffLabel} 늘어나, 표준 요율 기준 매달 <span className="font-bold text-primary">{fmt(dataBenefit)}원</span> 상당의 데이터 요금을 아낄 수 있습니다.
+                기본 데이터가 <span className="font-bold text-primary">{dataDiffLabel}</span> 늘어나, 표준 요율 기준 매달 <span className="font-bold text-primary">{fmt(dataBenefit)}원</span> 상당의 데이터 요금을 아끼면서 외부에서 와이파이 없이 고화질 사진과 동영상 원본을 바로 확인할 수 있습니다.
               </p>
               <ul className="mt-2 list-disc pl-4 space-y-1 text-primary/70">
-                <li>이제 지하철이나 카페 등 외부에서 친구가 보낸 고화질 사진이나 동영상 원본을 와이파이 찾지 않고 그 자리에서 바로 확인할 수 있어요.</li>
                 <li>출퇴근길 내내 음악 스트리밍을 매일 끊김 없이 들을 수 있는 용량입니다.</li>
+                <li>이제 외부에서 친구가 보낸 고화질 사진이나 동영상 원본을 와이파이 찾지 않고 그 자리에서 바로 확인할 수 있어요.</li>
               </ul>
             </div>
           )}
@@ -210,9 +226,9 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
           {/* 15GB ~ 30GB 미만 */}
           {isHighRange && (
             <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              <p className="font-black text-accent">가장 대중적인 업그레이드 구간</p>
+              <p className="font-black text-blue-600 dark:text-blue-400">가장 대중적인 업그레이드</p>
               <p className="mt-1">
-                기본 데이터가 {dataDiffLabel} 대폭 늘어납니다. 이 용량을 초과 요금으로 환산하면 무려 월 <span className="font-bold text-primary">{fmt(dataBenefit)}원</span> 이득이에요!
+                기본 데이터가 <span className="font-bold text-primary">{dataDiffLabel}</span> 대폭 늘어납니다. 이 용량을 초과 요금으로 환산하면 무려 월 <span className="font-bold text-primary">{fmt(dataBenefit)}원</span> 이득이에요! 이제 출퇴근길...
               </p>
               <ul className="mt-2 list-disc pl-4 space-y-1 text-primary/70">
                 <li>매일 출퇴근길(왕복 2시간) 동안 유튜브나 넷플릭스 영상을 고화질(720p)로 한 달 내내 볼 수 있는 용량입니다.</li>
@@ -224,13 +240,13 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
           {/* 30GB 이상 / 무제한 */}
           {isUltraRange && (
             <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              <p className="font-black text-accent">거의 무제한급 구간</p>
+              <p className="font-black text-purple-600 dark:text-purple-400">거의 무제한급</p>
               <p className="mt-1">
-                매달 <span className="font-bold text-primary">{fmt(capBenefit)}원</span>의 요금 폭탄 걱정을 완벽히 차단하는 대용량 스펙입니다.
+                매달 <span className="font-bold text-primary">{fmt(capBenefit)}원</span>의 요금 폭탄 걱정을 완벽히 차단하는 대용량 스펙입니다. 주말 내내 카페에서...
               </p>
               <ul className="mt-2 list-disc pl-4 space-y-1 text-primary/70">
-                <li>주말 내내 카페에서 노트북에 핫스팟을 연결해 재택근무를 하거나 인터넷 강의를 들어도 끄떡없는 대용량입니다.</li>
-                <li>모바일 고사양 게임의 대규모 패치 업데이트를 길거리에서 셀룰러 데이터로 부담 없이 즉시 내려받을 수 있게 됩니다.</li>
+                <li>주말 내내 카페에서 노트북에 핫스팟을 연결해 재택근무를 하거나 인강을 들어도 끄떡없는 용량입니다.</li>
+                <li>모바일 고사양 게임의 대규모 패치 업데이트를 길거리에서 셀룰러 데이터로 부담 없이 누를 수 있게 됩니다.</li>
               </ul>
             </div>
           )}
@@ -244,9 +260,9 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
           <div className="text-xs leading-relaxed">
             <p className="font-black text-emerald-600 dark:text-emerald-400">속도 제어 안심 마크 제공</p>
             <p className="mt-1 text-muted-foreground">
-              기본 데이터인 {recommendedSpec.data.split("(")[0]}를 모두 소진하더라도, 추가 요금 없이 
-              <span className="font-extrabold text-primary"> {recommendedSpec.qosSpeed}</span> 속도로 
-              카카오톡 메시지 전송이나 음악 감상을 끊김 없이 안심하고 이용할 수 있습니다.
+              기본 데이터 {recommendedSpec.data.split("(")[0]}를 모두 소진하더라도, 추가 요금 없이 
+              <span className="font-extrabold text-primary"> {recommendedSpec.qosSpeed || "1Mbps"}</span> 속도로 
+              카카오톡이나 음악 감상을 끊김 없이 안심하고 이용할 수 있습니다.
             </p>
           </div>
         </div>

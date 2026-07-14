@@ -20,6 +20,15 @@ export default function App() {
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>(() => alertRepository.getAlertsForUser(currentUser.id));
   const [favoritesRevision, setFavoritesRevision] = useState(0);
   const favorites = useMemo(() => favoriteRepository.getFavoritesForUser(currentUser.id), [favoriteRepository, favoritesRevision]);
+  const handleToggleFavoriteProduct = (productId: string, draft: any) => {
+    const existing = favorites.find(f => f.productId === productId);
+    if (existing) {
+      favoriteRepository.removeFavorite(existing.id);
+    } else {
+      favoriteRepository.addFavorite(draft);
+    }
+    setFavoritesRevision(prev => prev + 1);
+  };
   const refreshAlerts = () => {
     setPriceAlerts(alertRepository.getAlertsForUser(currentUser.id));
     setPriceNotifications(alertRepository.getNotificationsForUser(currentUser.id));
@@ -91,6 +100,8 @@ export default function App() {
             onSelectSubCategory={(item) => setSelectedSubCategoryId(item.id)}
             actions={appActions}
             userProfile={currentUser}
+            favorites={favorites}
+            onToggleFavoriteProduct={handleToggleFavoriteProduct}
           />
         ) : (
           <MainStartScreen

@@ -1,16 +1,16 @@
-// src/app/features/chat-flow/flows/telecom/iptv/IptvGradeReport.tsx
-
 import React from "react";
 import type { FlowResult } from "../../../core/types";
 import { mockIptvPlans } from "./mockData";
+import PurchaseGradeShareButton from "../../../../smart-shopping/share/PurchaseGradeShareButton";
 
 interface IptvGradeReportProps {
   result: FlowResult;
+  onEndChat?: () => void;
 }
 
 const fmt = (n: number) => n.toLocaleString("ko-KR");
 
-export default function IptvGradeReport({ result }: IptvGradeReportProps) {
+export default function IptvGradeReport({ result, onEndChat }: IptvGradeReportProps) {
   const metadata = result.metadata || {};
   const saving = Number(metadata.saving || 0);
   const savingRate = Number(metadata.savingRate || 0);
@@ -45,10 +45,6 @@ export default function IptvGradeReport({ result }: IptvGradeReportProps) {
   const netBenefit = saving - channelLossPenalty;
 
   // 5. 실질 월 이득 기준으로 골드/실버/브론즈 판정
-  // 골드 (Gold) 조건: 필수 채널 유지, 실질 월 이득 10,000원 이상 or 절감
-  // 실버 (Silver) 조건: 필수 채널 유지, 실질 월 이득 5,000원 이상 or 15% 이상 절감 
-  // 브론즈 (Bronze) 조건: 실질 월 이득 2,000원 이상 or 5% 이상 절감
-  // 일반 조건 : 필수 채널 빠짐 or 실질 이득 2,000원 미만
   let grade = "Normal";
   let gradeLabel = "일반 등급";
   let gradeEmoji = "🌱";
@@ -76,8 +72,13 @@ export default function IptvGradeReport({ result }: IptvGradeReportProps) {
   }
 
   return (
-    <div className={`w-full max-w-sm rounded-2xl border p-6 shadow-md transition-all hover:shadow-lg ${gradeTheme.bg} ${gradeTheme.border}`}>
+    <div className={`w-full max-w-sm rounded-2xl border p-6 shadow-md transition-all hover:shadow-lg relative ${gradeTheme.bg} ${gradeTheme.border}`}>
       
+      {/* 카드 오른쪽 상단 공유 버튼 */}
+      <div className="absolute right-4 top-4 z-20">
+        <PurchaseGradeShareButton />
+      </div>
+
       {/* 상단 타이틀 */}
       <div className="flex flex-col items-center text-center gap-1 border-b border-border/40 pb-4">
         <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase">
@@ -127,6 +128,19 @@ export default function IptvGradeReport({ result }: IptvGradeReportProps) {
         나의 등급을 인스타그램 등 SNS에 인증하여<br />
         주변 지인들과 스마트한 IPTV 소비를 공유해 보세요!
       </div>
+
+      {/* 하단 채팅 종료하기 버튼 */}
+      {onEndChat && (
+        <div className="mt-6 flex justify-center border-t border-border/40 pt-4">
+          <button
+            type="button"
+            onClick={onEndChat}
+            className="w-full rounded-xl bg-brand-surface py-2.5 text-xs font-black text-brand-surface-foreground hover:opacity-90 active:scale-[0.98] transition-all"
+          >
+            채팅 종료하기
+          </button>
+        </div>
+      )}
 
     </div>
   );

@@ -23,6 +23,9 @@ interface DiagnosisResultCardProps {
 const fmt = (n: number) => n.toLocaleString("ko-KR");
 
 export default function DiagnosisResultCard({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId }: DiagnosisResultCardProps) {
+  if (result.metadata?.category === "completed-exit") {
+    return null;
+  }
   if (result.recommendations) {
     const category = (result.metadata as { category?: string } | undefined)?.category ?? "unknown";
     return <RecommendationSelectionView key={`${category}-${result.title}`} result={result} onEndSmartShoppingChat={onEndSmartShoppingChat ?? (() => {})} onCreatePriceAlert={onCreatePriceAlert ?? (() => {})} onTimelineChange={onTimelineChange} userId={userId ?? "mock-user"} />;
@@ -31,25 +34,25 @@ export default function DiagnosisResultCard({ result, onEndSmartShoppingChat, on
     return <PhoneDiagnosisReport result={result} />;
   }
   if (result.metadata?.category === "phone-grade") {
-    return <PhoneGradeReport result={result} />;
+    return <PhoneGradeReport result={result} onEndChat={onEndSmartShoppingChat} />;
   }
   if (result.metadata?.category === "internet") {
     return <InternetDiagnosisReport result={result} />;
   }
   if (result.metadata?.category === "internet-grade") {
-    return <InternetGradeReport result={result} />;
+    return <InternetGradeReport result={result} onEndChat={onEndSmartShoppingChat} />;
   }
   if (result.metadata?.category === "iptv") {
     return <IptvDiagnosisReport result={result} />;
   }
   if (result.metadata?.category === "iptv-grade") {
-    return <IptvGradeReport result={result} />;
+    return <IptvGradeReport result={result} onEndChat={onEndSmartShoppingChat} />;
   }
   if (result.metadata?.category === "bundle") {
     return <BundleDiagnosisReport result={result} />;
   }
   if (result.metadata?.category === "bundle-grade") {
-    return <BundleGradeReport result={result} />;
+    return <BundleGradeReport result={result} onEndChat={onEndSmartShoppingChat} />;
   }
 
   return (

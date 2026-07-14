@@ -103,14 +103,17 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
             <Sparkles size={12} /> 요금 비교·추천 솔루션
           </span>
         </div>
-        <h3 className="mt-3 text-sm font-black text-muted-foreground leading-normal">
-          1. 현재 당신의 결합 요금제는 <span className="text-primary font-extrabold underline decoration-accent/50 decoration-2">{currentServicesString}</span>의 <span className="text-primary font-extrabold underline decoration-accent/50 decoration-2">{currentPlanString}</span>입니다.
-        </h3>
+      </div>
+
+      {/* 현재 결합 요금제 안내 */}
+      <div className="mt-5 rounded-xl bg-muted/20 p-4 border border-border/40 text-xs sm:text-sm">
+        <p className="font-black text-primary leading-relaxed text-center">
+          현재 당신의 결합 요금제는 <span className="text-accent font-extrabold">"{currentServicesString}"</span>의 <span className="text-accent font-extrabold">"{currentPlanString}"</span>입니다.
+        </p>
       </div>
 
       {/* 2. 현재 요금제, 선택 요금제를 카드 형식으로 보여줌 */}
       <div className="mt-5">
-        <p className="text-xs font-bold text-muted-foreground mb-3">2. 현재 요금제와 선택 요금제 상세 비교 카드</p>
         <div className="grid gap-4 sm:grid-cols-2">
           {/* 현재 요금제 카드 */}
           <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
@@ -185,7 +188,7 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex gap-3 items-start">
             <ShieldAlert className="text-amber-500 shrink-0 mt-0.5" size={16} />
             <div className="text-xs leading-relaxed">
-              <p className="font-black text-amber-600 dark:text-amber-400">⚠️ 이동 전, 탈출 비용(위약금) 확인</p>
+              <p className="font-black text-amber-600 dark:text-amber-400">⚠️ 이동 전, 탈출 비용(위약금)을 꼭 확인하세요!</p>
               <p className="mt-1 text-muted-foreground font-medium">
                 지금 해지 시 약 <span className="font-extrabold text-primary">{fmt(penaltyAmount)}원</span>의 위약금이 발생할 수 있습니다.
               </p>
@@ -195,7 +198,7 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
           <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex gap-3 items-start">
             <ShieldAlert className="text-amber-500 shrink-0 mt-0.5" size={16} />
             <div className="text-xs leading-relaxed">
-              <p className="font-black text-amber-600 dark:text-amber-400">⚠️ 이동 전, 탈출 비용(위약금) 확인</p>
+              <p className="font-black text-amber-600 dark:text-amber-400">⚠️ 이동 전, 탈출 비용(위약금)을 꼭 확인하세요!</p>
               <p className="mt-1 text-muted-foreground font-medium">
                 현재 기존 약정 금액이 확인되지 않아, 지금 해지 시 예상치 못한 중도 해지 위약금이 발생할 수 있습니다.
               </p>

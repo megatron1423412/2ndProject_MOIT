@@ -100,7 +100,16 @@ const advanceToStep = (
     }
 
     const text = typeof step.message === "function" ? (step.message as Function)(getNestedAnswers(state.answers)) : step.message;
-    state = appendMessage(state, { sender: "ai", text, type: "text" });
+    
+    const resolvedStep = { ...step };
+    if (step.type === "single-choice" || step.type === "multi-choice") {
+      const stepWithResolver = step as any;
+      if (typeof stepWithResolver.optionsResolver === "function") {
+        resolvedStep.options = stepWithResolver.optionsResolver(state.answers);
+      }
+    }
+
+    state = appendMessage(state, { sender: "ai", text, type: "text", step: resolvedStep as AnswerInputStep });
     return { ...state, currentStepId: step.id };
   }
 

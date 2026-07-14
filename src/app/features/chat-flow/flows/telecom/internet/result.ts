@@ -36,13 +36,14 @@ export const buildInternetResult = (answers: Record<string, any>): FlowResult =>
   const saving = currentFee - recommendedPrice;
   const savingRate = currentFee > 0 ? (saving / currentFee) : 0;
 
+  const isExit = answers["internet.exitRestart"] === "exit" || answers["internet.askGrade"] === "no";
   const isGrade = answers["internet.askGrade"] === "yes";
 
   return {
     ...baseResult,
     metadata: {
       ...baseResult.metadata,
-      category: isGrade ? "internet-grade" : "internet",
+      category: isExit ? "completed-exit" : (isGrade ? "internet-grade" : "internet"),
       saving,
       savingRate,
       answers,

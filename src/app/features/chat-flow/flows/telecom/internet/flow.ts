@@ -182,7 +182,7 @@ const specific: FlowStep[] = [
     answerKey: `${namespace}.askGrade`,
     options: [
       { value: "yes", label: "YES", next: "internet-grade-result" },
-      { value: "no", label: "NO", next: "internet-exit" },
+      { value: "no", label: "NO", next: "internet-completed-exit" },
     ],
   },
 
@@ -191,48 +191,12 @@ const specific: FlowStep[] = [
     id: "internet-grade-result",
     type: "result",
     message: "소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다.",
-    next: "internet-ask-share",
-  },
-
-  // SNS 공유 확인 질문 스텝
-  {
-    id: "internet-ask-share",
-    type: "single-choice",
-    message: "진단받은 나의 소비 패턴 등급을 공유하시겠습니까?",
-    answerKey: `${namespace}.askShare`,
-    options: [
-      { value: "yes", label: "YES", next: "internet-sns-redirect" },
-      { value: "no", label: "NO", next: "internet-exit" },
-    ],
-  },
-
-  // SNS 공유 리다이렉트 스텝
-  {
-    id: "internet-sns-redirect",
-    type: "assistant-message",
-    message: "인스타그램으로 이동합니다. [여기를 클릭하여 인스타그램에서 결과를 공유](https://instagram.com)해 주세요.",
-    next: "internet-exit",
-  },
-
-  // 종료 및 새로운 주제 시작 질문 스텝
-  {
-    id: "internet-exit",
-    type: "single-choice",
-    message: "새로운 주제로 시작하시겠습니까?",
-    answerKey: `${namespace}.exitRestart`,
-    options: [],
-    optionsResolver: () => [
-      { value: "restart", label: "예, 새로운 주제로 시작할래요", next: "internet-intro" },
-      { value: "exit", label: "아니요, 대화를 종료할래요", next: "internet-completed-exit" },
-    ],
-    next: "internet-completed-exit",
   },
 
   // 종료 완료 스텝
   {
     id: "internet-completed-exit",
     type: "result",
-    message: "인터넷 요금제 진단 서비스를 이용해 주셔서 감사합니다. 안전하게 대화가 종료되었습니다.",
   },
 ];
 

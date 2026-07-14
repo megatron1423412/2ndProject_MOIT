@@ -38,13 +38,14 @@ export const buildBundleResult = (answers: Record<string, any>): FlowResult => {
   const saving = currentFee - selectedPrice;
   const savingRate = currentFee > 0 ? saving / currentFee : 0;
 
+  const isExit = answers["bundle.exitRestart"] === "exit" || answers["bundle.askGrade"] === "no";
   const isGrade = answers["bundle.askGrade"] === "yes";
 
   return {
     ...baseResult,
     metadata: {
       ...baseResult.metadata,
-      category: isGrade ? "bundle-grade" : "bundle",
+      category: isExit ? "completed-exit" : (isGrade ? "bundle-grade" : "bundle"),
       saving,
       savingRate,
       answers,

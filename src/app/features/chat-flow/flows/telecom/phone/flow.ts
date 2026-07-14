@@ -176,52 +176,19 @@ const specific: FlowStep[] = [
     answerKey: `${namespace}.askGrade`,
     options: [
       { value: "yes", label: "YES", next: "phone-grade-result" },
-      { value: "no", label: "NO", next: "phone-exit" }
+      { value: "no", label: "NO", next: "phone-completed-exit" }
     ]
   },
 
   {
     id: "phone-grade-result",
     type: "result",
-    message: "소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다.",
-    next: "phone-ask-share"
-  },
-
-  {
-    id: "phone-ask-share",
-    type: "single-choice",
-    message: "진단받은 나의 소비 패턴 등급을 공유하시겠습니까?",
-    answerKey: `${namespace}.askShare`,
-    options: [
-      { value: "yes", label: "YES", next: "phone-sns-redirect" },
-      { value: "no", label: "NO", next: "phone-exit" }
-    ]
-  },
-
-  {
-    id: "phone-sns-redirect",
-    type: "assistant-message",
-    message: "인스타그램으로 이동합니다. [여기를 클릭하여 인스타그램에서 결과를 공유](https://instagram.com)해 주세요.",
-    next: "phone-exit"
-  },
-
-  {
-    id: "phone-exit",
-    type: "single-choice",
-    message: "새로운 주제로 시작하시겠습니까?",
-    answerKey: `${namespace}.exitRestart`,
-    options: [],
-    optionsResolver: () => [
-      { value: "restart", label: "예, 새로운 주제로 시작할래요", next: "phone-intro" },
-      { value: "exit", label: "아니요, 대화를 종료할래요", next: "phone-completed-exit" }
-    ],
-    next: "phone-completed-exit"
+    message: "소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다."
   },
 
   {
     id: "phone-completed-exit",
-    type: "result",
-    message: "휴대폰 요금제 진단 서비스를 이용해 주셔서 감사합니다. 안전하게 대화가 종료되었습니다."
+    type: "result"
   }
 ];
 

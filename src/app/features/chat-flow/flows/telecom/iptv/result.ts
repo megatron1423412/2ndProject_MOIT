@@ -15,13 +15,14 @@ export const buildIptvResult = (answers: Record<string, any>): FlowResult => {
   const saving = currentPriceInput - selectedPrice;
   const savingRate = currentPriceInput > 0 ? (saving / currentPriceInput) : 0;
 
+  const isExit = answers["iptv.exitRestart"] === "exit" || answers["iptv.askGrade"] === "no";
   const isGrade = answers["iptv.askGrade"] === "yes";
 
   return {
     ...baseResult,
     metadata: {
       ...baseResult.metadata,
-      category: isGrade ? "iptv-grade" : "iptv",
+      category: isExit ? "completed-exit" : (isGrade ? "iptv-grade" : "iptv"),
       saving,
       savingRate,
       answers,

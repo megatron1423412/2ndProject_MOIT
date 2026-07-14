@@ -213,7 +213,7 @@ const specific: FlowStep[] = [
     answerKey: `${namespace}.askGrade`,
     options: [
       { value: "yes", label: "YES", next: "iptv-grade-result" },
-      { value: "no", label: "NO", next: "iptv-exit" },
+      { value: "no", label: "NO", next: "iptv-completed-exit" },
     ],
   },
 
@@ -223,48 +223,12 @@ const specific: FlowStep[] = [
     type: "result",
     resultBuilder: buildIptvResult,
     message: "IPTV 소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다.",
-    next: "iptv-ask-share"
-  },
-
-  // [Part 3 - 11번] SNS 공유 의사 확인 질문
-  {
-    id: "iptv-ask-share",
-    type: "single-choice",
-    message: "진단받은 나의 IPTV 소비 패턴 등급을 공유하시겠습니까?",
-    answerKey: `${namespace}.askShare`,
-    options: [
-      { value: "yes", label: "YES", next: "iptv-sns-redirect" },
-      { value: "no", label: "NO", next: "iptv-exit" },
-    ],
-  },
-
-  // [Part 3 - 12번] SNS 공유 리다이렉트
-  {
-    id: "iptv-sns-redirect",
-    type: "assistant-message",
-    message: "인스타그램으로 이동합니다. [여기를 클릭하여 인스타그램에서 결과를 공유](https://instagram.com)해 주세요.",
-    next: "iptv-exit",
-  },
-
-  // [Part 3 - 13번] 종료 및 새로운 주제 시작 질문 스텝
-  {
-    id: "iptv-exit",
-    type: "single-choice",
-    message: "새로운 주제로 시작하시겠습니까?",
-    answerKey: `${namespace}.exitRestart`,
-    options: [],
-    optionsResolver: () => [
-      { value: "restart", label: "예, 새로운 주제로 시작할래요", next: "iptv-intro" },
-      { value: "exit", label: "아니요, 대화를 종료할래요", next: "iptv-completed-exit" },
-    ],
-    next: "iptv-completed-exit",
   },
 
   // [Part 3 - 14번] 최종 대화 종료
   {
     id: "iptv-completed-exit",
     type: "result",
-    message: "IPTV 요금제 진단 서비스를 이용해 주셔서 감사합니다. 안전하게 대화가 종료되었습니다.",
   },
 ];
 

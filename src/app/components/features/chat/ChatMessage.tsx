@@ -3,6 +3,8 @@ import { Sparkles } from "lucide-react";
 import ChatFlowInput from "./ChatFlowInput";
 import type { AnswerInputStep, SubmittedFlowAnswer } from "../../../features/chat-flow/core/types";
 
+import type { FavoriteProduct, FavoriteDraft } from "../../../features/favorites/types";
+
 interface ChatMessageProps {
   sender: "ai" | "user";
   text?: string;
@@ -12,6 +14,13 @@ interface ChatMessageProps {
   completed?: boolean;
   onSubmit?: (answer: SubmittedFlowAnswer) => void;
   onReset?: () => void;
+  favorites?: FavoriteProduct[];
+  onToggleFavoriteProduct?: (productId: string, draft: FavoriteDraft) => void;
+  subCategoryId?: string;
+  userId?: string;
+  isHistorical?: boolean;
+  answers?: Record<string, any>;
+  onEndSmartShoppingChat?: () => void;
 }
 
 export default function ChatMessage({
@@ -23,6 +32,13 @@ export default function ChatMessage({
   completed = false,
   onSubmit,
   onReset,
+  favorites,
+  onToggleFavoriteProduct,
+  subCategoryId,
+  userId,
+  isHistorical = false,
+  answers,
+  onEndSmartShoppingChat,
 }: ChatMessageProps) {
   const isAi = sender === "ai";
 
@@ -55,6 +71,13 @@ export default function ChatMessage({
                 completed={completed}
                 onSubmit={onSubmit}
                 onReset={onReset}
+                favorites={favorites}
+                onToggleFavoriteProduct={onToggleFavoriteProduct}
+                subCategoryId={subCategoryId}
+                userId={userId}
+                isHistorical={isHistorical}
+                answers={answers}
+                onEndSmartShoppingChat={onEndSmartShoppingChat}
               />
             </div>
           )}

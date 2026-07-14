@@ -75,14 +75,17 @@ export default function IptvDiagnosisReport({ result }: IptvDiagnosisReportProps
             <Sparkles size={12} /> 요금 비교·추천 솔루션
           </span>
         </div>
-        <h3 className="mt-3 text-sm font-black text-muted-foreground leading-normal">
-          1. 현재 당신의 요금제는 <span className="text-primary font-extrabold underline decoration-accent/50 decoration-2">{currentPlanString} (월 {fmt(currentPriceInput)}원)</span> 입니다.
-        </h3>
+      </div>
+
+      {/* 현재 사용중 요약 */}
+      <div className="mt-5 rounded-xl bg-muted/20 p-4 border border-border/40 text-xs sm:text-sm">
+        <p className="font-black text-primary leading-relaxed text-center">
+          현재 당신의 요금제는 <span className="text-accent font-extrabold">"{currentPlanString}"</span> 입니다.
+        </p>
       </div>
 
       {/* 2. 현재 요금제, 선택 요금제를 카드 형식으로 보여줌 */}
       <div className="mt-5">
-        <p className="text-xs font-bold text-muted-foreground mb-3">2. 현재 요금제와 선택 요금제 상세 비교 카드</p>
         <div className="grid gap-4 sm:grid-cols-2">
           {/* 현재 요금제 카드 */}
           <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
@@ -131,30 +134,27 @@ export default function IptvDiagnosisReport({ result }: IptvDiagnosisReportProps
         </div>
       </div>
 
-      {/* 3. 선택 요금제 선택 시 가이드 */}
-      <div className="mt-6 border-t border-border/40 pt-4">
-        <h4 className="text-sm font-black text-primary">
-          3. <span className="text-accent font-extrabold">{selectedPlanString}</span>을 선택한다면
-        </h4>
-      </div>
-
-      {/* 4. ① 채널 스펙을 낮춰서 고정비를 줄일 때 (절약형) */}
-      <div className={`mt-4 rounded-xl border p-4 transition-all ${isSaving ? 'border-emerald-500/30 bg-emerald-500/5 shadow-sm' : 'border-border/40 bg-muted/5 opacity-60'}`}>
-        <p className={`text-xs font-black flex items-center gap-1.5 ${isSaving ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
-          <CheckCircle2 size={14} /> ④ ① 채널 스펙을 낮춰서 고정비를 줄일 때 (절약형)
-        </p>
-        <p className="mt-2 text-xs leading-relaxed text-primary/95">
-          "TV 요금제를 일상 실속형(~200개 채널)으로 낮추면, 매달 고정비 <span className="font-extrabold text-emerald-600">{isSaving ? fmt(savingDiff) : fmt(Math.max(0, savingDiff))}원</span> / 연 <strong>{isSaving ? fmt(savingDiff * 12) : fmt(Math.max(0, savingDiff * 12))}원</strong>을 아낄 수 있어요! (자주 안 보던 유료 전문 채널만 제외될 뿐, tvN이나 지상파·종편 등 주요 예능·드라마 본방사수는 똑같이 끊김 없이 가능합니다.)"
-        </p>
-      </div>
-
-      {/* 5. ② 채널 스펙을 높여서 고정비가 늘어날 때 (지출형) */}
-      <div className={`mt-4 rounded-xl border p-4 transition-all ${!isSaving ? 'border-amber-500/30 bg-amber-500/5 shadow-sm' : 'border-border/40 bg-muted/5 opacity-60'}`}>
-        <p className={`text-xs font-black flex items-center gap-1.5 ${!isSaving ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
-          <Activity size={14} className="text-amber-500" /> ⑤ ② 채널 스펙을 높여서 고정비가 늘어날 때 (지출형)
-        </p>
-        <p className="mt-2 text-xs leading-relaxed text-primary/95">
-          "매달 <span className="font-extrabold text-amber-600">{!isSaving ? fmt(spendingDiff) : fmt(Math.max(0, spendingDiff))}원</span> / 연 <strong>{!isSaving ? fmt(spendingDiff * 12) : fmt(Math.max(0, spendingDiff * 12))}원</strong>이 더 지출되지만, TV 채널이 전 채널 정석형(~230개 채널 이상)으로 늘어나 야구·축구 생중계, 애니메이션, 해외 드라마까지 채널 막힘없이 쾌적하게 즐길 수 있습니다."
+      {/* 3. 금액 변동 문구 */}
+      <div className="mt-5 rounded-xl bg-blue-500/5 border border-blue-500/20 p-4">
+        <div className="flex items-center gap-2 border-b border-blue-500/10 pb-2">
+          <ArrowRightLeft className="text-blue-500" size={15} />
+          <h4 className="text-xs font-black text-primary">"{selectedPlanString}"을 선택한다면</h4>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-primary/95 font-medium font-sans">
+          {savingDiff > 0 ? (
+            <>
+              TV 요금제를 일상 실속형(~200개 채널)으로 낮추면, 매달 고정비 <span className="font-extrabold text-emerald-600">{fmt(savingDiff)}원</span> / 연 <strong>{fmt(savingDiff * 12)}원</strong>을 아낄 수 있어요!<br />
+              (자주 안 보던 유료 전문 채널만 제외될 뿐, tvN이나 지상파·종편 등 주요 예능·드라마 본방사수는 똑같이 끊김 없이 가능합니다.)
+            </>
+          ) : savingDiff < 0 ? (
+            <>
+              매달 <span className="font-extrabold text-destructive">{fmt(spendingDiff)}원</span> / 연 <strong>{fmt(spendingDiff * 12)}원</strong>이 더 지출되지만, TV 채널이 전 채널 정석형(~230개 채널 이상)으로 늘어나 야구·축구 생중계, 애니메이션, 해외 드라마까지 채널 막힘없이 쾌적하게 즐길 수 있습니다.
+            </>
+          ) : (
+            <>
+              현재 납부하고 계신 요금({fmt(currentPriceInput)}원)은 선택 요금제 요금과 동일하여 금액 변동이 없습니다.
+            </>
+          )}
         </p>
       </div>
 
