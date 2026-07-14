@@ -340,10 +340,15 @@ try {
 
   const { mockProducts } = await load("/src/app/features/product-catalog/data/mockProducts.ts");
   const { realProducts } = await load("/src/app/features/product-catalog/data/realProducts.ts");
+  const { REAL_AIR_CONDITIONER_PRODUCTS } = await load("/src/app/features/product-catalog/data/real/airConditioners.ts");
+  const { REAL_TV_PRODUCTS } = await load("/src/app/features/product-catalog/data/real/televisions.ts");
+  const { REAL_REFRIGERATOR_PRODUCTS } = await load("/src/app/features/product-catalog/data/real/refrigerators.ts");
+  const { REAL_VACUUM_PRODUCTS } = await load("/src/app/features/product-catalog/data/real/vacuumCleaners.ts");
   const { buildCatalogProducts, catalogProducts, catalogSourceByCategory, productRepository } = await load("/src/app/features/product-catalog/data/productCatalog.ts");
   const { StaticProductRepository } = await load("/src/app/features/product-catalog/repositories/StaticProductRepository.ts");
   const { validateProductData } = await load("/src/app/features/product-catalog/data/validateProducts.ts");
   assert.equal(mockProducts.length, 20, "기존 더미 상품 20개를 mockProducts로 보존");
+  assert.deepEqual(realProducts, [...REAL_AIR_CONDITIONER_PRODUCTS, ...REAL_TV_PRODUCTS, ...REAL_REFRIGERATOR_PRODUCTS, ...REAL_VACUUM_PRODUCTS], "realProducts는 네 상품군 실제 배열을 집계");
   assert.equal(realProducts.length, 0, "초기 실제 상품 카탈로그는 비어 있음");
   assert.deepEqual(catalogSourceByCategory, { "air-conditioner": "mock", tv: "mock", refrigerator: "mock", vacuum: "mock" }, "실제 데이터가 없으면 전 카테고리 mock fallback");
   const repository = productRepository;

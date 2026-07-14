@@ -23,7 +23,7 @@ export const rankAirConditioners = (products: AirConditionerProduct[], answers: 
     if (autoDryRequired && product.specs.autoDry !== true) reasons.push("자동 건조 필수 조건 미충족");
     if (a("installationCost") === "required" && product.specs.basicInstallationIncluded !== true) reasons.push("기본 설치비 포함 조건 미충족");
     if (a("energyGrade") === "1-required" && product.specs.energyGrade !== 1) reasons.push("에너지 1등급 필수 조건 미충족");
-    if (a("rebate") === "required" && product.specs.mockRebateEligible !== true) reasons.push("더미 환급 대상 조건 미충족");
+    if (a("rebate") === "required" && product.specs.rebateEligible !== true) reasons.push("환급 대상 확인 조건 미충족");
     if (reasons.length) { excludedProducts.push({ productId: product.id, productName: product.name, reasons }); continue; }
 
     const w = AIR_CONDITIONER_CRITERIA.weights;
@@ -34,9 +34,9 @@ export const rankAirConditioners = (products: AirConditionerProduct[], answers: 
     const convenienceScore = (product.specs.autoDry ? 1 : 0.25) * w.convenience;
     const marketScore = getPricePositionScore(product.currentPrice, product.priceHistory) / 100 * w.marketPrice;
     const matched = ["타입 일치", `냉방 ${requiredArea}평 이상`, ...(product.specs.inverter ? ["인버터"] : []), ...(product.specs.officialInstallation ? ["공식 지정 설치"] : [])];
-    const preferences = [product.currentPrice <= budget, product.specs.energyGrade <= 2, product.specs.basicInstallationIncluded, product.specs.autoDry, product.specs.mockRebateEligible].filter(Boolean).length;
+    const preferences = [product.currentPrice <= budget, product.specs.energyGrade <= 2, product.specs.basicInstallationIncluded, product.specs.autoDry, product.specs.rebateEligible].filter(Boolean).length;
     recommendations.push({ product, score: Math.round(budgetScore + w.typeAndCapacity + efficiencyScore + installationScore + convenienceScore + marketScore), matchedCoreCriteria: matched, unmatchedOrUnknownCriteria: [
-      ...(product.currentPrice > budget ? ["예산 초과"] : []), ...(!product.specs.basicInstallationIncluded ? ["기본 설치비 별도"] : []), ...(!product.specs.mockRebateEligible ? ["더미 환급 대상 아님"] : []),
+      ...(product.currentPrice > budget ? ["예산 초과"] : []), ...(!product.specs.basicInstallationIncluded ? ["기본 설치비 별도"] : []), ...(!product.specs.rebateEligible ? ["환급 대상 아님 또는 확인 필요"] : []),
     ], recommendationReasons: [`필수 타입·면적 조건 충족`, `효율 ${product.specs.energyGrade}등급과 현재 시세 위치를 점수에 반영`], preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
   }
   return { recommendations: sortRecommendations(recommendations).slice(0, 10), excludedProducts };
