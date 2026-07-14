@@ -25,7 +25,7 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
   if (!step) return null;
 
   if (step.type === "single-choice") {
-    if (step.id === "phone-current-plan-api") {
+    if (step.id === "phone-current-plan-api" || step.id === "internet-current-plan-api" || step.id === "iptv-current-plan-api") {
       const planOption = step.options.find(
         (o) => o.value !== "direct-select" && o.value !== "direct-input"
       );
@@ -80,10 +80,28 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
         </div>
       );
     }
-    if (step.id === "phone-recommendation-api") {
-      const rec1 = step.options.find((o) => o.value === "rec-mock-1");
-      const rec2 = step.options.find((o) => o.value === "rec-mock-2");
+    if (step.id === "phone-recommendation-api" || step.id === "internet-recommendation-api" || step.id === "iptv-select-new-plan" || step.id === "bundle-recommendation-api") {
+      const isInternet = step.id === "internet-recommendation-api";
+      const isIptv = step.id === "iptv-select-new-plan";
+      const isBundle = step.id === "bundle-recommendation-api";
+
+      let rec1 = null;
+      let rec2 = null;
+
+      if (isIptv || isBundle) {
+        const validOptions = step.options.filter((o) => o.value !== "direct-choose" && o.value !== "direct-select" && o.value !== "direct-input");
+        rec1 = validOptions[0];
+        rec2 = validOptions[1];
+      } else {
+        const rec1Val = isInternet ? "rec-internet-1" : "rec-mock-1";
+        const rec2Val = isInternet ? "rec-internet-2" : "rec-mock-2";
+        rec1 = step.options.find((o) => o.value === rec1Val);
+        rec2 = step.options.find((o) => o.value === rec2Val);
+      }
+
       const directChoose = step.options.find((o) => o.value === "direct-choose");
+      const directSelect = step.options.find((o) => o.value === "direct-select");
+      const directInput = step.options.find((o) => o.value === "direct-input");
       
       return (
         <div className="flex flex-col gap-3 w-full max-w-md">
@@ -127,8 +145,8 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
             )}
           </div>
           
-          {directChoose && (
-            <div className="flex justify-center mt-1">
+          <div className="flex flex-wrap gap-2 justify-center mt-1">
+            {directChoose && (
               <button
                 type="button"
                 onClick={() => onSubmit({ value: directChoose.value, displayValue: directChoose.label })}
@@ -136,8 +154,26 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
               >
                 {directChoose.label}
               </button>
-            </div>
-          )}
+            )}
+            {directSelect && (
+              <button
+                type="button"
+                onClick={() => onSubmit({ value: directSelect.value, displayValue: directSelect.label })}
+                className="rounded-full border border-border bg-card px-5 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
+              >
+                {directSelect.label}
+              </button>
+            )}
+            {directInput && (
+              <button
+                type="button"
+                onClick={() => onSubmit({ value: directInput.value, displayValue: directInput.label })}
+                className="rounded-full border border-border bg-card px-5 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
+              >
+                {directInput.label}
+              </button>
+            )}
+          </div>
         </div>
       );
     }

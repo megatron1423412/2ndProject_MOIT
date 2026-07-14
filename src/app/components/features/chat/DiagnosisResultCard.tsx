@@ -4,7 +4,11 @@ import type { FlowResult } from "../../../features/chat-flow/core/types";
 import PhoneDiagnosisReport from "../../../features/chat-flow/flows/telecom/phone/PhoneDiagnosisReport";
 import PhoneGradeReport from "../../../features/chat-flow/flows/telecom/phone/PhoneGradeReport";
 import InternetDiagnosisReport from "../../../features/chat-flow/flows/telecom/internet/InternetDiagnosisReport";
+import InternetGradeReport from "../../../features/chat-flow/flows/telecom/internet/InternetGradeReport";
 import IptvDiagnosisReport from "../../../features/chat-flow/flows/telecom/iptv/IptvDiagnosisReport";
+import IptvGradeReport from "../../../features/chat-flow/flows/telecom/iptv/IptvGradeReport";
+import BundleDiagnosisReport from "../../../features/chat-flow/flows/telecom/bundle/BundleDiagnosisReport";
+import BundleGradeReport from "../../../features/chat-flow/flows/telecom/bundle/BundleGradeReport";
 import RecommendationSelectionView from "../../../features/smart-shopping/recommendation/RecommendationSelectionView";
 import type { PriceAlertDraft } from "../../../features/smart-shopping/price-alerts/types";
 
@@ -32,8 +36,20 @@ export default function DiagnosisResultCard({ result, onEndSmartShoppingChat, on
   if (result.metadata?.category === "internet") {
     return <InternetDiagnosisReport result={result} />;
   }
+  if (result.metadata?.category === "internet-grade") {
+    return <InternetGradeReport result={result} />;
+  }
   if (result.metadata?.category === "iptv") {
     return <IptvDiagnosisReport result={result} />;
+  }
+  if (result.metadata?.category === "iptv-grade") {
+    return <IptvGradeReport result={result} />;
+  }
+  if (result.metadata?.category === "bundle") {
+    return <BundleDiagnosisReport result={result} />;
+  }
+  if (result.metadata?.category === "bundle-grade") {
+    return <BundleGradeReport result={result} />;
   }
 
   return (

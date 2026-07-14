@@ -1,14 +1,30 @@
-import type { FlowAnswers, FlowResult } from "../../../core/types";
-import { createTelecomMockResult } from "../../../shared/telecom/resultHelpers";
-import { IPTV_MOCK_RESULT } from "./mockData";
+// src/app/features/chat-flow/flows/telecom/iptv/result.ts
 
-export const buildIptvResult = (answers: FlowAnswers): FlowResult => {
+import type { FlowResult } from "../../../core/types";
+import { createTelecomMockResult } from "../../../shared/telecom/resultHelpers";
+import { IPTV_MOCK_RESULT, mockIptvPlans } from "./mockData";
+
+export const buildIptvResult = (answers: Record<string, any>): FlowResult => {
   const baseResult = createTelecomMockResult({ namespace: "iptv", answers, savingsRate: 0.14, ...IPTV_MOCK_RESULT });
+  
+  const currentPriceInput = Number(answers["iptv.currentPlanPriceInput"] || 0);
+  const selectedPlanId = answers["iptv.selectedNewPlan"] || answers["iptv.selectedNewPlanDirect"];
+  const selectedPlan = mockIptvPlans.find((p) => p.id === selectedPlanId);
+  const selectedPrice = selectedPlan ? selectedPlan.price : 0;
+
+  const saving = currentPriceInput - selectedPrice;
+  const savingRate = currentPriceInput > 0 ? (saving / currentPriceInput) : 0;
+
+  const isGrade = answers["iptv.askGrade"] === "yes";
+
   return {
     ...baseResult,
     metadata: {
       ...baseResult.metadata,
-      category: "iptv",
+      category: isGrade ? "iptv-grade" : "iptv",
+      saving,
+      savingRate,
+      answers,
     },
   };
 };

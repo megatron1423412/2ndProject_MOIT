@@ -1,0 +1,98 @@
+// src/app/features/chat-flow/flows/telecom/bundle/BundleGradeReport.tsx
+
+import React from "react";
+import type { FlowResult } from "../../../core/types";
+
+interface BundleGradeReportProps {
+  result: FlowResult;
+}
+
+const fmt = (n: number) => n.toLocaleString("ko-KR");
+
+export default function BundleGradeReport({ result }: BundleGradeReportProps) {
+  const metadata = result.metadata || {};
+  const saving = Number(metadata.saving || 0);
+  const savingRate = Number(metadata.savingRate || 0);
+
+  let grade = "Normal";
+  let gradeLabel = "기본 등급";
+  let gradeEmoji = "🌱";
+  let gradeReason = "현재 이용 중인 결합 요금과 추천 요금 간의 절감 차이가 크지 않습니다. 이미 가구 구성원 수와 사용량에 알맞게 잘 결합하여 쓰고 계신 상태입니다.";
+  let gradeTheme = { bg: "bg-muted/30", text: "text-muted-foreground", border: "border-border/60", ring: "ring-muted" };
+
+  if (savingRate >= 0.25 || saving >= 20000) {
+    grade = "Gold";
+    gradeLabel = "골드 등급";
+    gradeEmoji = "🏆";
+    gradeReason = `기존 결합 요금 대비 ${Math.round(savingRate * 100)}%(${fmt(saving)}원)의 상당한 금액을 성공적으로 절감하셨습니다! 통신 고정비를 가족 결합 할인 재조정으로 극한으로 낮추는 매우 우수한 소비 패턴을 보여주고 계십니다.`;
+    gradeTheme = { bg: "bg-amber-500/5", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20", ring: "ring-amber-500/30" };
+  } else if (savingRate >= 0.12 || saving >= 10000) {
+    grade = "Silver";
+    gradeLabel = "실버 등급";
+    gradeEmoji = "🥈";
+    gradeReason = `기존 결합 요금 대비 ${Math.round(savingRate * 100)}%(${fmt(saving)}원)의 알찬 고정 지출을 줄이셨습니다. 가족 결합 조건을 현명하게 조정하여 건강한 고정비 통제 습관을 구축하고 계십니다.`;
+    gradeTheme = { bg: "bg-slate-500/5", text: "text-slate-600 dark:text-slate-400", border: "border-slate-500/20", ring: "ring-slate-500/30" };
+  } else if (savingRate >= 0.05 || saving >= 3000) {
+    grade = "Bronze";
+    gradeLabel = "브론즈 등급";
+    gradeEmoji = "🥉";
+    gradeReason = `기존 결합 요금 대비 ${Math.round(savingRate * 100)}%(${fmt(saving)}원) 수준의 고정비를 확보하셨습니다. 결합 옵션을 조금 더 꼼꼼히 조율하시면 한 단계 위 등급을 얻을 수 있습니다!`;
+    gradeTheme = { bg: "bg-orange-500/5", text: "text-orange-600 dark:text-orange-400", border: "border-orange-500/20", ring: "ring-orange-500/30" };
+  }
+
+  return (
+    <div className={`w-full max-w-sm rounded-2xl border p-6 shadow-md transition-all hover:shadow-lg ${gradeTheme.bg} ${gradeTheme.border}`}>
+      
+      {/* 상단 타이틀 */}
+      <div className="flex flex-col items-center text-center gap-1 border-b border-border/40 pb-4">
+        <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase">
+          소비 패턴 분석
+        </span>
+        <h3 className="text-base font-black tracking-tight text-primary">
+          나의 결합 요금 소비 등급
+        </h3>
+      </div>
+
+      {/* 강조된 대형 등급 이모지 */}
+      <div className="my-6 flex flex-col items-center justify-center">
+        <div className={`flex h-28 w-28 items-center justify-center rounded-full bg-background border shadow-inner ring-8 ${gradeTheme.ring} animate-pulse`}>
+          <span className="text-6xl select-none leading-none">{gradeEmoji}</span>
+        </div>
+        <span className={`mt-3 text-lg font-black tracking-tight ${gradeTheme.text}`}>
+          {gradeLabel}
+        </span>
+      </div>
+
+      {/* 진단 소견 */}
+      <div className="rounded-xl bg-background/50 border border-border/40 p-4 text-xs leading-relaxed">
+        <p className="font-bold text-muted-foreground mb-1">🔍 진단 소견</p>
+        <p className="text-primary/95 font-medium leading-relaxed">
+          {gradeReason}
+        </p>
+      </div>
+
+      {/* 절감 비율 프로그레스 바 */}
+      {saving > 0 && (
+        <div className="mt-5">
+          <div className="flex justify-between text-[10px] text-muted-foreground mb-1 font-bold">
+            <span>요금 절감 비율</span>
+            <span>{Math.round(savingRate * 100)}% 절감</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full ${grade === "Gold" ? "bg-amber-500" : grade === "Silver" ? "bg-slate-500" : "bg-orange-500"}`}
+              style={{ width: `${Math.min(100, savingRate * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 공유 링크 안내 */}
+      <div className="mt-5 text-[10px] text-center text-muted-foreground/60 leading-normal">
+        나의 등급을 인스타그램 등 SNS에 인증하여<br />
+        주변 지인들과 스마트한 소비를 공유해 보세요!
+      </div>
+
+    </div>
+  );
+}

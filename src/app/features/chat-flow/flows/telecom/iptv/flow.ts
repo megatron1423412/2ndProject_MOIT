@@ -1,9 +1,10 @@
-// src/app/features/chat-flow/flow/iptv/flow.ts
+// src/app/features/chat-flow/flows/telecom/iptv/flow.ts
 
 import { composeFlow } from "../../../core/composeFlow";
 import type { FlowDefinition, FlowStep } from "../../../core/types";
 // Mock 데이터 및 등급 계산 함수 불러오기
-import { mockIptvPlans, calculateIptvGrade } from "./mockData";
+import { mockIptvPlans, fetchIptvPlansFromApi } from "./mockData";
+import { buildIptvResult } from "./result";
 
 const namespace = "iptv";
 
@@ -19,15 +20,19 @@ const providerTypeLabelMap: Record<string, string> = {
   none: "셋톱박스 없음",
 };
 
-// Part 1
+// =================================================================
+// [Part 1] 현재 사용자 정보 입력 파트
+// =================================================================
 const opening: FlowStep[] = [
+  // [Part 1 - 1번] 시작 안내 메시지 (인사말 분리로 phone 패턴 일치)
   {
     id: "iptv-intro",
     type: "assistant-message",
     message: "TV·IPTV는 현재 요금과 실제 채널 사용량을 나눠서 볼게요.",
     next: "iptv-provider-type",
   },
-  // 1. 통신사 선택 (정적 객체 배열 내부에 각각의 목적지 next 명시)
+
+  // [Part 1 - 2번] 통신사 (서비스 형태) 선택
   {
     id: "iptv-provider-type",
     type: "single-choice",
@@ -41,14 +46,17 @@ const opening: FlowStep[] = [
       { value: "kt_hcn", label: providerTypeLabelMap.kt_hcn, next: "iptv-current-price-input" },
       { value: "genie_skylife", label: providerTypeLabelMap.genie_skylife, next: "iptv-current-price-input" },
       { value: "kt_skylife", label: providerTypeLabelMap.kt_skylife, next: "iptv-current-price-input" },
-      // 💡 셋톱박스 없음 선택 시 Part 2 약정 선택 구간(iptv-desired-contract)으로 다이렉트 이동하도록 지정
+      // 💡 셋톱박스 없음 선택 시 Part 2 약정 선택 구간(iptv-desired-contract)으로 다이렉트 이동하도록 복원
       { value: "none", label: providerTypeLabelMap.none, next: "iptv-desired-contract" },
     ],
   },
 ];
 
+// =================================================================
+// [Part 2] 원하는 요금제 및 서비스 조건 선택 파트
+// =================================================================
 const specific: FlowStep[] = [
-  // --- 2. 요금제 금액 사용자가 입력하는 부분 ---
+  // [Part 1 - 3번] 현재 납부 요금 입력
   {
     id: "iptv-current-price-input",
     type: "number-input",
@@ -57,21 +65,33 @@ const specific: FlowStep[] = [
     placeholder: "예: 15400",
     min: 0,
     unit: "원",
-    next: "iptv-select-current-method",
+    next: "iptv-current-plan-api", // 동적 API 조회 스텝으로 연결
   },
 
-  // --- 3. 요금제 입력 및 불러오기 선택 ---
+  // [Part 1 - 4번] 🔄 요금조회 API 결과를 매칭하는 동적 스텝 (추천 요금제 카드 형식 노출)
   {
-    id: "iptv-select-current-method",
+    id: "iptv-current-plan-api",
     type: "single-choice",
-    message: "현재 이용 중이신 요금제 정보를 어떻게 입력하시겠습니까?",
-    answerKey: `${namespace}.currentInputMethod`,
+    message: "현재 사용하시는 IPTV 요금제가 맞을까요?",
+    answerKey: `${namespace}.confirmedPlan`,
     options: [
-      { value: "list", label: "현재 요금제 리스트에서 직접 고르기", next: "iptv-choose-current-list" },
-      { value: "manual", label: "요금제 직접 입력하기", next: "iptv-manual-name-input" },
+      { value: "direct-select", label: "직접 선택", next: "iptv-choose-current-list" },
+      { value: "direct-input", label: "직접 입력", next: "iptv-manual-name-input" },
     ],
+    optionsResolver: (answers) => {
+      const providerType = answers[`${namespace}.providerType`] as string;
+      const currentPrice = answers[`${namespace}.currentPlanPriceInput`] as number;
+      const apiPlans = fetchIptvPlansFromApi(providerType, currentPrice);
+      return [
+        ...apiPlans,
+        { value: "direct-select", label: "직접 선택", next: "iptv-choose-current-list" },
+        { value: "direct-input", label: "직접 입력", next: "iptv-manual-name-input" },
+      ];
+    },
+    next: "iptv-contract-diagnosis",
   },
-  // 3-1. 요금 리스트 직접 고르기
+
+  // [Part 1 - 4-1번] 요금 리스트 직접 고르기
   {
     id: "iptv-choose-current-list",
     type: "single-choice",
@@ -87,35 +107,17 @@ const specific: FlowStep[] = [
     next: "iptv-contract-diagnosis",
   },
 
-  // 3-2. 요금제 직접 입력
+  // [Part 1 - 4-2번] 요금제 직접 입력
   {
     id: "iptv-manual-name-input",
     type: "text-input",
     message: "현재 사용 중이신 요금제 이름을 입력해주세요.",
     answerKey: `${namespace}.currentPlanNameManual`,
     placeholder: "예: Btv 스탠다드",
-    next: "iptv-manual-summary",
+    next: "iptv-contract-diagnosis", // 직접 입력 완료 후 바로 약정진단으로 복귀
   },
 
-  // 사용자가 입력/선택한 providerType, 요금제명, 금액을 실제 값으로 조합해 보여주는 동적 요약 스텝
-  {
-    id: "iptv-manual-summary",
-    type: "assistant-message",
-    message: (context: any) => {
-      const data = context?.[namespace] || {};
-      const providerLabel = providerTypeLabelMap[data.providerType] ?? data.providerType ?? "미확인 서비스 형태";
-      const planName = data.currentPlanNameManual ?? "미입력";
-      const rawPrice = data.currentPlanPriceInput;
-      const priceText = rawPrice !== undefined && rawPrice !== null && rawPrice !== ""
-        ? `${Number(rawPrice).toLocaleString()}원`
-        : "미입력";
-
-      return `[${providerLabel}] ${planName} - 월 ${priceText} 요금제를 사용하시고 계십니다.`;
-    },
-    next: "iptv-contract-diagnosis",
-  },
-
-  // --- 4. 남은 약정 기간 선택 ---
+  // [Part 1 - 5번] 현재 약정 기간 상태 확인
   {
     id: "iptv-contract-diagnosis",
     type: "single-choice",
@@ -129,11 +131,11 @@ const specific: FlowStep[] = [
     ],
   },
 
-  // --- Part 2. 조건에 맞는 요금제 제시·선택 ---
+  // [Part 2 - 6번] 비교를 원하는 약정 기간 선택
   {
     id: "iptv-desired-contract",
     type: "single-choice",
-    message: "이제 원하시는 TV·IPTV 요금제를 찾아볼까요.\n비교를 원하시는 약정 기간을 선택해주세요.\n선택하신 약정에 맞게 TV·IPTV 요금제를 알려 드립릴께요.",
+    message: "이제 원하시는 TV·IPTV 요금제를 찾아볼까요.\n비교를 원하시는 약정 기간을 선택해주세요.\n선택하신 약정에 맞게 TV·IPTV 요금제를 알려 드릴게요.",
     answerKey: `${namespace}.desiredContract`,
     options: [
       { value: "3years", label: "3년 약정 (추천)" },
@@ -143,143 +145,130 @@ const specific: FlowStep[] = [
     ],
     next: "iptv-select-new-plan",
   },
+
+  // [Part 2 - 7번] 요금제 리스트 선택 (추천 요금제 카드 형태로 변경)
   {
     id: "iptv-select-new-plan",
     type: "single-choice",
-    message: "선택하신 약정 조건에 맞는 TV·IPTV 요금제 리스트입니다. 변경을 고려 중이거나 관심 있는 요금제를 선택해주세요.\n※셋톱박스 대여, 출동비 별도※",
+    message: "선택하신 약정 조건에 맞는 TV·IPTV 요금제 추천입니다. 변경을 고려 중이거나 관심 있는 요금제를 선택해주세요.\n※셋톱박스 대여, 출동비 별도※",
     answerKey: `${namespace}.selectedNewPlan`,
-    next: "iptv-ask-comparison",
+    options: [
+      { value: "iptv-sk-std", label: "[추천 1순위] Btv 스탠다드 (220개 채널) - 월 15,400원", next: "iptv-result" },
+      { value: "iptv-sk-all", label: "[추천 2순위] Btv All (252개 채널) - 월 19,800원", next: "iptv-result" },
+      { value: "direct-choose", label: "직접 고를래요 (전체 리스트 보기)", next: "iptv-all-plans-select" },
+    ],
+    optionsResolver: (answers) => {
+      const providerType = answers[`${namespace}.providerType`] as string;
+      
+      let carrier = "KT";
+      if (providerType && providerType.startsWith("sk")) carrier = "SKT";
+      else if (providerType && providerType.startsWith("lg")) carrier = "LGU+";
+
+      // 해당 통신사의 요금제 2개 추출해서 카드용 1순위, 2순위 추천 옵션 생성
+      const matchingPlans = mockIptvPlans.filter((p) => p.carrier === carrier);
+      const rec1 = matchingPlans[0] || mockIptvPlans[0];
+      const rec2 = matchingPlans[1] || mockIptvPlans[1];
+
+      return [
+        { value: rec1.id, label: `[추천 1순위] ${rec1.name} (${rec1.channels}개 채널) - 월 ${rec1.price.toLocaleString()}원`, next: "iptv-result" },
+        { value: rec2.id, label: `[추천 2순위] ${rec2.name} (${rec2.channels}개 채널) - 월 ${rec2.price.toLocaleString()}원`, next: "iptv-result" },
+        { value: "direct-choose", label: "직접 고를래요 (전체 리스트 보기)", next: "iptv-all-plans-select" },
+      ];
+    },
+    next: "iptv-result",
+  },
+
+  // [Part 2 - 7-1번] 전체 요금제 리스트 직접 선택 스텝
+  {
+    id: "iptv-all-plans-select",
+    type: "single-choice",
+    message: "TV·IPTV 전체 요금제 리스트입니다. 원하시는 요금제를 선택해 주세요.",
+    answerKey: `${namespace}.selectedNewPlanDirect`,
     options: [...mockIptvPlans]
       .sort((a, b) => {
-        const order = { "SKT": 1, "KT": 2, "LGU+": 3 };
-        return order[a.carrier] - order[b.carrier];
+        const order: Record<string, number> = { "SKT": 1, "KT": 2, "LGU+": 3 };
+        return (order[a.carrier] || 99) - (order[b.carrier] || 99);
       })
       .map((plan) => ({
         value: plan.id,
         label: `[${plan.carrier}] ${plan.name} (${plan.channels}개 채널) - 월 ${plan.price.toLocaleString()}원`,
       })),
+    next: "iptv-result",
   },
 
-  // --- 요금제 비교 의사 타진 분기점 ---
-  {
-    id: "iptv-ask-comparison",
-    type: "single-choice",
-    message: "선택하신 요금제와 현재 이용 중이신 요금제를 비교해 보시겠습니까?",
-    answerKey: `${namespace}.askComparison`,
-    options: [
-      { value: "yes", label: "예, 비교해 주세요", next: "iptv-result" },
-      { value: "no", label: "아니요", next: "iptv-ask-other-plan-natural" },
-    ],
-  },
-
-  // 요금제 비교 '아니요' 선택 시 주관식 자연어 입력
-  {
-    id: "iptv-ask-other-plan-natural",
-    type: "text-input",
-    message: "그렇다면 혹시 다른 요금제나 통신사 조건을 내 요금과 비교해 보시겠어요? 원하시는 요금제나 제안 사항을 자유롭게 말씀해 주세요.",
-    answerKey: `${namespace}.otherPlanNaturalResponse`,
-    next: "iptv-natural-end-result",
-  },
-
-  // 무한 루프 차단용 전용 마감 결과 스텝
-  {
-    id: "iptv-natural-end-result",
-    type: "result",
-    message: "남겨주신 의견을 토대로 더 알맞은 맞춤 제안을 준비하겠습니다. 이용해 주셔서 감사합니다!",
-  },
-
-  // --- Part 3. 요금 비교 결과 출력 스텝 ---
+  // [Part 2 - 8번] 📊 요금 비교 결과 출력 스텝 (요금 비교·추천 솔루션)
   {
     id: "iptv-result",
-    type: "assistant-message",
-    message: (context: any) => {
-      const inputMethod = context?.[namespace]?.currentInputMethod;
-      const currentPlanId = context?.[namespace]?.currentPlanId;
-      const currentPriceInput = Number(context?.[namespace]?.currentPlanPriceInput || 0);
-
-      let currentPlanString = "";
-
-      if (inputMethod === "list" && currentPlanId && currentPlanId !== "manual_fallback") {
-        const foundPlan = mockIptvPlans.find(p => p.id === currentPlanId);
-        if (foundPlan) {
-          currentPlanString = `[${foundPlan.carrier}] ${foundPlan.name} - 월 ${foundPlan.price.toLocaleString()}원`;
-        }
-      }
-
-      if (!currentPlanString) {
-        const providerType = context?.[namespace]?.providerType;
-        const providerLabel = providerTypeLabelMap[providerType] ?? "직접 입력 요금제";
-        const planNameManual = context?.[namespace]?.currentPlanNameManual || "기본 요금제";
-
-        currentPlanString = `[${providerLabel}] ${planNameManual} - 월 ${currentPriceInput.toLocaleString()}원`;
-      }
-
-      const selectedPlanId = context?.[namespace]?.selectedNewPlan;
-      const selectedPlan = mockIptvPlans.find(p => p.id === selectedPlanId);
-      const selectedPlanString = selectedPlan
-        ? `${selectedPlan.name} (${selectedPlan.price.toLocaleString()}원)`
-        : "선택 요금제 정보 없음";
-
-      const selectedPrice = selectedPlan ? selectedPlan.price : 0;
-      const priceDiff = currentPriceInput - selectedPrice;
-
-      let solutionText = "";
-      if (priceDiff > 0) {
-        solutionText = `#### 💡 맞춤형 추천 솔루션\n**① 채널 스펙을 낮춰서 고정비를 줄일 때 (절약형)**\n> "TV 요금제를 일상 실속형(~200개 채널)으로 낮추면, 매달 고정비 **${priceDiff.toLocaleString()}원** / 연 **${(priceDiff * 12).toLocaleString()}원**을 아낄 수 있어요!\n> (자주 안 보던 유료 전문 채널만 제외될 뿐, tvN이나 지상파·종편 등 주요 예능·드라마 본방사수는 똑같이 끊김 없이 가능합니다.)"`;
-      } else {
-        const absoluteDiff = Math.abs(priceDiff);
-        solutionText = `#### 💡 맞춤형 추천 솔루션\n**② 채널 스펙을 높여서 고정비가 늘어날 때 (지출형)**\n> "매달 **${absoluteDiff.toLocaleString()}원** / 연 **${(absoluteDiff * 12).toLocaleString()}원**이 더 지출되지만, TV 채널이 전 채널 정석형(~230개 채널 이상)으로 늘어나 야구·축구 생중계, 애니메이션, 해외 드라마까지 채널 막힘없이 쾌적하게 즐길 수 있습니다."`;
-      }
-
-      return `### 📊 요금 비교 결과\n현재 당신의 요금제는 **${currentPlanString}** 입니다.\n새롭게 선택하신 요금제는 **[추천 요금제] ${selectedPlanString}** 입니다.\n\n---\n\n${solutionText}`;
-    },
+    type: "result",
+    resultBuilder: buildIptvResult,
+    message: "선택하신 요금제를 바탕으로 IPTV 요금 비교·추천 솔루션 분석이 완료되었습니다. 아래 카드에서 비교 분석 리포트를 확인해 보세요.",
     next: "iptv-ask-grade-diagnosis"
   },
 
-  // --- 요금 비교 후 등급 진단 여부 분기점 ---
+  // [Part 3 - 9번] 소비 패턴 등급 진단 여부 분기 질문
   {
     id: "iptv-ask-grade-diagnosis",
     type: "single-choice",
-    message: "현재 요금 비교 내용을 토대로 고객님 맞춤형 'IPTV 소비 패턴 등급 진단'까지 연속해서 받아보시겠습니까?",
-    answerKey: `${namespace}.askGradeDiagnosis`,
+    message: "등급 진단을 받아보시겠습니까?",
+    answerKey: `${namespace}.askGrade`,
     options: [
-      { value: "yes", label: "예, 등급 진단도 받을래요", next: "iptv-grade-result" },
-      { value: "no", label: "아니요, 여기까지만 볼게요", next: "iptv-natural-end-result" },
+      { value: "yes", label: "YES", next: "iptv-grade-result" },
+      { value: "no", label: "NO", next: "iptv-exit" },
     ],
   },
 
-  // --- Part 4. 최종 등급 진단 결과 노출 ---
+  // [Part 3 - 10번] 🏅 IPTV 소비 패턴 등급 진단 결과 노출
   {
     id: "iptv-grade-result",
     type: "result",
-    message: (context: any) => {
-      const inputMethod = context?.[namespace]?.currentInputMethod;
-      const currentPlanId = context?.[namespace]?.currentPlanId;
-      let currentPrice = Number(context?.[namespace]?.currentPlanPriceInput || 0);
+    resultBuilder: buildIptvResult,
+    message: "IPTV 소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다.",
+    next: "iptv-ask-share"
+  },
 
-      if (inputMethod === "list" && currentPlanId && currentPlanId !== "manual_fallback") {
-        const foundPlan = mockIptvPlans.find(p => p.id === currentPlanId);
-        if (foundPlan) currentPrice = foundPlan.price;
-      }
+  // [Part 3 - 11번] SNS 공유 의사 확인 질문
+  {
+    id: "iptv-ask-share",
+    type: "single-choice",
+    message: "진단받은 나의 IPTV 소비 패턴 등급을 공유하시겠습니까?",
+    answerKey: `${namespace}.askShare`,
+    options: [
+      { value: "yes", label: "YES", next: "iptv-sns-redirect" },
+      { value: "no", label: "NO", next: "iptv-exit" },
+    ],
+  },
 
-      const selectedPlanId = context?.[namespace]?.selectedNewPlan;
-      const selectedPlan = mockIptvPlans.find(p => p.id === selectedPlanId);
-      const selectedPrice = selectedPlan ? selectedPlan.price : 0;
+  // [Part 3 - 12번] SNS 공유 리다이렉트
+  {
+    id: "iptv-sns-redirect",
+    type: "assistant-message",
+    message: "인스타그램으로 이동합니다. [여기를 클릭하여 인스타그램에서 결과를 공유](https://instagram.com)해 주세요.",
+    next: "iptv-exit",
+  },
 
-      const hasRequiredGenres = true;
-      const result = calculateIptvGrade(currentPrice, selectedPrice, hasRequiredGenres);
-      const savingPercent = currentPrice > 0 ? (result.netBenefit / currentPrice) * 100 : 0;
+  // [Part 3 - 13번] 종료 및 새로운 주제 시작 질문 스텝
+  {
+    id: "iptv-exit",
+    type: "single-choice",
+    message: "새로운 주제로 시작하시겠습니까?",
+    answerKey: `${namespace}.exitRestart`,
+    options: [],
+    optionsResolver: () => [
+      { value: "restart", label: "예, 새로운 주제로 시작할래요", next: "iptv-intro" },
+      { value: "exit", label: "아니요, 대화를 종료할래요", next: "iptv-completed-exit" },
+    ],
+    next: "iptv-completed-exit",
+  },
 
-      return `### 🏅 IPTV 요금제 등급 진단 (소비 패턴 분석)
-IPTV는 단순 가격이나 채널 개수보다 **'내가 보는 채널을 유지하며 비용을 아끼는가'**가 핵심입니다.
-
-* **최종 진단 등급**:  🏆 **${result.grade} 등급**
-* **실질 월 이득**:  **${result.netBenefit.toLocaleString()}원** (월간 절감 비율: ${savingPercent.toFixed(1)}%)
-* **진단 소견**: ${result.message}`;
-    },
+  // [Part 3 - 14번] 최종 대화 종료
+  {
+    id: "iptv-completed-exit",
+    type: "result",
+    message: "IPTV 요금제 진단 서비스를 이용해 주셔서 감사합니다. 안전하게 대화가 종료되었습니다.",
   },
 ];
 
+// 최종 흐름 생성
 export const iptvFlow: FlowDefinition = {
   id: "iptv-flow",
   subCategoryId: "iptv",

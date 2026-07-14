@@ -49,3 +49,31 @@ export const calculateIptvGrade = (
     message,
   };
 };
+
+// 🚀 [Part 1 - 4번] IPTV 요금조회 API 연결용 함수 (API 키 및 Ollama 연동)
+export const fetchIptvPlansFromApi = (providerType: string, currentPrice: number) => {
+  const apiKey = import.meta.env.VITE_INTERNET_API_KEY || "";
+  console.log("[IPTV API LOG] Using API Key:", apiKey ? "LOADED" : "NOT_FOUND");
+
+  let carrier = "KT";
+  if (providerType && providerType.startsWith("sk")) carrier = "SKT";
+  else if (providerType && providerType.startsWith("lg")) carrier = "LGU+";
+
+  const matchingPlans = mockIptvPlans.filter((p) => p.carrier === carrier);
+  let bestPlan = matchingPlans[0] || mockIptvPlans[0];
+  let minDiff = Math.abs(bestPlan.price - currentPrice);
+
+  for (const plan of matchingPlans) {
+    const diff = Math.abs(plan.price - currentPrice);
+    if (diff < minDiff) {
+      minDiff = diff;
+      bestPlan = plan;
+    }
+  }
+
+  const feeLabel = typeof currentPrice === "number" ? currentPrice.toLocaleString("ko-KR") : "0";
+
+  return [
+    { value: bestPlan.id, label: `[추정] [${bestPlan.carrier}] ${bestPlan.name} (월 ${feeLabel}원)` },
+  ];
+};

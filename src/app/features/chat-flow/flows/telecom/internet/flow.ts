@@ -1,5 +1,6 @@
 import { composeFlow } from "../../../core/composeFlow";
 import type { FlowDefinition, FlowStep } from "../../../core/types";
+import { fetchInternetPlansFromApi, MOCK_ALL_INTERNET_PLANS, MOCK_RECOMMENDED_INTERNET_PLANS } from "./mockData";
 
 const namespace = "internet";
 
@@ -7,23 +8,34 @@ const namespace = "internet";
 // [Part 1] 현재 사용자 정보 입력 파트
 // =================================================================
 const opening: FlowStep[] = [
-  // 1번 질문: 통신사 선택
+  // [Part 1 - 0번] 시작 안내 메시지 (phone-intro 패턴 일치)
   {
     id: "internet-intro",
-    type: "single-choice",
-    layout: "inline",
-    message: "인터넷 요금제 진단을 시작합니다. 먼저 현재 이용 중이거나 관심 있는 통신사를 선택해 주세요.",
-    answerKey: `${namespace}.commonCarrier`,
-    options: [
-      { value: "SK", label: "SK브로드밴드" },
-      { value: "KT", label: "KT올레" },
-      { value: "LGU", label: "LG유플러스" },
-      { value: "SKYLIFE", label: "스카이라이프/케이블" },
-    ],
-    next: "internet-fee", // 바로 요금 입력으로 연결
+    type: "assistant-message",
+    message: "인터넷 요금제 진단을 시작할게요. 현재 요금 조건부터 확인해볼게요.",
+    next: "internet-carrier",
   },
 
-  // 2번 질문: 현재 인터넷 요금 입력
+  // [Part 1 - 1번] 통신사 선택 (인사말과 질문을 분리하여 답변 후 다음 질문이 나오도록 유도)
+  {
+    id: "internet-carrier",
+    type: "single-choice",
+    layout: "inline",
+    message: "현재 사용하는 인터넷 통신사를 선택해주세요.",
+    answerKey: `${namespace}.commonCarrier`,
+    options: [
+      { value: "SK", label: "SK 브로드밴드" },
+      { value: "KT", label: "KT 올레" },
+      { value: "LGU", label: "LG 유플러스" },
+      { value: "HELLOVISION", label: "LG 헬로비전" },
+      { value: "KTSKY", label: "KT 스카이라이프" },
+      { value: "KTHCN", label: "KT HCN" },
+      { value: "SKYLIFE", label: "스카이라이프" },
+    ],
+    next: "internet-fee",
+  },
+
+  // [Part 1 - 2번] 현재 사용하는 인터넷 요금 입력
   {
     id: "internet-fee",
     type: "number-input",
@@ -32,10 +44,53 @@ const opening: FlowStep[] = [
     placeholder: "예: 25000",
     min: 0,
     unit: "원",
+    next: "internet-current-plan-api",
+  },
+
+  // [Part 1 - 3번] 🔄 요금조회 API 결과를 매칭하는 동적 스텝 (추천 요금제 카드 형식 노출)
+  {
+    id: "internet-current-plan-api",
+    type: "single-choice",
+    message: "현재 사용하시는 인터넷 요금제가 맞을까요?",
+    answerKey: `${namespace}.confirmedPlan`,
+    options: [
+      { value: "direct-select", label: "직접 선택", next: "internet-all-plans-select" },
+      { value: "direct-input", label: "직접 입력", next: "internet-custom-plan-input" },
+    ],
+    optionsResolver: (answers) => {
+      const carrier = answers[`${namespace}.commonCarrier`] as string;
+      const currentFee = answers[`${namespace}.fee`] as number;
+      const apiPlans = fetchInternetPlansFromApi(carrier, currentFee);
+      return [
+        ...apiPlans,
+        { value: "direct-select", label: "직접 선택", next: "internet-all-plans-select" },
+        { value: "direct-input", label: "직접 입력", next: "internet-custom-plan-input" },
+      ];
+    },
     next: "internet-contract-notice",
   },
 
-  // 3번 질문: 약정 기간 진단 공지
+  // 직접 요금제명을 선택하는 분기 스텝
+  {
+    id: "internet-all-plans-select",
+    type: "single-choice",
+    message: "추천 요금제 외에 선택 가능한 전체 요금제 리스트입니다. 원하시는 요금제를 선택해 주세요.",
+    answerKey: `${namespace}.manualSelectedPlan`,
+    options: MOCK_ALL_INTERNET_PLANS,
+    next: "internet-contract-notice",
+  },
+
+  // 직접 요금제명을 입력하는 분기 스텝
+  {
+    id: "internet-custom-plan-input",
+    type: "text-input",
+    message: "사용 중이신 인터넷 요금제 이름을 입력해주세요.",
+    answerKey: `${namespace}.customPlan`,
+    placeholder: "예: 기가 인터넷 요금제",
+    next: "internet-contract-notice",
+  },
+
+  // [Part 1 - 4번] 약정 기간 진단 공지
   {
     id: "internet-contract-notice",
     type: "assistant-message",
@@ -43,7 +98,7 @@ const opening: FlowStep[] = [
     next: "internet-contract-period",
   },
 
-  // 4번 질문: 현재 약정 기간 선택
+  // [Part 1 - 5번] 현재 약정 기간 선택
   {
     id: "internet-contract-period",
     type: "single-choice",
@@ -56,7 +111,7 @@ const opening: FlowStep[] = [
       { value: "under1y", label: "아직 약정 기간 남음 (1년 미만)" },
       { value: "unknown", label: "잘 모르겠음" },
     ],
-    next: "internet-usage", // Part 2의 5번 질문으로 연결
+    next: "internet-usage",
   },
 ];
 
@@ -64,7 +119,7 @@ const opening: FlowStep[] = [
 // [Part 2] 원하는 요금제 및 서비스 조건 선택 파트
 // =================================================================
 const specific: FlowStep[] = [
-  // 5번 질문: 조건에 맞는 인터넷 요금제 선택
+  // [Part 2 - 6번] 조건에 맞는 인터넷 요금제 선택
   {
     id: "internet-usage",
     type: "single-choice",
@@ -79,7 +134,7 @@ const specific: FlowStep[] = [
     next: "internet-plan-contract",
   },
 
-  // 🆕 5-1번 질문: 원하시는 약정 할인 기간 선택 (신규 추가)
+  // [Part 2 - 7번] 원하시는 약정 할인 기간 선택
   {
     id: "internet-plan-contract",
     type: "single-choice",
@@ -92,66 +147,92 @@ const specific: FlowStep[] = [
       { value: "discount1y", label: "1년 약정" },
       { value: "noDiscount", label: "무약정" },
     ],
-    next: "internet-confirm",
+    next: "internet-recommendation-api",
   },
 
-  // 6번 질문: 결과 보기 전 최종 확인
+  // [Part 2 - 8번] 🚀 요금 비교 추천 솔루션 요금제 선택 스텝
   {
-    id: "internet-confirm",
-    type: "confirmation",
-    message: "현재 속도를 낮출 수 있는지 mock 결과를 볼까요?",
-    answerKey: `${namespace}.confirmed`,
-    confirmNext: "internet-grade-branch", // 등급 판별 분기점으로 이동
-    cancelNext: "internet-grade-branch",
-    confirmLabel: "진단 보기",
-    cancelLabel: "현재 조건으로 보기",
+    id: "internet-recommendation-api",
+    type: "single-choice",
+    message: "고객님의 조건을 분석하여 선정한 최적의 추천 요금제 리스트입니다.",
+    answerKey: `${namespace}.selectedRecommendedPlan`,
+    options: MOCK_RECOMMENDED_INTERNET_PLANS,
+    optionsResolver: (answers) => {
+      return [
+        ...MOCK_RECOMMENDED_INTERNET_PLANS,
+        { value: "direct-choose", label: "직접 고를래요 (전체 리스트 보기)", next: "internet-all-plans-select" },
+      ];
+    },
+    next: "internet-result",
   },
 
-  // =================================================================
-  // 예외적인 조건 및 분기점 (Branch) & 등급별 결과 항목
-  // =================================================================
-  
-  // 🛠 분기점 ID: 등급 판별을 위한 핵심 분기점
+  // 맞춤 절약 솔루션 결과 (DiagnosisResultCard에 바인딩)
   {
-    id: "internet-grade-branch",
-    type: "branch",
-    conditions: [
-      // 비추천 조건 필터링 (현재 요금이 너무 낮아 리스크가 큰 경우 등)
-      { answerKey: `${namespace}.fee`, operator: "lt", value: 15000, next: "internet-result-not-recommended" },
-      // 골드 등급 조건 (30% 이상 혹은 월 1.5만 원 이상 절감 가능 구간 예시)
-      { answerKey: `${namespace}.fee`, operator: "gte", value: 50000, next: "internet-result-gold" },
-      // 실버 등급 조건 (15% 이상 혹은 월 8천 원 이상 절감 가능 구간 예시)
-      { answerKey: `${namespace}.fee`, operator: "gte", value: 30000, next: "internet-result-silver" },
-      // 브론즈 등급 조건 (월 3천 원 이상 절감 가능 구간 예시)
-      { answerKey: `${namespace}.fee`, operator: "gte", value: 15000, next: "internet-result-bronze" },
+    id: "internet-result",
+    type: "result",
+    message: "모든 진단과 요금제 선택이 완료되었습니다! 상세 비교서 작성을 완료했어요.",
+    next: "internet-ask-grade",
+  },
+
+  // 등급 진단 질문 스텝
+  {
+    id: "internet-ask-grade",
+    type: "single-choice",
+    message: "등급 진단을 받아보시겠습니까?",
+    answerKey: `${namespace}.askGrade`,
+    options: [
+      { value: "yes", label: "YES", next: "internet-grade-result" },
+      { value: "no", label: "NO", next: "internet-exit" },
     ],
-    defaultNext: "internet-result-not-recommended",
   },
 
-  // 🏆 최종 진단 결과 도출 항목들
-  { 
-    id: "internet-result-gold", 
-    type: "result", 
-    message: "🥇 속도 적합성 OK + 월 15,000원 이상 절감 또는 30% 이상 절감 가능합니다.",
-    resolvedKeys: [`${namespace}.commonCarrier`, `${namespace}.fee`, `${namespace}.contractPeriod`, `${namespace}.desiredSpeed`, `${namespace}.planContract`]
+  // 등급 진단 결과 노출 스텝
+  {
+    id: "internet-grade-result",
+    type: "result",
+    message: "소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다.",
+    next: "internet-ask-share",
   },
-  { 
-    id: "internet-result-silver", 
-    type: "result", 
-    message: "🥈 속도 적합성 OK / 일부 주의 + 월 8,000원 이상 절감 또는 15% 이상 절감 가능합니다.",
-    resolvedKeys: [`${namespace}.commonCarrier`, `${namespace}.fee`, `${namespace}.contractPeriod`, `${namespace}.desiredSpeed`, `${namespace}.planContract`]
+
+  // SNS 공유 확인 질문 스텝
+  {
+    id: "internet-ask-share",
+    type: "single-choice",
+    message: "진단받은 나의 소비 패턴 등급을 공유하시겠습니까?",
+    answerKey: `${namespace}.askShare`,
+    options: [
+      { value: "yes", label: "YES", next: "internet-sns-redirect" },
+      { value: "no", label: "NO", next: "internet-exit" },
+    ],
   },
-  { 
-    id: "internet-result-bronze", 
-    type: "result", 
-    message: "🥉 월 3,000원 이상 절감하지만, 현재 환경 대비 약간의 속도 체감 손실 가능성이 있습니다.",
-    resolvedKeys: [`${namespace}.commonCarrier`, `${namespace}.fee`, `${namespace}.contractPeriod`, `${namespace}.desiredSpeed`, `${namespace}.planContract`]
+
+  // SNS 공유 리다이렉트 스텝
+  {
+    id: "internet-sns-redirect",
+    type: "assistant-message",
+    message: "인스타그램으로 이동합니다. [여기를 클릭하여 인스타그램에서 결과를 공유](https://instagram.com)해 주세요.",
+    next: "internet-exit",
   },
-  { 
-    id: "internet-result-not-recommended", 
-    type: "result", 
-    message: "❌ 비용 절감액보다 속도 패널티가 크거나, 입력하신 사용 패턴상 200Mbps급 이하의 속도는 부족하여 기존 유지를 권장합니다.",
-    resolvedKeys: [`${namespace}.commonCarrier`, `${namespace}.fee`, `${namespace}.contractPeriod`, `${namespace}.desiredSpeed`, `${namespace}.planContract`]
+
+  // 종료 및 새로운 주제 시작 질문 스텝
+  {
+    id: "internet-exit",
+    type: "single-choice",
+    message: "새로운 주제로 시작하시겠습니까?",
+    answerKey: `${namespace}.exitRestart`,
+    options: [],
+    optionsResolver: () => [
+      { value: "restart", label: "예, 새로운 주제로 시작할래요", next: "internet-intro" },
+      { value: "exit", label: "아니요, 대화를 종료할래요", next: "internet-completed-exit" },
+    ],
+    next: "internet-completed-exit",
+  },
+
+  // 종료 완료 스텝
+  {
+    id: "internet-completed-exit",
+    type: "result",
+    message: "인터넷 요금제 진단 서비스를 이용해 주셔서 감사합니다. 안전하게 대화가 종료되었습니다.",
   },
 ];
 

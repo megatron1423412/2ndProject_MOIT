@@ -1,0 +1,128 @@
+import React from "react";
+import type { FlowResult } from "../../../core/types";
+
+interface InternetGradeReportProps {
+  result: FlowResult;
+}
+
+const fmt = (n: number) => n.toLocaleString("ko-KR");
+
+export default function InternetGradeReport({ result }: InternetGradeReportProps) {
+  const metadata = result.metadata || {};
+  const saving = Number(metadata.saving || 0);
+  const savingRate = Number(metadata.savingRate || 0);
+  const answers = metadata.answers || {};
+
+  const householdSize = Number(answers["internet.householdSize"]) || 1;
+  const deviceCount = Number(answers["internet.deviceCount"]) || 1;
+  const usage: string[] = Array.isArray(answers["internet.usage"]) ? answers["internet.usage"] : [];
+
+  // 권장 속도 계산
+  let recommendedSpeed = 100;
+  if (deviceCount >= 8 || (usage.includes("gaming") && usage.includes("work") && householdSize >= 3)) {
+    recommendedSpeed = 1000;
+  } else if (deviceCount >= 4 || householdSize >= 3 || usage.includes("streaming") || usage.includes("gaming")) {
+    recommendedSpeed = 500;
+  }
+
+  // 사용자가 선택한 속도 계산
+  const selectedRecommendedPlan = answers["internet.selectedRecommendedPlan"] || "rec-internet-1";
+  const manualSelectedPlan = answers["internet.manualSelectedPlan"] || "";
+  const finalPlan = (selectedRecommendedPlan === "direct-choose" && manualSelectedPlan)
+    ? manualSelectedPlan
+    : (selectedRecommendedPlan || manualSelectedPlan || "rec-internet-1");
+
+  let selectedSpeed = 500; // 기본값 500Mbps
+  if (finalPlan === "rec-internet-2" || finalPlan === "plan-internet-3") {
+    selectedSpeed = 1000;
+  } else if (finalPlan === "plan-internet-1") {
+    selectedSpeed = 100;
+  } else if (finalPlan === "plan-internet-4") {
+    selectedSpeed = 2500;
+  }
+
+  const speedOk = selectedSpeed >= recommendedSpeed;
+
+  // 등급 및 UI 테마 결정
+  let grade = "Normal";
+  let gradeLabel = "일반 등급";
+  let gradeEmoji = "🌱";
+  let gradeReason = "현재 이용 요금에 대비하여 큰 절감액이 없거나, 가구원 및 연결 기기 수 대비 200Mbps 인터넷의 속도가 다소 부족하여 기존 인터넷 환경을 그대로 유지하시는 것을 추천합니다.";
+  let gradeTheme = { bg: "bg-muted/30", text: "text-muted-foreground", border: "border-border/60", ring: "ring-muted" };
+
+  if (speedOk && (saving >= 15000 || savingRate >= 0.3)) {
+    grade = "Gold";
+    gradeLabel = "골드 등급";
+    gradeEmoji = "🏆";
+    gradeReason = `권장 속도 스펙을 완벽히 유지하면서 월 ${fmt(saving)}원(${Math.round(savingRate * 100)}%)의 우수한 통신 지출을 성공적으로 절감하셨습니다! 스마트한 인터넷 소비 설계를 유지하고 계십니다.`;
+    gradeTheme = { bg: "bg-amber-500/5", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20", ring: "ring-amber-500/30" };
+  } else if (speedOk && (saving >= 8000 || savingRate >= 0.15)) {
+    grade = "Silver";
+    gradeLabel = "실버 등급";
+    gradeEmoji = "🥈";
+    gradeReason = `가구 환경에 딱 맞는 인터넷 속도를 지켜내면서 월 ${fmt(saving)}원(${Math.round(savingRate * 100)}%) 가량의 소중한 고정비를 절약하셨습니다. 건강하고 낭비 없는 소비 패턴을 보유하고 계십니다.`;
+    gradeTheme = { bg: "bg-slate-500/5", text: "text-slate-600 dark:text-slate-400", border: "border-slate-500/20", ring: "ring-slate-500/30" };
+  } else if (saving >= 3000 && !speedOk) {
+    grade = "Bronze";
+    gradeLabel = "브론즈 등급";
+    gradeEmoji = "🥉";
+    gradeReason = `월 ${fmt(saving)}원의 요금 고정비는 절감하였으나, 현재 가구 환경 및 이용 목적 대비 기가 인터넷 권장 사양보다 속도가 낮아져 재택근무나 스트리밍 시 다소간의 속도 체감 손실 리스크가 발생할 수 있습니다.`;
+    gradeTheme = { bg: "bg-orange-500/5", text: "text-orange-600 dark:text-orange-400", border: "border-orange-500/20", ring: "ring-orange-500/30" };
+  }
+
+  return (
+    <div className={`w-full max-w-sm rounded-2xl border p-6 shadow-md transition-all hover:shadow-lg ${gradeTheme.bg} ${gradeTheme.border}`}>
+      
+      {/* 상단 타이틀 */}
+      <div className="flex flex-col items-center text-center gap-1 border-b border-border/40 pb-4">
+        <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase">
+          인터넷 소비 분석
+        </span>
+        <h3 className="text-base font-black tracking-tight text-primary">
+          나의 인터넷 요금 소비 등급
+        </h3>
+      </div>
+
+      {/* 강조된 대형 등급 이모지 */}
+      <div className="my-6 flex flex-col items-center justify-center">
+        <div className={`flex h-28 w-28 items-center justify-center rounded-full bg-background border shadow-inner ring-8 ${gradeTheme.ring} animate-pulse`}>
+          <span className="text-6xl select-none leading-none">{gradeEmoji}</span>
+        </div>
+        <span className={`mt-3 text-lg font-black tracking-tight ${gradeTheme.text}`}>
+          {gradeLabel}
+        </span>
+      </div>
+
+      {/* 진단 소견 */}
+      <div className="rounded-xl bg-background/50 border border-border/40 p-4 text-xs leading-relaxed">
+        <p className="font-bold text-muted-foreground mb-1">🔍 진단 소견</p>
+        <p className="text-primary/95 font-medium leading-relaxed">
+          {gradeReason}
+        </p>
+      </div>
+
+      {/* 절감 비율 프로그레스 바 */}
+      {saving > 0 && (
+        <div className="mt-5">
+          <div className="flex justify-between text-[10px] text-muted-foreground mb-1 font-bold">
+            <span>요금 절감 비율</span>
+            <span>{Math.round(savingRate * 100)}% 절감</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+            <div
+              className={`h-full rounded-full ${grade === "Gold" ? "bg-amber-500" : grade === "Silver" ? "bg-slate-500" : "bg-orange-500"}`}
+              style={{ width: `${Math.min(100, savingRate * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 공유 링크 안내 */}
+      <div className="mt-5 text-[10px] text-center text-muted-foreground/60 leading-normal">
+        나의 등급을 인스타그램 등 SNS에 인증하여<br />
+        주변 지인들과 스마트한 인터넷 소비를 공유해 보세요!
+      </div>
+
+    </div>
+  );
+}
