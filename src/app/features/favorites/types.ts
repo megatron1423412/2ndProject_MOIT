@@ -1,4 +1,4 @@
-import type { ProductCategoryId } from "../product-catalog/core/types";
+import type { ProductCategoryId, ProductDataStatus } from "../product-catalog/core/types";
 import type { SelectedShoppingProduct } from "../smart-shopping/types/recommendation";
 
 export interface FavoriteProduct {
@@ -16,7 +16,7 @@ export interface FavoriteProduct {
   purchaseLink?: string;
   internalProductId?: string;
   selectedProduct?: SelectedShoppingProduct;
-  dataStatus: "mock" | "naver-candidate";
+  dataStatus: ProductDataStatus | "naver-candidate";
   createdAt: string;
   lastCheckedAt: string;
 }

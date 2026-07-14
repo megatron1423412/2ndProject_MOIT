@@ -1,6 +1,6 @@
 import { summarizePriceHistory } from "../../product-catalog/core/priceHistory";
 import type { FlowAnswers } from "../../chat-flow/core/types";
-import type { ProductRecommendation } from "../../product-catalog/core/types";
+import type { ProductDataStatus, ProductRecommendation } from "../../product-catalog/core/types";
 import type { SelectedShoppingProduct } from "../types/recommendation";
 
 export interface ProductQuestionRequest {
@@ -9,7 +9,7 @@ export interface ProductQuestionRequest {
   userCriteria: FlowAnswers;
   fit: { score?: number; matchedCriteria: string[]; unmatchedCriteria: string[] };
   priceSummary: { currentPrice: number; allTimeLow?: number; averagePrice?: number; history: { date: string; lowestPrice: number }[] };
-  sourceAndConfidence: { dataStatus: "mock" | "naver-candidate"; verifiedInformation: string[]; unknownInformation: string[] };
+  sourceAndConfidence: { dataStatus: ProductDataStatus | "naver-candidate"; verifiedInformation: string[]; unknownInformation: string[] };
   reviewSummary?: string;
   strengths?: string[];
   weaknesses?: string[];
@@ -33,8 +33,8 @@ export const buildProductQuestionRequest = ({ selected, recommendations, userCri
     fit: { score: recommendation?.score, matchedCriteria: recommendation?.matchedCoreCriteria ?? [], unmatchedCriteria: recommendation?.unmatchedOrUnknownCriteria ?? ["모잇 DB 검증 정보 없음"] },
     priceSummary: { currentPrice, allTimeLow: price?.allTimeLow, averagePrice: price?.averagePrice, history },
     sourceAndConfidence: {
-      dataStatus: internal ? "mock" : "naver-candidate",
-      verifiedInformation: internal ? ["모잇 내부 mock 상품 정보", "가격 이력"] : ["네이버 쇼핑 기본 상품 정보"],
+      dataStatus: internal?.dataStatus ?? "naver-candidate",
+      verifiedInformation: internal ? ["모잇 내부 카탈로그 상품 정보", "가격 이력"] : ["네이버 쇼핑 기본 상품 정보"],
       unknownInformation: internal ? ["실제 설치비·실시간 할인·실제 재고"] : ["모잇 DB 스펙", "AI 리뷰", "가격 이력", "실제 설치비·할인"],
     },
     reviewSummary: internal?.aiReviewSummary,

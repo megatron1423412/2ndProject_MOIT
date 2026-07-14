@@ -338,13 +338,32 @@ try {
   assert.notStrictEqual(airState.answers, freshVacuumState.answers, "상품군별 답변 상태 격리");
   assert.equal(airState.flowId, "air-conditioner"); assert.equal(freshVacuumState.flowId, "vacuum");
 
-  const { MockProductRepository } = await load("/src/app/features/product-catalog/mock/MockProductRepository.ts");
-  const { REFRIGERATOR_PRODUCTS } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/products.ts");
-  const repository = new MockProductRepository([...AIR_CONDITIONER_PRODUCTS, ...TV_PRODUCTS, ...REFRIGERATOR_PRODUCTS, ...VACUUM_PRODUCTS]);
+  const { mockProducts } = await load("/src/app/features/product-catalog/data/mockProducts.ts");
+  const { realProducts } = await load("/src/app/features/product-catalog/data/realProducts.ts");
+  const { buildCatalogProducts, catalogProducts, catalogSourceByCategory, productRepository } = await load("/src/app/features/product-catalog/data/productCatalog.ts");
+  const { StaticProductRepository } = await load("/src/app/features/product-catalog/repositories/StaticProductRepository.ts");
+  const { validateProductData } = await load("/src/app/features/product-catalog/data/validateProducts.ts");
+  assert.equal(mockProducts.length, 20, "기존 더미 상품 20개를 mockProducts로 보존");
+  assert.equal(realProducts.length, 0, "초기 실제 상품 카탈로그는 비어 있음");
+  assert.deepEqual(catalogSourceByCategory, { "air-conditioner": "mock", tv: "mock", refrigerator: "mock", vacuum: "mock" }, "실제 데이터가 없으면 전 카테고리 mock fallback");
+  const repository = productRepository;
   assert.equal(repository.getProducts("air-conditioner").length, 5); assert.equal(repository.getProducts("tv").length, 5);
   assert.equal(repository.getProducts("refrigerator").length, 5); assert.equal(repository.getProducts("vacuum").length, 5);
   assert.ok(repository.getProducts("tv").every((product) => product.categoryId === "tv"), "Repository 상품군 격리");
-  assert.ok(["air-conditioner", "tv", "refrigerator", "vacuum"].flatMap((category) => repository.getProducts(category)).every((product) => product.dataStatus === "mock" && product.priceHistory.length >= 6 && product.imagePath.startsWith("/assets/products/mock/")), "20개 상품의 mock·가격·로컬 이미지 데이터");
+  assert.ok(catalogProducts.every((product) => product.dataStatus === "mock" && product.source === "mock" && product.priceHistory.length >= 6 && product.imagePath.startsWith("/assets/products/mock/")), "20개 상품의 mock·가격·로컬 이미지 데이터");
+  assert.equal(repository.getProductById("tv-google-55")?.modelNumber, "MV-G55", "getProductById는 fallback 상품을 조회");
+  assert.equal(repository.findProductByModelNumber(" mv-g55 ")?.id, "tv-google-55", "모델번호 조회는 공백·대소문자를 정규화");
+  const realAirProduct = { ...mockProducts[0], id: "real-ac-01", modelNumber: "REAL-AC-01", source: "real", dataStatus: "unverified", priceHistory: [] };
+  const mixedCatalog = buildCatalogProducts(mockProducts, [realAirProduct]);
+  const mixedRepository = new StaticProductRepository(mixedCatalog);
+  assert.deepEqual(mixedRepository.getProducts("air-conditioner").map((product) => product.id), ["real-ac-01"], "실제 상품이 있으면 해당 카테고리는 real만 사용");
+  assert.ok(mixedRepository.getProducts("tv").every((product) => product.source === "mock"), "실제 상품이 없는 카테고리는 mock fallback");
+  assert.ok(mixedRepository.getProducts("air-conditioner").every((product) => product.source === "real"), "한 카테고리 안에 real·mock 혼합 금지");
+  assert.equal(mixedRepository.getProductById("real-ac-01")?.source, "real", "getProductById는 real 상품을 조회");
+  assert.equal(mixedRepository.getProductById("tv-google-55")?.source, "mock", "getProductById는 fallback mock 상품도 조회");
+  assert.deepEqual(validateProductData(mockProducts, [realAirProduct]), [], "빈 priceHistory 실제 상품도 유효");
+  assert.ok(validateProductData(mockProducts, [{ ...realAirProduct, id: "tv-google-55" }]).some((error) => error.includes("id가")), "중복 id 검출");
+  assert.ok(validateProductData(mockProducts, [{ ...realAirProduct, modelNumber: "MV-G55" }]).some((error) => error.includes("modelNumber")), "중복 모델번호 검출");
 
   const registry = await load("/src/app/features/chat-flow/registry/loadFlows.ts");
   assert.ok(["air-conditioner", "tv", "refrigerator", "vacuum", "phone", "internet", "iptv", "bundle"].every((id) => registry.getFlowModule(id)), "전체 flow registry 검증");

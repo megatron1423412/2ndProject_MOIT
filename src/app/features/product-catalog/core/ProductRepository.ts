@@ -4,4 +4,5 @@ import type { CatalogProduct, ProductByCategory, ProductCategoryId } from "./typ
 export interface ProductRepository {
   getProducts<C extends ProductCategoryId>(categoryId: C): ProductByCategory<C>[];
   getProductById(id: string): CatalogProduct | undefined;
+  findProductByModelNumber(modelNumber: string): CatalogProduct | undefined;
 }

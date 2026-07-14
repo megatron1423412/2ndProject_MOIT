@@ -1,14 +1,9 @@
-import type { ProductRepository } from "../core/ProductRepository";
-import type { CatalogProduct, ProductByCategory, ProductCategoryId } from "../core/types";
+import type { CatalogProduct } from "../core/types";
+import { StaticProductRepository } from "../repositories/StaticProductRepository";
 
-export class MockProductRepository implements ProductRepository {
-  constructor(private readonly products: readonly CatalogProduct[]) {}
-
-  getProducts<C extends ProductCategoryId>(categoryId: C): ProductByCategory<C>[] {
-    return this.products.filter((product): product is ProductByCategory<C> => product.categoryId === categoryId);
-  }
-
-  getProductById(id: string) {
-    return this.products.find((product) => product.id === id);
+/** @deprecated 기존 호출 호환용입니다. 새 코드는 productCatalog의 productRepository를 사용하세요. */
+export class MockProductRepository extends StaticProductRepository {
+  constructor(products: readonly CatalogProduct[]) {
+    super(products);
   }
 }

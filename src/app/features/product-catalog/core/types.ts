@@ -1,4 +1,6 @@
 export type ProductCategoryId = "air-conditioner" | "tv" | "refrigerator" | "vacuum";
+export type ProductDataStatus = "verified" | "unverified" | "stale" | "discontinued" | "mock";
+export type ProductSource = "real" | "mock";
 
 export interface PriceHistoryPoint {
   date: string;
@@ -21,8 +23,12 @@ interface ProductBase<C extends ProductCategoryId, S> {
   priceHistory: PriceHistoryPoint[];
   strengths: string[];
   weaknesses: string[];
-  dataStatus: "mock";
+  /** mock은 기존 화면 검증용 데이터, 나머지는 직접 입력한 실제 상품의 검증 상태입니다. */
+  dataStatus: ProductDataStatus;
+  source: ProductSource;
   updatedAt: string;
+  /** dataStatus가 verified일 때 필수인 공식 출처 확인일입니다. */
+  verifiedAt?: string;
   specs: S;
 }
 
