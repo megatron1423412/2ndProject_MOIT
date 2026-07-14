@@ -36,8 +36,8 @@ export interface AirConditionerSpecs {
   type: "standing" | "wall" | "two-in-one" | "window";
   ratedCoolingAreaPyeong: number;
   inverter: boolean;
-  basicInstallationIncluded: boolean;
-  officialInstallation: boolean;
+  basicInstallationIncluded: boolean | null;
+  officialInstallation: boolean | null;
   autoDry: boolean;
   energyGrade: 1 | 2 | 3 | 4 | 5;
   /** true=환급 대상 확인, false=비대상 확인, null=아직 확인하지 못함 */
