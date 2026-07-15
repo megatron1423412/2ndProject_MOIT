@@ -48,7 +48,7 @@ export interface TvSpecs {
   os: "android-tv" | "google-tv" | "other";
   resolution: "4k-uhd" | "full-hd";
   screenSizeInches: 43 | 55 | 65 | 75;
-  panel: string;
+  panel: "IPS" | "VA";
   warrantyYears: number;
   hdr: boolean;
   energyGrade: 1 | 2 | 3 | 4 | 5;
