@@ -1,5 +1,5 @@
 import React from "react";
-import { ImageWithFallback } from "../../figma/ImageWithFallback";
+import ProductImage from "../../product-catalog/ProductImage";
 import type { ProductRecommendation } from "../../../features/product-catalog/core/types";
 import { summarizePriceHistory } from "../../../features/product-catalog/core/priceHistory";
 import CriteriaMatchList from "./CriteriaMatchList";
@@ -29,7 +29,7 @@ export default function ProductRecommendationCard({ recommendation, isFavorite =
   return (
     <article className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="flex gap-4">
-        <ImageWithFallback src={product.imagePath} alt={`${product.brand} ${product.name} 상품 이미지`} className="h-28 w-28 flex-none rounded-lg border border-border bg-muted object-cover" />
+        <ProductImage productId={product.id} imagePath={product.imagePath} alt={`${product.brand} ${product.name} 상품 이미지`} className="h-28 w-28 flex-none rounded-lg border border-border bg-muted object-cover" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div><p className="text-xs font-bold text-muted-foreground">{product.brand} · {product.modelNumber}</p><h4 className="mt-1 font-black text-primary">{product.name}</h4></div>

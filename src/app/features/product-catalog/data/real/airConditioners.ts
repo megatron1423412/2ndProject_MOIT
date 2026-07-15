@@ -529,7 +529,7 @@ export const REAL_AIR_CONDITIONER_PRODUCTS: AirConditionerProduct[] = [
     brand: "캐리어",
     modelNumber: "DAWC-0061YAWSD",
     name: "캐리어 DAWC-0061YAWSD",
-    imagePath: "/assets/products/real/air-conditioner/carrier-DAWC-0061YAWSD.webp",
+    imagePath: "/assets/products/real/air-conditioner/DAWC-0061YAWSD.avif",
     shortInfo: "창문형에어컨,냉방면적 18.7㎡(5.6평),냉방능력 2300W, 풍량 8단조절, 냉방, 송풍, 터보, 공기청정, 제습, 셀프클리닝, 소비전력 0.86kW",
     aiReviewSummary: "배송이 빨라요, 설치하기 편해요, 소음이 적어요, 시원해요, 작동이 간단해요, 공간을 많이 차지하지 않아요, 디자인이 예뻐요, 성능이 좋아요",
     currentPrice: 548_560,

@@ -1,5 +1,5 @@
 import React from "react";
-import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
+import ProductImage from "../../../components/product-catalog/ProductImage";
 import type { ProductRecommendation, ProductSource } from "../../product-catalog/core/types";
 import FavoriteToggleButton from "../../favorites/FavoriteToggleButton";
 
@@ -23,7 +23,7 @@ export default function OptimizedRecommendationList({ items, catalogSource, onSe
           <div key={item.product.id} className="relative">
             <button type="button" disabled={!isActive} onClick={() => onSelect(item)} className="flex w-full items-start gap-3 rounded-lg border border-border p-3 pr-12 text-left transition hover:border-accent hover:bg-muted/25 focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:cursor-default disabled:opacity-75">
               <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand-surface text-xs font-black text-brand-surface-foreground">{index + 1}</span>
-              <ImageWithFallback src={item.product.imagePath} alt="" className="h-20 w-20 flex-none rounded-lg border border-border bg-muted object-cover" />
+              <ProductImage productId={item.product.id} imagePath={item.product.imagePath} alt={`${item.product.brand} ${item.product.name} 상품 이미지`} className="h-20 w-20 flex-none rounded-lg border border-border bg-muted object-cover" />
               <div className="min-w-0 flex-1">
                 <div className="flex justify-between gap-2"><p className="truncate text-xs font-bold text-muted-foreground">{item.product.brand} · {item.product.modelNumber}</p><span className="mr-1 flex-none text-xs font-black text-accent">{item.score}점</span></div>
                 <p className="mt-1 font-black text-primary">{item.product.name}</p>
