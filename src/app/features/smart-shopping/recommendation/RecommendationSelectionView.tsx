@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import type { FlowAnswers, FlowResult } from "../../chat-flow/core/types";
 import type { ProductCategoryId, ProductRecommendation } from "../../product-catalog/core/types";
+import { catalogSourceByCategory } from "../../product-catalog/data/productCatalog";
 import { buildPurchaseTipMessage } from "../actions/buildPurchaseTipMessage";
 import { findAlternativeProducts, getSelectedPriceRisePct } from "../actions/findAlternativeProducts";
 import { getProductDetailActionLabel, type ProductDetailActionId } from "../actions/productDetailActions";
@@ -40,6 +41,7 @@ interface Props {
 export default function RecommendationSelectionView({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId, favorites, onToggleFavorite }: Props) {
   const metadata = result.metadata as { category?: ProductCategoryId; answers?: FlowAnswers } | undefined;
   const category = metadata?.category ?? "tv";
+  const catalogSource = catalogSourceByCategory[category];
   const criteria = metadata?.answers ?? {};
   const [view, dispatch] = useReducer(recommendationViewReducer, initialRecommendationViewState);
   const [session, sessionDispatch] = useReducer(smartShoppingSessionReducer, { categoryId: category, criteria: createCriteriaSnapshot(criteria) }, createSmartShoppingSession);
@@ -66,8 +68,8 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   }, [session.sessionId]);
 
   const snapshotRecommendations = useCallback((items: NaverShoppingProduct[], status: RecommendationSnapshot["naverStatus"], message: string) => {
-    appendRecommendation(createRecommendationSnapshot({ query, recommendations: result.recommendations ?? [], naverItems: items, naverStatus: status, naverErrorMessage: message }));
-  }, [appendRecommendation, query, result.recommendations]);
+    appendRecommendation(createRecommendationSnapshot({ query, recommendations: result.recommendations ?? [], catalogSource, naverItems: items, naverStatus: status, naverErrorMessage: message }));
+  }, [appendRecommendation, catalogSource, query, result.recommendations]);
 
   const loadNaver = useCallback(async (signal?: AbortSignal) => {
     dispatch({ type: "start-loading" }); setNaverStatus("loading"); setErrorMessage("");
@@ -120,7 +122,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     sessionDispatch({ type: "deactivate-interactions" });
     appendText("user-action", "제품 목록으로 돌아가기");
     appendText("assistant-text", "이전에 확인한 조건으로 상품 목록을 다시 보여드릴게요.");
-    const reusableSnapshot = session.recommendationSnapshot ?? createRecommendationSnapshot({ query, recommendations: result.recommendations ?? [], naverItems, naverStatus, naverErrorMessage: errorMessage });
+    const reusableSnapshot = session.recommendationSnapshot ?? createRecommendationSnapshot({ query, recommendations: result.recommendations ?? [], catalogSource, naverItems, naverStatus, naverErrorMessage: errorMessage });
     appendRecommendation(reusableSnapshot);
     setQuestionError("");
     dispatch({ type: "back-to-list" });

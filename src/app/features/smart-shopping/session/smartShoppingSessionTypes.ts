@@ -1,5 +1,5 @@
 import type { FlowAnswers } from "../../chat-flow/core/types";
-import type { ProductCategoryId, ProductRecommendation } from "../../product-catalog/core/types";
+import type { ProductCategoryId, ProductRecommendation, ProductSource } from "../../product-catalog/core/types";
 import type { PurchaseGradeResult } from "../grade/calculatePurchaseGrade";
 import type { PurchaseGradeDiagnosisInput, NaverShoppingProduct, SelectedShoppingProduct, SmartShoppingStage } from "../types/recommendation";
 
@@ -10,6 +10,7 @@ export interface RecommendationSnapshot {
   snapshotId: string;
   query: string;
   recommendations: ProductRecommendation[];
+  catalogSource: ProductSource;
   naverItems: NaverShoppingProduct[];
   naverStatus: "loading" | "success" | "error";
   naverErrorMessage: string;

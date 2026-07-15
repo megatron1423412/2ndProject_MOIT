@@ -16,14 +16,19 @@ export const rankAirConditioners = (products: AirConditionerProduct[], answers: 
 
   for (const product of products) {
     const reasons: string[] = [];
+    const verificationRequiredFields: string[] = [];
+    if (product.dataStatus === "discontinued") { excludedProducts.push({ productId: product.id, productName: product.name, reasons: ["판매 중단 상품"] }); continue; }
     if (product.specs.type !== a("type")) reasons.push("선택한 타입과 다름");
     if (!Number.isFinite(product.specs.ratedCoolingAreaPyeong) || product.specs.ratedCoolingAreaPyeong < requiredArea) reasons.push(`정격 냉방 면적 ${requiredArea}평 미충족`);
     if (inverterRequired && product.specs.inverter !== true) reasons.push("인버터 컴프레서 조건 미충족");
-    if (officialRequired && product.specs.officialInstallation !== true) reasons.push("공식 지정 설치 조건 미충족");
+    if (officialRequired && product.specs.officialInstallation === null) verificationRequiredFields.push("공식 지정 설치 여부");
+    else if (officialRequired && product.specs.officialInstallation !== true) reasons.push("공식 지정 설치 조건 미충족");
     if (autoDryRequired && product.specs.autoDry !== true) reasons.push("자동 건조 필수 조건 미충족");
-    if (a("installationCost") === "required" && product.specs.basicInstallationIncluded !== true) reasons.push("기본 설치비 포함 조건 미충족");
+    if (a("installationCost") === "required" && product.specs.basicInstallationIncluded === null) verificationRequiredFields.push("기본 설치비 포함 여부");
+    else if (a("installationCost") === "required" && product.specs.basicInstallationIncluded !== true) reasons.push("기본 설치비 포함 조건 미충족");
     if (a("energyGrade") === "1-required" && product.specs.energyGrade !== 1) reasons.push("에너지 1등급 필수 조건 미충족");
-    if (a("rebate") === "required" && product.specs.rebateEligible !== true) reasons.push("환급 대상 확인 조건 미충족");
+    if (a("rebate") === "required" && product.specs.rebateEligible === null) verificationRequiredFields.push("환급 대상 여부");
+    else if (a("rebate") === "required" && product.specs.rebateEligible !== true) reasons.push("환급 대상 확인 조건 미충족");
     if (reasons.length) { excludedProducts.push({ productId: product.id, productName: product.name, reasons }); continue; }
 
     const w = AIR_CONDITIONER_CRITERIA.weights;
@@ -35,8 +40,9 @@ export const rankAirConditioners = (products: AirConditionerProduct[], answers: 
     const marketScore = getPricePositionScore(product.currentPrice, product.priceHistory) / 100 * w.marketPrice;
     const matched = ["타입 일치", `냉방 ${requiredArea}평 이상`, ...(product.specs.inverter ? ["인버터"] : []), ...(product.specs.officialInstallation ? ["공식 지정 설치"] : [])];
     const preferences = [product.currentPrice <= budget, product.specs.energyGrade <= 2, product.specs.basicInstallationIncluded, product.specs.autoDry, product.specs.rebateEligible].filter(Boolean).length;
-    recommendations.push({ product, score: Math.round(budgetScore + w.typeAndCapacity + efficiencyScore + installationScore + convenienceScore + marketScore), matchedCoreCriteria: matched, unmatchedOrUnknownCriteria: [
+    recommendations.push({ product, score: Math.round(budgetScore + w.typeAndCapacity + efficiencyScore + installationScore + convenienceScore + marketScore), verificationNeeded: verificationRequiredFields.length > 0, verificationRequiredFields, matchedCoreCriteria: matched, unmatchedOrUnknownCriteria: [
       ...(product.currentPrice > budget ? ["예산 초과"] : []), ...(!product.specs.basicInstallationIncluded ? ["기본 설치비 별도"] : []), ...(!product.specs.rebateEligible ? ["환급 대상 아님 또는 확인 필요"] : []),
+      ...verificationRequiredFields.map((field) => `${field} 확인 필요`),
     ], recommendationReasons: [`필수 타입·면적 조건 충족`, `효율 ${product.specs.energyGrade}등급과 현재 시세 위치를 점수에 반영`], preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
   }
   return { recommendations: sortRecommendations(recommendations).slice(0, 10), excludedProducts };

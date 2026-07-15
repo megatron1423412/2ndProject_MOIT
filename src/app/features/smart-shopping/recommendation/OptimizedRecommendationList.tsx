@@ -1,22 +1,24 @@
 import React from "react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
-import type { ProductRecommendation } from "../../product-catalog/core/types";
+import type { ProductRecommendation, ProductSource } from "../../product-catalog/core/types";
 import FavoriteToggleButton from "../../favorites/FavoriteToggleButton";
 
 interface Props {
   items: ProductRecommendation[];
+  catalogSource: ProductSource;
   onSelect: (item: ProductRecommendation) => void;
   isFavorite: (item: ProductRecommendation) => boolean;
   onToggleFavorite: (item: ProductRecommendation) => void;
   isActive?: boolean;
 }
 
-export default function OptimizedRecommendationList({ items, onSelect, isFavorite, onToggleFavorite, isActive = true }: Props) {
+export default function OptimizedRecommendationList({ items, catalogSource, onSelect, isFavorite, onToggleFavorite, isActive = true }: Props) {
+  const isReal = catalogSource === "real";
   return (
     <section className="min-w-0 rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div><p className="text-xs font-black text-accent">MOIT 내부 DB · MOCK</p><h3 className="mt-1 text-base font-black text-primary">AI 최적화 재정렬</h3><p className="mt-1 text-xs text-muted-foreground">코드의 필수 필터와 적합도 점수 결과이며 AI가 임의로 정한 순위가 아닙니다.</p></div>
+      <div><p className="text-xs font-black text-accent">MOIT 내부 DB · {isReal ? "REAL" : "MOCK"}</p><h3 className="mt-1 text-base font-black text-primary">AI 최적화 재정렬</h3><p className="mt-1 text-xs text-muted-foreground">코드의 필수 필터와 적합도 점수 결과이며 AI가 임의로 정한 순위가 아닙니다.</p></div>
       <div className="mt-4 space-y-2">
-        {items.length === 0 && <p className="rounded-lg bg-muted/30 p-4 text-sm text-muted-foreground">필수 조건을 만족한 내부 더미 상품이 없습니다.</p>}
+        {items.length === 0 && <p className="rounded-lg bg-muted/30 p-4 text-sm text-muted-foreground">{isReal ? "필수 조건을 만족한 실제 상품 데이터가 없습니다." : "필수 조건을 만족한 내부 더미 상품이 없습니다."}</p>}
         {items.slice(0, 10).map((item, index) => (
           <div key={item.product.id} className="relative">
             <button type="button" disabled={!isActive} onClick={() => onSelect(item)} className="flex w-full items-start gap-3 rounded-lg border border-border p-3 pr-12 text-left transition hover:border-accent hover:bg-muted/25 focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:cursor-default disabled:opacity-75">
@@ -25,6 +27,7 @@ export default function OptimizedRecommendationList({ items, onSelect, isFavorit
               <div className="min-w-0 flex-1">
                 <div className="flex justify-between gap-2"><p className="truncate text-xs font-bold text-muted-foreground">{item.product.brand} · {item.product.modelNumber}</p><span className="mr-1 flex-none text-xs font-black text-accent">{item.score}점</span></div>
                 <p className="mt-1 font-black text-primary">{item.product.name}</p>
+                {item.verificationNeeded && <p className="mt-1 text-xs font-bold text-amber-700 dark:text-amber-300">조건 확인이 필요한 후보 · {item.verificationRequiredFields?.join(" · ")} 확인 필요</p>}
                 <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.recommendationReasons.slice(0, 2).join(" · ")}</p>
                 <div className="mt-2 flex flex-wrap gap-1">{item.matchedCoreCriteria.slice(0, 3).map((badge) => <span key={badge} className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">{badge}</span>)}</div>
                 <div className="mt-2 flex items-center justify-between text-xs"><span className="text-muted-foreground">핵심 조건 {item.matchedCoreCriteria.length}개 충족</span><strong className="text-primary">{item.product.currentPrice.toLocaleString("ko-KR")}원</strong></div>

@@ -90,6 +90,9 @@ export type ProductByCategory<C extends ProductCategoryId> = Extract<CatalogProd
 export interface ProductRecommendation {
   product: CatalogProduct;
   score: number;
+  /** 필수 조건의 사실 여부가 아직 확인되지 않아 일반 추천과 구분해야 하는 후보입니다. */
+  verificationNeeded?: boolean;
+  verificationRequiredFields?: string[];
   matchedCoreCriteria: string[];
   unmatchedOrUnknownCriteria: string[];
   recommendationReasons: string[];

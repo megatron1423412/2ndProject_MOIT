@@ -11,6 +11,7 @@ export const rankVacuums = (products: VacuumProduct[], answers: FlowAnswers) => 
   const recommendations: ProductRecommendation[] = [];
   for (const product of products) {
     const reasons: string[] = [];
+    if (product.dataStatus === "discontinued") { excludedProducts.push({ productId: product.id, productName: product.name, reasons: ["판매 중단 상품"] }); continue; }
     if (product.specs.powerType !== a("powerType")) reasons.push("동력 방식 불일치");
     // AW와 Pa는 절대 환산하지 않고 사용자가 고른 단위 필드만 판정합니다.
     if (a("suctionStandard") === "aw" && (product.specs.suctionAw === undefined || product.specs.suctionAw < VACUUM_CRITERIA.defaults.minimumAw)) reasons.push("200AW 데이터 없음 또는 기준 미달");

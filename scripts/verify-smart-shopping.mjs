@@ -68,7 +68,7 @@ try {
     airFlowState = submit(airModule, airFlowState, value, label);
   }
   assert.equal(airFlowState.completed, true, "에어컨 질문 흐름 완료");
-  assert.deepEqual(airFlowState.result.recommendations.map(({ product, score }) => [product.id, score]), [["ac-pure-wall-10", 93]], "에어컨 필수 필터·점수·정렬 정상 브랜치 일치");
+  assert.ok(airFlowState.result.recommendations.length > 0 && airFlowState.result.recommendations.every(({ product, verificationNeeded }) => product.source === "real" && verificationNeeded), "실제 에어컨은 공식 설치 정보가 미확인인 별도 후보로 표시");
   assert.equal(airFlowState.result.metadata.category, "air-conditioner", "에어컨 전용 결과 사용");
 
   const tvModule = getFlowModule("tv");
@@ -78,7 +78,7 @@ try {
     tvFlowState = submit(tvModule, tvFlowState, value, label);
   }
   assert.ok(tvFlowState.messages.some(({ text }) => text?.includes("적용 조건: 55인치")), "TV 조건 요약에 전용 answer 전달");
-  assert.deepEqual(tvFlowState.result.recommendations.map(({ product, score }) => [product.id, score]), [["tv-google-55", 94], ["tv-cinema-65", 89], ["tv-big-75", 80]], "TV 필수 필터·점수·정렬 정상 브랜치 일치");
+  assert.ok(tvFlowState.result.recommendations.length > 0 && tvFlowState.result.recommendations.every(({ product }) => product.source === "real"), "TV flow가 실제 카탈로그를 사용");
   assert.equal(tvFlowState.result.metadata.category, "tv", "TV 전용 결과 사용");
 
   const phoneModule = getFlowModule("phone");
@@ -288,14 +288,14 @@ try {
   const sessionModule = await load("/src/app/features/smart-shopping/session/smartShoppingSessionReducer.ts");
   const timelineSnapshots = await load("/src/app/features/smart-shopping/timeline/createTimelineSnapshot.ts");
   let shoppingSession = sessionModule.createSmartShoppingSession({ categoryId: "tv", criteria: tvAnswers });
-  const loadingTimelineSnapshot = timelineSnapshots.createRecommendationSnapshot({ query: "TV 55", recommendations: tvResult.recommendations, naverItems: [], naverStatus: "loading", naverErrorMessage: "" });
+  const loadingTimelineSnapshot = timelineSnapshots.createRecommendationSnapshot({ query: "TV 55", recommendations: tvResult.recommendations, catalogSource: "mock", naverItems: [], naverStatus: "loading", naverErrorMessage: "" });
   shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append-recommendation-list", item: timelineSnapshots.createRecommendationListTimelineItem(shoppingSession.sessionId, loadingTimelineSnapshot) });
-  const timelineSnapshot = timelineSnapshots.createRecommendationSnapshot({ query: "TV 55", recommendations: tvResult.recommendations, naverItems, naverStatus: "success", naverErrorMessage: "" });
+  const timelineSnapshot = timelineSnapshots.createRecommendationSnapshot({ query: "TV 55", recommendations: tvResult.recommendations, catalogSource: "mock", naverItems, naverStatus: "success", naverErrorMessage: "" });
   assert.equal(loadingTimelineSnapshot.snapshotId, timelineSnapshot.snapshotId, "동일 추천 결과의 안정적 snapshotId");
   shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append-recommendation-list", item: timelineSnapshots.createRecommendationListTimelineItem(shoppingSession.sessionId, timelineSnapshot) });
   assert.equal(shoppingSession.timeline.filter((item) => item.type === "recommendation-list").length, 1, "loading과 완료 snapshot을 단일 목록 item으로 교체");
   assert.equal(shoppingSession.timeline.find((item) => item.type === "recommendation-list").snapshot.naverStatus, "success", "단일 목록에 최신 네이버 상태 반영");
-  const naverErrorSnapshot = timelineSnapshots.createRecommendationSnapshot({ query: "TV 55", recommendations: tvResult.recommendations, naverItems: [], naverStatus: "error", naverErrorMessage: "인증 실패" });
+  const naverErrorSnapshot = timelineSnapshots.createRecommendationSnapshot({ query: "TV 55", recommendations: tvResult.recommendations, catalogSource: "mock", naverItems: [], naverStatus: "error", naverErrorMessage: "인증 실패" });
   const naverErrorSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append-recommendation-list", item: timelineSnapshots.createRecommendationListTimelineItem(shoppingSession.sessionId, naverErrorSnapshot) });
   assert.equal(naverErrorSession.timeline.filter((item) => item.type === "recommendation-list").length, 1, "네이버 오류 snapshot도 목록 중복 없이 교체");
   assert.equal(naverErrorSession.timeline.find((item) => item.type === "recommendation-list").snapshot.recommendations.length, tvResult.recommendations.length, "네이버 오류에도 내부 추천 목록 유지");
@@ -349,15 +349,18 @@ try {
   const { validateProductData } = await load("/src/app/features/product-catalog/data/validateProducts.ts");
   assert.equal(mockProducts.length, 20, "기존 더미 상품 20개를 mockProducts로 보존");
   assert.deepEqual(realProducts, [...REAL_AIR_CONDITIONER_PRODUCTS, ...REAL_TV_PRODUCTS, ...REAL_REFRIGERATOR_PRODUCTS, ...REAL_VACUUM_PRODUCTS], "realProducts는 네 상품군 실제 배열을 집계");
-  assert.equal(realProducts.length, 0, "초기 실제 상품 카탈로그는 비어 있음");
-  assert.deepEqual(catalogSourceByCategory, { "air-conditioner": "mock", tv: "mock", refrigerator: "mock", vacuum: "mock" }, "실제 데이터가 없으면 전 카테고리 mock fallback");
+  assert.ok(REAL_AIR_CONDITIONER_PRODUCTS.every((product) => product.categoryId === "air-conditioner") && REAL_TV_PRODUCTS.every((product) => product.categoryId === "tv") && REAL_REFRIGERATOR_PRODUCTS.every((product) => product.categoryId === "refrigerator") && REAL_VACUUM_PRODUCTS.every((product) => product.categoryId === "vacuum"), "상품군별 실제 배열의 categoryId 정확성");
+  assert.deepEqual(Object.fromEntries(["air-conditioner", "tv", "refrigerator", "vacuum"].map((categoryId) => [categoryId, realProducts.filter((product) => product.categoryId === categoryId).length])), { "air-conditioner": 17, tv: 17, refrigerator: 25, vacuum: 15 }, "네 실제 상품군 파일의 집계 수");
+  assert.ok(realProducts.every((product) => product.source === "real" && product.categoryId && product.dataStatus !== "mock"), "실제 상품의 출처·카테고리 상태");
+  assert.deepEqual(catalogSourceByCategory, { "air-conditioner": "real", tv: "real", refrigerator: "real", vacuum: "real" }, "실제 데이터가 있는 카테고리는 real 선택");
   const repository = productRepository;
-  assert.equal(repository.getProducts("air-conditioner").length, 5); assert.equal(repository.getProducts("tv").length, 5);
-  assert.equal(repository.getProducts("refrigerator").length, 5); assert.equal(repository.getProducts("vacuum").length, 5);
+  assert.equal(repository.getProducts("air-conditioner").length, 17); assert.equal(repository.getProducts("tv").length, 17);
+  assert.equal(repository.getProducts("refrigerator").length, 25); assert.equal(repository.getProducts("vacuum").length, 15);
   assert.ok(repository.getProducts("tv").every((product) => product.categoryId === "tv"), "Repository 상품군 격리");
-  assert.ok(catalogProducts.every((product) => product.dataStatus === "mock" && product.source === "mock" && product.priceHistory.length >= 6 && product.imagePath.startsWith("/assets/products/mock/")), "20개 상품의 mock·가격·로컬 이미지 데이터");
-  assert.equal(repository.getProductById("tv-google-55")?.modelNumber, "MV-G55", "getProductById는 fallback 상품을 조회");
-  assert.equal(repository.findProductByModelNumber(" mv-g55 ")?.id, "tv-google-55", "모델번호 조회는 공백·대소문자를 정규화");
+  assert.ok(catalogProducts.every((product) => product.source === "real"), "활성 카탈로그는 real·mock을 섞지 않음");
+  const realTv = repository.getProducts("tv")[0];
+  assert.equal(repository.getProductById(realTv.id)?.modelNumber, realTv.modelNumber, "getProductById는 실제 상품을 조회");
+  assert.equal(repository.findProductByModelNumber(` ${realTv.modelNumber.toLowerCase()} `)?.id, realTv.id, "실제 모델번호 조회는 공백·대소문자를 정규화");
   const realAirProduct = { ...mockProducts[0], id: "real-ac-01", modelNumber: "REAL-AC-01", source: "real", dataStatus: "unverified", priceHistory: [] };
   const mixedCatalog = buildCatalogProducts(mockProducts, [realAirProduct]);
   const mixedRepository = new StaticProductRepository(mixedCatalog);
@@ -369,6 +372,25 @@ try {
   assert.deepEqual(validateProductData(mockProducts, [realAirProduct]), [], "빈 priceHistory 실제 상품도 유효");
   assert.ok(validateProductData(mockProducts, [{ ...realAirProduct, id: "tv-google-55" }]).some((error) => error.includes("id가")), "중복 id 검출");
   assert.ok(validateProductData(mockProducts, [{ ...realAirProduct, modelNumber: "MV-G55" }]).some((error) => error.includes("modelNumber")), "중복 모델번호 검출");
+  assert.ok(validateProductData(mockProducts, [{ ...realTv, specs: { ...realTv.specs, os: "invalid-os" } }]).some((error) => error.includes(`${realTv.id}: specs.os`)), "잘못된 카테고리 스키마는 정확한 상품·필드를 보고");
+  const realTvResult = rankTvs(repository.getProducts("tv"), tvAnswers);
+  assert.ok(realTvResult.recommendations.length > 0 && realTvResult.recommendations.every(({ product }) => product.dataStatus === "unverified"), "unverified 실제 상품도 추천 대상");
+  const discontinuedTv = { ...realTv, id: `${realTv.id}-discontinued`, modelNumber: `${realTv.modelNumber}-DISCONTINUED`, dataStatus: "discontinued" };
+  assert.ok(rankTvs([realTv, discontinuedTv], { ...tvAnswers, "tv.useDefaults": "custom", "tv.fourKRequired": false, "tv.minimumWarranty": "any" }).excludedProducts.some(({ productId, reasons }) => productId === discontinuedTv.id && reasons.includes("판매 중단 상품")), "discontinued 상품은 일반 추천에서 제외");
+  const { rankRefrigerators } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/rankProducts.ts");
+  const representativeAir = rankAirConditioners(repository.getProducts("air-conditioner"), { "airConditioner.type": "wall", "airConditioner.coolingAreaMode": "custom", "airConditioner.customCoolingArea": 1, "airConditioner.useDefaults": "no", "airConditioner.inverterRequired": false, "airConditioner.officialRequired": false, "airConditioner.autoDryRequired": false, "airConditioner.installationCost": "any", "airConditioner.energyGrade": "any", "airConditioner.rebate": "any", "airConditioner.budget": 10_000_000 });
+  const representativeRefrigerator = rankRefrigerators(repository.getProducts("refrigerator"), { "refrigerator.doorType": "four-door-value", "refrigerator.capacityMode": "600-800", "refrigerator.useDefaults": "no", "refrigerator.metalRequired": false, "refrigerator.coolingRequired": false, "refrigerator.inverterRequired": false, "refrigerator.warrantyRequired": false, "refrigerator.freestandingRequired": false, "refrigerator.budget": 10_000_000 });
+  const representativeVacuum = rankVacuums(repository.getProducts("vacuum"), { "vacuum.powerType": "wireless-value", "vacuum.suctionStandard": "unknown", "vacuum.replaceableBatteryRequired": false, "vacuum.standingDockRequired": false, "vacuum.hepaRequired": false, "vacuum.softRollerRequired": false, "vacuum.weight": "any", "vacuum.budget": 10_000_000 });
+  assert.ok(representativeAir.recommendations.length > 0 && realTvResult.recommendations.length > 0 && representativeRefrigerator.recommendations.length > 0 && representativeVacuum.recommendations.length > 0, "각 실제 카테고리에서 일치 조건은 내부 결과를 생성");
+  assert.ok(optimizedListSource.includes("catalogSource") && optimizedListSource.includes('isReal ? "REAL" : "MOCK"') && !optimizedListSource.includes("MOIT 내부 DB · MOCK"), "내부 결과 출처 배지는 활성 카탈로그에서 유도");
+  assert.ok(optimizedListSource.includes("실제 상품 데이터") && optimizedListSource.includes("내부 더미 상품"), "REAL 빈 상태는 더미 표현을 쓰지 않고 mock fallback 문구는 보존");
+  const realRecommendation = realTvResult.recommendations[0];
+  const realFavoriteDraft = createFavoriteDraft({ userId: "real-user", categoryId: "tv", selected: { source: "internal", recommendation: realRecommendation }, naverItems: [] });
+  assert.equal(realFavoriteDraft.productId, realRecommendation.product.id, "실제 상품 즐겨찾기는 동일한 product id 사용");
+  const realDetail = combineProductDetail({ source: "internal", recommendation: realRecommendation });
+  assert.deepEqual(realDetail.priceHistory, realRecommendation.product.priceHistory, "실제 상품 상세는 같은 identity의 가격 이력을 조회");
+  const realGradeInput = startPurchaseGradeDiagnosis({ selected: { source: "internal", recommendation: realRecommendation }, recommendations: realTvResult.recommendations, userCriteria: tvAnswers });
+  assert.equal(realGradeInput.selectedProduct.recommendation.product.id, realRecommendation.product.id, "구매등급진단은 실제 상품 identity를 유지");
 
   const registry = await load("/src/app/features/chat-flow/registry/loadFlows.ts");
   assert.ok(["air-conditioner", "tv", "refrigerator", "vacuum", "phone", "internet", "iptv", "bundle"].every((id) => registry.getFlowModule(id)), "전체 flow registry 검증");

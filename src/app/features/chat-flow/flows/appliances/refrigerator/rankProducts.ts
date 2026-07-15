@@ -14,6 +14,7 @@ export const rankRefrigerators = (products: RefrigeratorProduct[], answers: Flow
   const recommendations: ProductRecommendation[] = [];
   for (const product of products) {
     const reasons: string[] = [];
+    if (product.dataStatus === "discontinued") { excludedProducts.push({ productId: product.id, productName: product.name, reasons: ["판매 중단 상품"] }); continue; }
     if (product.specs.doorType !== a("doorType")) reasons.push("도어 구조 불일치");
     if (!Number.isFinite(product.specs.capacityLiters) || product.specs.capacityLiters < capacity.minLiters || product.specs.capacityLiters > capacity.maxLiters) reasons.push(`용량 ${capacity.minLiters}~${capacity.maxLiters}L 범위 불일치`);
     if (a("metalRequired") === true && product.specs.metalDoor !== true) reasons.push("메탈 도어 필수 조건 미충족");
