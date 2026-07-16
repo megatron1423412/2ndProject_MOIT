@@ -1,5 +1,6 @@
 import type { FlowAnswers } from "../../../core/types";
 import { getPricePositionScore } from "../../../../product-catalog/core/priceHistory";
+import { createBudgetReason, createHistoricalPriceReason, reasonItem } from "../../../../product-catalog/core/recommendationReasons";
 import { dataCompleteness, sortRecommendations } from "../../../../product-catalog/core/ranking";
 import type { ExcludedProduct, ProductRecommendation, VacuumProduct } from "../../../../product-catalog/core/types";
 import { displayLabel, VACUUM_POWER_LABELS } from "../displayLabels";
@@ -30,7 +31,16 @@ export const rankVacuums = (products: VacuumProduct[], answers: FlowAnswers) => 
     const score = (budget > 0 ? Math.min(1, budget / product.currentPrice) * w.budget : 0) + suctionRatio * w.suction + filterRatio * w.filtration + Math.min(1, product.specs.warrantyYears / 3) * w.warranty + (convenienceMatches / 3) * w.convenience + getPricePositionScore(product.currentPrice, product.priceHistory) / 100 * w.marketPrice;
     const preferences = [product.currentPrice <= budget, product.specs.softRoller, product.specs.bodyWeightKg <= 2.5, !wireless || product.specs.replaceableBattery, !wireless || product.specs.standingDock].filter(Boolean).length;
     const suctionLabel = product.specs.suctionAw !== undefined ? `${product.specs.suctionAw}AW` : product.specs.suctionPa !== undefined ? `${product.specs.suctionPa.toLocaleString("ko-KR")}Pa` : "흡입력 확인 필요";
-    recommendations.push({ product, score: Math.round(score), matchedCoreCriteria: [displayLabel(VACUUM_POWER_LABELS, a("powerType")), suctionLabel, product.specs.hepaGrade], unmatchedOrUnknownCriteria: [...(product.currentPrice > budget ? ["예산 초과"] : []), ...(product.specs.suctionAw === undefined ? ["AW 정보 없음"] : []), ...(product.specs.suctionPa === undefined ? ["Pa 정보 없음"] : [])], recommendationReasons: ["선택한 흡입력 단위만 독립 판정", "필터·편의 구성·현재 시세 위치를 점수화"], preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
+    const recommendationReasonItems = [
+      reasonItem("필수 조건", `선택한 동력 방식과 ${suctionLabel} 흡입력 기준을 충족해요.`),
+      reasonItem("필터 성능", `${product.specs.hepaGrade} 필터 성능을 추천 점수에 반영했어요.`),
+      reasonItem("관리 편의", wireless ? "소프트 롤러와 교체형 배터리·충전 거치대 구성을 반영했어요." : "소프트 롤러와 본체 편의 구성을 반영했어요."),
+    ];
+    const budgetReason = createBudgetReason(product.currentPrice, budget);
+    const historicalPriceReason = createHistoricalPriceReason(product.currentPrice, product.priceHistory);
+    if (budgetReason) recommendationReasonItems.push(budgetReason);
+    if (historicalPriceReason) recommendationReasonItems.push(historicalPriceReason);
+    recommendations.push({ product, score: Math.round(score), matchedCoreCriteria: [displayLabel(VACUUM_POWER_LABELS, a("powerType")), suctionLabel, product.specs.hepaGrade], unmatchedOrUnknownCriteria: [...(product.currentPrice > budget ? ["예산 초과"] : []), ...(product.specs.suctionAw === undefined ? ["AW 정보 없음"] : []), ...(product.specs.suctionPa === undefined ? ["Pa 정보 없음"] : [])], recommendationReasons: recommendationReasonItems.map(({ description }) => description), recommendationReasonItems, preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
   }
   return { recommendations: sortRecommendations(recommendations).slice(0, 10), excludedProducts };
 };

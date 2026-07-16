@@ -4,11 +4,12 @@ import type { PriceHistoryPoint } from "../../product-catalog/core/types";
 
 export const PRICE_HISTORY_CHART_LAYOUT = {
   width: 640,
-  height: 280,
-  padding: { left: 42, right: 24, top: 24, bottom: 92 },
-  plotBaselineY: 188,
-  axisY: 220,
-  axisLabelY: 252,
+  height: 340,
+  padding: { left: 42, right: 24 },
+  plotTopY: 88,
+  plotBaselineY: 224,
+  axisY: 276,
+  axisLabelY: 310,
 } as const;
 
 const { width: WIDTH, height: HEIGHT, padding: PADDING } = PRICE_HISTORY_CHART_LAYOUT;
@@ -29,11 +30,11 @@ export const buildPriceHistoryChartPoints = (history: readonly PriceHistoryPoint
   const firstTimestamp = timestamps[0];
   const timestampRange = timestamps[timestamps.length - 1] - firstTimestamp;
   const chartWidth = WIDTH - PADDING.left - PADDING.right;
-  const chartHeight = PRICE_HISTORY_CHART_LAYOUT.plotBaselineY - PADDING.top;
+  const chartHeight = PRICE_HISTORY_CHART_LAYOUT.plotBaselineY - PRICE_HISTORY_CHART_LAYOUT.plotTopY;
   return validHistory.map((point, index) => ({
     ...point,
     x: timestampRange === 0 ? PADDING.left + chartWidth / 2 : PADDING.left + (timestamps[index] - firstTimestamp) / timestampRange * chartWidth,
-    y: range === 0 ? PADDING.top + chartHeight / 2 : PADDING.top + (max - point.lowestPrice) / range * chartHeight,
+    y: range === 0 ? PRICE_HISTORY_CHART_LAYOUT.plotTopY + chartHeight / 2 : PRICE_HISTORY_CHART_LAYOUT.plotTopY + (max - point.lowestPrice) / range * chartHeight,
   }));
 };
 
@@ -69,6 +70,45 @@ export const getPriceHistoryAxisLabelIndexes = (points: readonly PriceHistoryCha
 export const resolvePriceHistoryDisplayIndex = (defaultIndex: number | null, hoveredIndex: number | null, focusedIndex: number | null) =>
   hoveredIndex ?? focusedIndex ?? defaultIndex;
 
+export interface PriceBubblePlacement {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  anchorX: number;
+  placement: "above" | "above-clamped-left" | "above-clamped-right";
+}
+
+const clamp = (value: number, minimum: number, maximum: number) => Math.min(maximum, Math.max(minimum, value));
+
+/** Centers the attached bubble above its point, clamping only at the chart edges. */
+export const getPriceBubblePlacement = (
+  points: readonly PriceHistoryChartPoint[],
+  activeIndex: number,
+  transient = false,
+): PriceBubblePlacement => {
+  const point = points[activeIndex];
+  const width = transient ? 156 : 126;
+  const height = transient ? 58 : 42;
+  const margin = 8;
+  const desiredX = point.x - width / 2;
+  const x = clamp(desiredX, margin, WIDTH - width - margin);
+  const y = Math.max(margin, point.y - height - 22);
+  const placement = x > desiredX
+    ? "above-clamped-left"
+    : x < desiredX
+      ? "above-clamped-right"
+      : "above";
+  return {
+    x,
+    y,
+    width,
+    height,
+    anchorX: clamp(point.x, x + 16, x + width - 16),
+    placement,
+  };
+};
+
 export default function PriceHistoryChart({ productId, history }: { productId: string; history: readonly PriceHistoryPoint[] }) {
   const points = useMemo(() => buildPriceHistoryChartPoints(history), [history]);
   const pointIdentity = points.map(({ date, lowestPrice }) => `${date}:${lowestPrice}`).join("|");
@@ -101,19 +141,22 @@ function InteractivePriceHistoryChart({ productId, points }: { productId: string
   const transientIndex = hoveredIndex ?? focusedIndex;
   const displayedIndex = resolvePriceHistoryDisplayIndex(defaultIndex, hoveredIndex, focusedIndex);
   const displayed = displayedIndex === null ? null : points[displayedIndex];
+  const bubblePlacement = displayedIndex === null ? null : getPriceBubblePlacement(points, displayedIndex, transientIndex !== null);
   const polyline = points.map(({ x, y }) => `${x},${y}`).join(" ");
-  const plotBaseline = PRICE_HISTORY_CHART_LAYOUT.plotBaselineY;
-  const areaPath = points.length > 1 ? `M ${points[0].x} ${plotBaseline} L ${polyline.replaceAll(",", " ")} L ${points[points.length - 1].x} ${plotBaseline} Z` : null;
+  const axisBaseline = PRICE_HISTORY_CHART_LAYOUT.axisY;
+  const areaPath = points.length > 1 ? `M ${points[0].x} ${axisBaseline} L ${polyline.replaceAll(",", " ")} L ${points[points.length - 1].x} ${axisBaseline} Z` : null;
 
   return (
     <section className="h-full rounded-lg border border-border p-3" data-price-history-card data-product-id={productId}>
       <p className="text-[11px] font-black text-primary">역대 최저가 추이</p>
-      <div className="relative mt-2 min-h-64 w-full overflow-visible" onMouseLeave={() => setHoveredIndex(null)}>
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-64 w-full overflow-visible" role="img" aria-label={`${productId} 저장 가격 이력 ${points.length}개`}>
-          <line x1={PADDING.left} y1={plotBaseline} x2={WIDTH - PADDING.right} y2={plotBaseline} className="stroke-border/40" strokeWidth="1" data-price-plot-baseline />
-          {areaPath && <path d={areaPath} fill="currentColor" opacity="0.12" className="text-accent" data-price-area data-area-baseline={plotBaseline} />}
+      <div className="relative mt-2 min-h-72 w-full overflow-visible" onMouseLeave={() => setHoveredIndex(null)}>
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-72 w-full overflow-visible" role="img" aria-label={`${productId} 저장 가격 이력 ${points.length}개`} data-price-chart-svg>
+          {areaPath && <path d={areaPath} fill="currentColor" opacity="0.12" className="text-accent" data-price-area data-area-baseline={axisBaseline} />}
           {points.length > 1 && <polyline points={polyline} fill="none" stroke="currentColor" strokeWidth="3" className="text-accent" vectorEffect="non-scaling-stroke" />}
           <line x1={PADDING.left} y1={PRICE_HISTORY_CHART_LAYOUT.axisY} x2={WIDTH - PADDING.right} y2={PRICE_HISTORY_CHART_LAYOUT.axisY} className="stroke-border" strokeWidth="1" data-price-axis-baseline />
+          {displayed && bubblePlacement && (
+            <PricePointBubble point={displayed} placement={bubblePlacement} transient={transientIndex !== null} />
+          )}
           {points.map((point, index) => {
             const isDisplayed = displayedIndex === index;
             const isHistoricalLow = defaultIndex === index;
@@ -141,22 +184,31 @@ function InteractivePriceHistoryChart({ productId, points }: { productId: string
             );
           })}
         </svg>
-        {displayed && (
-          <div
-            role={transientIndex === null ? undefined : "tooltip"}
-            data-default-price-label={transientIndex === null || undefined}
-            className="pointer-events-none absolute z-10 min-w-28 rounded-lg border border-border bg-card px-3 py-2 text-center shadow-lg"
-            style={{
-              left: `${displayed.x / WIDTH * 100}%`,
-              top: `${displayed.y / HEIGHT * 100}%`,
-              transform: displayed.x < 100 ? "translate(0, -100%)" : displayed.x > WIDTH - 100 ? "translate(-100%, -100%)" : "translate(-50%, -100%)",
-            }}
-          >
-            {transientIndex !== null && <p className="text-xs font-bold text-muted-foreground">{displayed.date}</p>}
-            <p className={transientIndex === null ? "text-xs font-black text-primary" : "mt-0.5 text-xs font-black text-primary"}>{won(displayed.lowestPrice)}</p>
-          </div>
-        )}
       </div>
     </section>
+  );
+}
+
+function PricePointBubble({ point, placement, transient }: { point: PriceHistoryChartPoint; placement: PriceBubblePlacement; transient: boolean }) {
+  const bubbleBottom = placement.y + placement.height;
+  const tailTipY = point.y;
+  return (
+    <g
+      role={transient ? "tooltip" : undefined}
+      aria-label={transient ? `${point.date} ${won(point.lowestPrice)}` : won(point.lowestPrice)}
+      className="pointer-events-none"
+      data-price-point-bubble
+      data-default-price-label={!transient || undefined}
+      data-bubble-placement={placement.placement}
+      data-bubble-x={placement.x}
+      data-bubble-y={placement.y}
+      data-bubble-center-x={placement.x + placement.width / 2}
+      data-bubble-pointer-x={point.x}
+    >
+      <path d={`M ${placement.anchorX - 6} ${bubbleBottom - 1} L ${placement.anchorX + 6} ${bubbleBottom - 1} L ${point.x} ${tailTipY} Z`} className="fill-card stroke-border" strokeWidth="1" data-price-bubble-pointer data-pointer-tip-x={point.x} data-pointer-tip-y={tailTipY} />
+      <rect x={placement.x} y={placement.y} width={placement.width} height={placement.height} rx="10" className="fill-card stroke-border drop-shadow-sm" strokeWidth="1" />
+      {transient && <text x={placement.x + placement.width / 2} y={placement.y + 21} textAnchor="middle" className="fill-muted-foreground text-xs font-bold">{point.date}</text>}
+      <text x={placement.x + placement.width / 2} y={placement.y + (transient ? 44 : 27)} textAnchor="middle" className="fill-primary text-sm font-black">{won(point.lowestPrice)}</text>
+    </g>
   );
 }

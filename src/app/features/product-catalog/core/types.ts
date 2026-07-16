@@ -91,8 +91,15 @@ export interface ProductRecommendation {
   matchedCoreCriteria: string[];
   unmatchedOrUnknownCriteria: string[];
   recommendationReasons: string[];
+  /** Product-detail copy grouped by the recommendation inputs that were actually applied. */
+  recommendationReasonItems?: RecommendationReasonItem[];
   preferenceMatchCount: number;
   dataCompleteness: number;
+}
+
+export interface RecommendationReasonItem {
+  label: string;
+  description: string;
 }
 
 export interface ExcludedProduct {

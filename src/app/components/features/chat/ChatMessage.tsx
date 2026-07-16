@@ -3,7 +3,7 @@ import { Sparkles } from "lucide-react";
 import ChatFlowInput from "./ChatFlowInput";
 import type { AnswerInputStep, SubmittedFlowAnswer } from "../../../features/chat-flow/core/types";
 
-interface ChatMessageProps {
+export interface ChatMessageProps {
   sender: "ai" | "user";
   text?: string;
   timestamp?: string;

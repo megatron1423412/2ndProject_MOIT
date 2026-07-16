@@ -1,5 +1,6 @@
 import type { FlowAnswers } from "../../../core/types";
 import { getPricePositionScore } from "../../../../product-catalog/core/priceHistory";
+import { createHistoricalPriceReason, reasonItem } from "../../../../product-catalog/core/recommendationReasons";
 import { dataCompleteness, sortRecommendations } from "../../../../product-catalog/core/ranking";
 import type { AirConditionerProduct, ExcludedProduct, ProductRecommendation } from "../../../../product-catalog/core/types";
 import { AIR_CONDITIONER_PRIORITY_LABELS, AIR_CONDITIONER_USAGE_LABELS, displayLabel } from "../displayLabels";
@@ -64,17 +65,22 @@ const buildRecommendation = (
     : 0;
   const priority = displayLabel(AIR_CONDITIONER_PRIORITY_LABELS, answers["airConditioner.valuePriority"] ?? "balanced");
   const dailyUsage = displayLabel(AIR_CONDITIONER_USAGE_LABELS, answers["airConditioner.dailyUsage"] ?? "unknown");
+  const recommendationReasonItems = [
+    reasonItem("필수 조건", `선택한 타입, 냉방면적 ${requiredArea}평 이상, 인버터 조건을 충족해요.`),
+    reasonItem("사용 패턴", `${dailyUsage} 사용하는 기준으로 현재 가격과 에너지 효율의 반영 비중을 조정했어요.`),
+    reasonItem("가성비 기준", `${priority} 기준을 추천 점수에 반영했어요.`),
+    reasonItem("관리 편의", product.specs.autoDry ? "자동 건조 기능을 관리 편의 점수에 반영했어요." : "자동 건조 기능이 없는 점을 관리 편의 점수에 반영했어요."),
+  ];
+  const historicalPriceReason = createHistoricalPriceReason(product.currentPrice, product.priceHistory);
+  if (historicalPriceReason) recommendationReasonItems.push(historicalPriceReason);
 
   return {
     product,
     score: Math.round(score),
     matchedCoreCriteria: ["타입 일치", `냉방 ${requiredArea}평 이상`, "인버터"],
     unmatchedOrUnknownCriteria: hasPriceHistory ? [] : ["가격 이력 없음"],
-    recommendationReasons: [
-      "타입·냉방 면적·인버터 필수 조건 충족",
-      `사용 시간(${dailyUsage})과 가성비 기준(${priority})에 맞춰 현재 가격·효율·자동 건조를 반영`,
-      ...(hasPriceHistory ? ["현재 가격의 과거 최저가 대비 위치 반영"] : []),
-    ],
+    recommendationReasons: recommendationReasonItems.map(({ description }) => description),
+    recommendationReasonItems,
     preferenceMatchCount: [product.specs.energyGrade <= 2, product.specs.autoDry, historicalScore !== null && historicalScore >= 75].filter(Boolean).length,
     dataCompleteness: dataCompleteness({
       currentPrice: product.currentPrice,

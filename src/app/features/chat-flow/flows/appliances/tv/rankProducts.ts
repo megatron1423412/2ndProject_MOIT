@@ -1,5 +1,6 @@
 import type { FlowAnswers } from "../../../core/types";
 import { getPricePositionScore } from "../../../../product-catalog/core/priceHistory";
+import { createBudgetReason, createHistoricalPriceReason, reasonItem } from "../../../../product-catalog/core/recommendationReasons";
 import { dataCompleteness, sortRecommendations } from "../../../../product-catalog/core/ranking";
 import type { ExcludedProduct, ProductRecommendation, TvProduct } from "../../../../product-catalog/core/types";
 import { TV_CRITERIA } from "./criteria";
@@ -27,7 +28,16 @@ export const rankTvs = (products: TvProduct[], answers: FlowAnswers) => {
     const specsScore = (matchedPanel ? 0.25 : 0.1) * w.specifications + (matchedSize ? 0.25 : 0.05) * w.specifications + (matchedOs ? 0.2 : 0.05) * w.specifications + (product.specs.hdr ? 0.15 : 0.05) * w.specifications + (product.specs.resolution === "4k-uhd" ? 0.15 : 0) * w.specifications;
     const score = (budget > 0 ? Math.min(1, budget / product.currentPrice) * w.budget : 0) + specsScore + ((6 - product.specs.energyGrade) / 5) * w.efficiency + Math.min(1, product.specs.warrantyYears / 4) * w.warranty + (product.specs.hdr ? w.convenience : w.convenience * 0.3) + getPricePositionScore(product.currentPrice, product.priceHistory) / 100 * w.marketPrice;
     const preferences = [product.currentPrice <= budget, matchedPanel, matchedSize, matchedOs, product.specs.hdr, product.specs.energyGrade <= 2, product.specs.rebateEligible].filter(Boolean).length;
-    recommendations.push({ product, score: Math.round(score), matchedCoreCriteria: [...(fourKRequired ? ["4K UHD"] : []), `보증 ${product.specs.warrantyYears}년`, ...(matchedSize ? [`${product.specs.screenSizeInches}인치 선호 일치`] : []), ...(matchedOs ? ["OS 선호 일치"] : [])], unmatchedOrUnknownCriteria: [...(!matchedSize ? [`화면 크기 선호 불일치 (${product.specs.screenSizeInches}인치)`] : []), ...(!matchedOs ? ["OS 선호 불일치"] : []), ...(!matchedPanel ? ["패널 선호 불일치"] : []), ...(product.currentPrice > budget ? ["예산 초과"] : []), ...(!product.specs.rebateEligible ? ["환급 대상 아님 또는 확인 필요"] : [])], recommendationReasons: ["필수 화질·보증 조건 충족", "크기·OS·패널 선호와 가격 위치 반영"], preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
+    const recommendationReasonItems = [
+      reasonItem("필수 조건", "선택한 화질과 보증 기준을 충족해요."),
+      reasonItem("선호 조건", "화면 크기, OS, 패널 선호와의 일치 정도를 반영했어요."),
+      reasonItem("성능·효율", `에너지 ${product.specs.energyGrade}등급, HDR 지원 여부와 보증 기간을 점수에 반영했어요.`),
+    ];
+    const budgetReason = createBudgetReason(product.currentPrice, budget);
+    const historicalPriceReason = createHistoricalPriceReason(product.currentPrice, product.priceHistory);
+    if (budgetReason) recommendationReasonItems.push(budgetReason);
+    if (historicalPriceReason) recommendationReasonItems.push(historicalPriceReason);
+    recommendations.push({ product, score: Math.round(score), matchedCoreCriteria: [...(fourKRequired ? ["4K UHD"] : []), `보증 ${product.specs.warrantyYears}년`, ...(matchedSize ? [`${product.specs.screenSizeInches}인치 선호 일치`] : []), ...(matchedOs ? ["OS 선호 일치"] : [])], unmatchedOrUnknownCriteria: [...(!matchedSize ? [`화면 크기 선호 불일치 (${product.specs.screenSizeInches}인치)`] : []), ...(!matchedOs ? ["OS 선호 불일치"] : []), ...(!matchedPanel ? ["패널 선호 불일치"] : []), ...(product.currentPrice > budget ? ["예산 초과"] : []), ...(!product.specs.rebateEligible ? ["환급 대상 아님 또는 확인 필요"] : [])], recommendationReasons: recommendationReasonItems.map(({ description }) => description), recommendationReasonItems, preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
   }
   return { recommendations: sortRecommendations(recommendations).slice(0, 10), excludedProducts };
 };

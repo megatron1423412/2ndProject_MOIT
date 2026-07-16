@@ -38,17 +38,27 @@ export default function ProductDetailDataSections({
             ? strengths.map((item) => <p key={item} className="mt-1 text-xs text-muted-foreground">+ {item}</p>)
             : <p className="mt-2 text-xs text-muted-foreground">등록된 장점 정보가 없습니다.</p>}
         </section>
-        <div className="grid grid-cols-2 gap-2" data-price-summary data-detail-right-bottom>
-          <PriceMetric label="현재가" value={Number.isFinite(currentPrice) && currentPrice > 0 ? won(currentPrice) : "이용 불가"} sub={currentPriceLabel} />
-          <PriceMetric label="역대 최저가" value={summary ? won(summary.allTimeLow) : "이용 불가"} />
-          <PriceMetric label="평균가" value={summary ? won(summary.averagePrice) : "이용 불가"} />
-          <PriceMetric label="최저가 대비" value={summary ? `${signedWon(summary.differenceFromLow)} (${summary.percentAboveLow}%)` : "이용 불가"} />
-        </div>
+        <section className="rounded-lg border border-border bg-muted/30 p-4" data-price-summary data-detail-right-bottom>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(8.5rem,auto)] items-baseline gap-x-6 gap-y-3" data-price-summary-grid>
+            <PriceSummaryRow label="현재가" value={Number.isFinite(currentPrice) && currentPrice > 0 ? won(currentPrice) : "이용 불가"} sub={currentPriceLabel} />
+            <PriceSummaryRow label="역대 최저가" value={summary ? won(summary.allTimeLow) : "이용 불가"} />
+            <PriceSummaryRow label="최저가 대비" value={summary ? `${signedWon(summary.differenceFromLow)} (${summary.percentAboveLow}%)` : "이용 불가"} emphasized />
+          </div>
+        </section>
       </div>
     </>
   );
 }
 
-function PriceMetric({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return <div className="rounded-lg bg-muted/30 p-3"><p className="text-[10px] font-bold text-muted-foreground">{label}</p><p className="mt-1 text-xs font-black text-primary">{value}</p>{sub && <p className="mt-1 text-[9px] text-muted-foreground">{sub}</p>}</div>;
+function PriceSummaryRow({ label, value, sub, emphasized = false }: { label: string; value: string; sub?: string; emphasized?: boolean }) {
+  const color = emphasized ? "text-red-600 dark:text-red-400" : "text-primary";
+  return (
+    <>
+      <p className={`text-right text-xs font-semibold ${color}`} data-price-summary-label={label}>{label}</p>
+      <div className={`min-w-0 text-right ${color}`} data-price-summary-value={label}>
+        <p className="whitespace-nowrap text-sm font-black tabular-nums">{value}</p>
+        {sub && <p className="mt-1 text-[10px] text-muted-foreground">{sub}</p>}
+      </div>
+    </>
+  );
 }

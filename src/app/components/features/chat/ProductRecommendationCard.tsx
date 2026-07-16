@@ -4,6 +4,7 @@ import type { ProductRecommendation } from "../../../features/product-catalog/co
 import CriteriaMatchList from "./CriteriaMatchList";
 import FavoriteToggleButton from "../../../features/favorites/FavoriteToggleButton";
 import ProductDetailDataSections from "../../../features/smart-shopping/product-detail/ProductDetailDataSections";
+import RecommendationReasonList from "../../../features/smart-shopping/recommendation/RecommendationReasonList";
 import { AIR_CONDITIONER_TYPE_LABELS, displayLabel, REFRIGERATOR_DOOR_LABELS, TV_RESOLUTION_LABELS } from "../../../features/chat-flow/flows/appliances/displayLabels";
 
 const specLabels = (product: ProductRecommendation["product"]) => {
@@ -42,7 +43,7 @@ export default function ProductRecommendationCard({ recommendation, isFavorite =
       </div>
       <div className="mt-4"><CriteriaMatchList matched={recommendation.matchedCoreCriteria} unmatched={confirmationItems} confirmationTitle={isAirConditioner ? "구매 전 확인" : undefined} /></div>
       <ProductDetailDataSections productId={product.id} reviewSummary={product.aiReviewSummary} strengths={product.strengths} currentPrice={product.currentPrice} currentPriceLabel="모잇 내부 카탈로그 현재가" priceHistory={product.priceHistory} />
-      <p className="mt-3 text-xs font-bold text-primary">추천 이유: {recommendation.recommendationReasons.join(" · ")}</p>
+      <RecommendationReasonList recommendation={recommendation} />
     </article>
   );
 }

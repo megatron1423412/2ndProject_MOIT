@@ -21,8 +21,7 @@ import { PRODUCT_DETAIL_SETTINGS } from "../product-detail/productDetailSettings
 import { createSmartShoppingSession, smartShoppingSessionReducer } from "../session/smartShoppingSessionReducer";
 import type { RecommendationSnapshot, TimelineActionGroupKind } from "../session/smartShoppingSessionTypes";
 import { createActionGroupTimelineItem, createCriteriaSnapshot, createPriceAlertTimelineItem, createProductDetailSnapshot, createProductDetailTimelineItem, createPurchaseGradeTimelineItem, createPurchaseLinkTimelineItem, createQuestionInputTimelineItem, createRecommendationListTimelineItem, createRecommendationSnapshot, createTextTimelineItem } from "../timeline/createTimelineSnapshot";
-import SmartShoppingTimeline from "../timeline/SmartShoppingTimeline";
-import ChatTimelineRow from "../../../components/features/chat/ChatTimelineRow";
+import type { SmartShoppingTimelineRenderModel } from "../timeline/SmartShoppingTimeline";
 import type { NaverShoppingProduct, SelectedShoppingProduct } from "../types/recommendation";
 import { initialRecommendationViewState, recommendationViewReducer } from "../types/recommendation";
 import type { FavoriteDraft, FavoriteProduct } from "../../favorites/types";
@@ -37,9 +36,10 @@ interface Props {
   userId: string;
   favorites: FavoriteProduct[];
   onToggleFavorite: (draft: FavoriteDraft) => void;
+  renderTimeline: (model: SmartShoppingTimelineRenderModel) => React.ReactNode;
 }
 
-export default function RecommendationSelectionView({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId, favorites, onToggleFavorite }: Props) {
+export default function RecommendationSelectionView({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId, favorites, onToggleFavorite, renderTimeline }: Props) {
   const metadata = result.metadata as { category?: ProductCategoryId; answers?: FlowAnswers; overBudgetRecommendations?: ProductRecommendation[] } | undefined;
   const category = metadata?.category ?? "tv";
   const catalogSource = catalogSourceByCategory[category];
@@ -227,14 +227,27 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     setShowedOverBudget(true);
   };
 
-  return <div className="contents" data-stage={session.currentStage}>
-    {!showedOverBudget && (metadata?.overBudgetRecommendations?.length ?? 0) > 0 && (
-      <ChatTimelineRow kind="wide">
-        <button type="button" onClick={showClosestOverBudget} className="rounded-lg border border-accent bg-card px-4 py-2.5 text-sm font-black text-accent shadow-sm transition hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-accent/40">
-          예산 초과가 가장 적은 상품 보기
-        </button>
-      </ChatTimelineRow>
-    )}
-    <SmartShoppingTimeline timeline={session.timeline} questionLoading={questionLoading} questionError={questionError} onSelectRecommendation={(recommendation) => selectProduct({ source: "internal", recommendation })} onSelectNaverProduct={(product) => selectProduct({ source: "naver", product, matchedInternalProduct: matchInternalProduct(product, result.catalogProducts ?? []) })} onRetryNaver={() => void loadNaver()} onDetailAction={handleDetailAction} onBackToList={backToList} onNextStep={nextStep} onQuestionSubmit={(question) => void handleQuestionSubmit(question)} onQuestionRetry={(question) => void handleQuestionSubmit(question, false)} onQuestionCancel={() => { sessionDispatch({ type: "deactivate-interactions" }); appendText("user-action", "질문 입력 취소"); appendActionGroup("detail", showAlternative); }} onNextAction={handleNextAction} onCancelPurchaseLink={cancelPurchaseLink} onSavePriceAlert={savePriceAlert} onCancelPriceAlert={cancelPriceAlert} catalogProducts={result.catalogProducts ?? []} isFavorite={(selectedProduct) => favoriteIdentities.has(getFavoriteProductIdentity(favoriteDraftFor(selectedProduct)))} onToggleFavorite={(selectedProduct) => onToggleFavorite(favoriteDraftFor(selectedProduct))} />
-  </div>;
+  return renderTimeline({
+    timeline: session.timeline,
+    showClosestOverBudget: !showedOverBudget && (metadata?.overBudgetRecommendations?.length ?? 0) > 0,
+    onShowClosestOverBudget: showClosestOverBudget,
+    questionLoading,
+    questionError,
+    onSelectRecommendation: (recommendation) => selectProduct({ source: "internal", recommendation }),
+    onSelectNaverProduct: (product) => selectProduct({ source: "naver", product, matchedInternalProduct: matchInternalProduct(product, result.catalogProducts ?? []) }),
+    onRetryNaver: () => void loadNaver(),
+    onDetailAction: handleDetailAction,
+    onBackToList: backToList,
+    onNextStep: nextStep,
+    onQuestionSubmit: (question) => void handleQuestionSubmit(question),
+    onQuestionRetry: (question) => void handleQuestionSubmit(question, false),
+    onQuestionCancel: () => { sessionDispatch({ type: "deactivate-interactions" }); appendText("user-action", "질문 입력 취소"); appendActionGroup("detail", showAlternative); },
+    onNextAction: handleNextAction,
+    onCancelPurchaseLink: cancelPurchaseLink,
+    onSavePriceAlert: savePriceAlert,
+    onCancelPriceAlert: cancelPriceAlert,
+    catalogProducts: result.catalogProducts ?? [],
+    isFavorite: (selectedProduct) => favoriteIdentities.has(getFavoriteProductIdentity(favoriteDraftFor(selectedProduct))),
+    onToggleFavorite: (selectedProduct) => onToggleFavorite(favoriteDraftFor(selectedProduct)),
+  });
 }

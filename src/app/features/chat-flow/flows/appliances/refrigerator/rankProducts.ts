@@ -1,5 +1,6 @@
 import type { FlowAnswers } from "../../../core/types";
 import { getPricePositionScore } from "../../../../product-catalog/core/priceHistory";
+import { createBudgetReason, createHistoricalPriceReason, reasonItem } from "../../../../product-catalog/core/recommendationReasons";
 import { dataCompleteness, sortRecommendations } from "../../../../product-catalog/core/ranking";
 import type { ExcludedProduct, ProductRecommendation, RefrigeratorProduct } from "../../../../product-catalog/core/types";
 import { displayLabel, REFRIGERATOR_DOOR_LABELS } from "../displayLabels";
@@ -29,7 +30,16 @@ export const rankRefrigerators = (products: RefrigeratorProduct[], answers: Flow
     const capacityFit = Math.max(0, 1 - Math.abs(product.specs.capacityLiters - center) / Math.max(1, center));
     const score = (budget > 0 ? Math.min(1, budget / product.currentPrice) * w.budget : 0) + capacityFit * w.capacity + ((6 - product.specs.energyGrade) / 5) * w.efficiency + Math.min(1, product.specs.corePartWarrantyYears / 15) * w.warranty + (product.specs.metalDoor ? w.convenience : w.convenience * 0.35) + getPricePositionScore(product.currentPrice, product.priceHistory) / 100 * w.marketPrice;
     const preferences = [product.currentPrice <= budget, product.specs.metalDoor, product.specs.energyGrade <= 2, product.specs.corePartWarrantyYears > 10].filter(Boolean).length;
-    recommendations.push({ product, score: Math.round(score), matchedCoreCriteria: [displayLabel(REFRIGERATOR_DOOR_LABELS, a("doorType")), `${capacity.minLiters}~${capacity.maxLiters}L`, "인버터", `핵심부품 ${product.specs.corePartWarrantyYears}년 보증`], unmatchedOrUnknownCriteria: [...(!product.specs.metalDoor ? ["메탈 도어 아님"] : []), ...(product.currentPrice > budget ? ["예산 초과"] : [])], recommendationReasons: ["도어·용량·냉각 필수 조건 충족", "효율·보증·현재 시세 위치를 점수화"], preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
+    const recommendationReasonItems = [
+      reasonItem("필수 조건", `선택한 도어 구조와 ${capacity.minLiters}~${capacity.maxLiters}L 용량 범위를 충족해요.`),
+      reasonItem("성능·효율", `냉각 방식, 인버터, 에너지 ${product.specs.energyGrade}등급과 핵심 부품 보증 기간을 반영했어요.`),
+      reasonItem("관리 편의", product.specs.metalDoor ? "메탈 도어 구성을 관리 편의 점수에 반영했어요." : "메탈 도어가 아닌 점을 관리 편의 점수에 반영했어요."),
+    ];
+    const budgetReason = createBudgetReason(product.currentPrice, budget);
+    const historicalPriceReason = createHistoricalPriceReason(product.currentPrice, product.priceHistory);
+    if (budgetReason) recommendationReasonItems.push(budgetReason);
+    if (historicalPriceReason) recommendationReasonItems.push(historicalPriceReason);
+    recommendations.push({ product, score: Math.round(score), matchedCoreCriteria: [displayLabel(REFRIGERATOR_DOOR_LABELS, a("doorType")), `${capacity.minLiters}~${capacity.maxLiters}L`, "인버터", `핵심부품 ${product.specs.corePartWarrantyYears}년 보증`], unmatchedOrUnknownCriteria: [...(!product.specs.metalDoor ? ["메탈 도어 아님"] : []), ...(product.currentPrice > budget ? ["예산 초과"] : [])], recommendationReasons: recommendationReasonItems.map(({ description }) => description), recommendationReasonItems, preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
   }
   return { recommendations: sortRecommendations(recommendations).slice(0, 10), excludedProducts };
 };
