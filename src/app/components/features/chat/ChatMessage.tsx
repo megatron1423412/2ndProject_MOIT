@@ -1,6 +1,7 @@
 import React from "react";
 import { Sparkles } from "lucide-react";
 import ChatFlowInput from "./ChatFlowInput";
+import { CHAT_ASSISTANT_AVATAR_WIDTH_CLASS, CHAT_ASSISTANT_RAIL_GAP_CLASS } from "./ChatTimelineRow";
 import type { AnswerInputStep, SubmittedFlowAnswer } from "../../../features/chat-flow/core/types";
 
 export interface ChatMessageProps {
@@ -33,10 +34,10 @@ export default function ChatMessage({
   const isAi = sender === "ai";
 
   return (
-    <div className={`flex max-w-[88%] gap-3 ${isAi ? "self-start" : "self-end flex-row-reverse"}`} data-chat-turn={isAi ? "assistant" : "user"}>
+    <div className={`flex max-w-[88%] ${CHAT_ASSISTANT_RAIL_GAP_CLASS} ${isAi ? "self-start" : "self-end flex-row-reverse"}`} data-chat-turn={isAi ? "assistant" : "user"}>
       {isAi && (
         <div
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-emerald-100 text-white shadow-sm"
+          className={`flex h-8 ${CHAT_ASSISTANT_AVATAR_WIDTH_CLASS} flex-shrink-0 items-center justify-center rounded-full border border-emerald-100 text-white shadow-sm`}
           style={{ background: "linear-gradient(135deg, #1B3A5C, #00B87A)" }}
           data-chat-assistant-logo
         >
@@ -90,4 +91,3 @@ export default function ChatMessage({
     </div>
   );
 }
-

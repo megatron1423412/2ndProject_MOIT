@@ -598,6 +598,8 @@ try {
   const diagnosisResultSource = await readFile("src/app/components/features/chat/DiagnosisResultCard.tsx", "utf8");
   const chatScreenSource = await readFile("src/app/components/features/chat/ChatScreen.tsx", "utf8");
   const chatMessageSource = await readFile("src/app/components/features/chat/ChatMessage.tsx", "utf8");
+  const chatTimelineRowSource = await readFile("src/app/components/features/chat/ChatTimelineRow.tsx", "utf8");
+  const smartShoppingTimelineSource = await readFile("src/app/features/smart-shopping/timeline/SmartShoppingTimeline.tsx", "utf8");
   const chatFlowInputSource = await readFile("src/app/components/features/chat/ChatFlowInput.tsx", "utf8");
   const chatConversationTurnSource = await readFile("src/app/components/features/chat/ChatConversationTurn.tsx", "utf8");
   const { ChatScreenSmartShoppingTimeline } = await load("/src/app/components/features/chat/ChatScreen.tsx");
@@ -643,6 +645,8 @@ try {
   assert.ok(assistantRailMarkup.includes('data-chat-timeline-row="assistant"') && assistantRailMarkup.includes("justify-start"), "모든 assistant 턴은 공용 왼쪽 레일");
   assert.ok(userRailMarkup.includes('data-chat-timeline-row="user"') && userRailMarkup.includes("justify-end"), "모든 user 턴은 공용 오른쪽 레일");
   assert.ok(wideRailMarkup.includes('data-chat-timeline-row="wide"') && !wideRailMarkup.includes("justify-end") && !wideRailMarkup.includes("justify-start"), "넓은 카드 행은 메시지 정렬 부모와 독립");
+  assert.ok(chatTimelineRowSource.includes('CHAT_ASSISTANT_AVATAR_WIDTH_CLASS = "w-8"') && chatTimelineRowSource.includes('CHAT_ASSISTANT_RAIL_GAP_CLASS = "gap-3"') && chatMessageSource.includes("CHAT_ASSISTANT_AVATAR_WIDTH_CLASS") && chatMessageSource.includes("CHAT_ASSISTANT_RAIL_GAP_CLASS"), "assistant avatar 폭과 gap을 wide 행이 같은 토큰으로 공유");
+  assert.ok(wideRailMarkup.includes("data-chat-wide-avatar-column") && wideRailMarkup.includes("data-chat-wide-content-inner") && smartShoppingTimelineSource.includes('data-chat-content="recommendation-shell"') && smartShoppingTimelineSource.includes('data-chat-content="action-toolbar"') && !smartShoppingTimelineSource.includes('className="ml-11 grid'), "wide 콘텐츠는 공용 빈 avatar 열 뒤 content 열을 사용하고 대체 상품 중복 inset 없음");
   assert.equal((alignedTimelineMarkup.match(/data-chat-timeline-row="user"/g) ?? []).length, 7, "상품 선택과 모든 후속 액션의 사용자 턴이 같은 오른쪽 행 사용");
   assert.equal((alignedTimelineMarkup.match(/data-chat-timeline-row="assistant"/g) ?? []).length, 8, "초기 조건 질문과 세일·팁·대체 상품·목록 복원·Q&A·구매 단계 답변이 같은 왼쪽 행 사용");
   assert.equal((alignedTimelineMarkup.match(/data-chat-assistant-logo="true"/g) ?? []).length, 8, "상품 상세 전후 모든 assistant MOIT 로고가 동일한 outer 렌더러 사용");

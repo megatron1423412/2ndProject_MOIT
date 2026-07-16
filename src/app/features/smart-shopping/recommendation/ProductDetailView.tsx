@@ -38,7 +38,7 @@ export default function ProductDetailView(props: Props) {
     ? <ProductRecommendationCard recommendation={selected.recommendation} isFavorite={props.isFavorite} onToggleFavorite={props.onToggleFavorite} />
     : <NaverProductDetail selected={selected} internalRecommendations={internalRecommendations} categoryId={props.categoryId} isFavorite={props.isFavorite ?? false} onToggleFavorite={props.onToggleFavorite} />;
   return (
-    <div className="space-y-4" data-stage="viewing-product-detail">
+    <div className="space-y-4" data-stage="viewing-product-detail" data-chat-content="product-detail">
       {content}
       {interactive && <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <ProductDetailActionBar showAlternative={props.showAlternative ?? false} isQuestionLoading={props.questionLoading ?? false} onAction={props.onAction ?? (() => {})} onBack={props.onBack ?? (() => {})} onNext={props.onNext ?? (() => {})} />
