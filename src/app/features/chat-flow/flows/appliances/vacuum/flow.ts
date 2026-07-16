@@ -1,4 +1,5 @@
 import type { FlowDefinition, FlowStep } from "../../../core/types";
+import { displayLabel, VACUUM_POWER_LABELS, VACUUM_SUCTION_LABELS, VACUUM_WEIGHT_LABELS } from "../displayLabels";
 
 const n = "vacuum";
 const v = (a: Record<string, unknown>, key: string) => a[`${n}.${key}`];
@@ -19,7 +20,7 @@ const steps: FlowStep[] = [
     { value: "under-2.5", label: "2.5kg 이하" }, { value: "any", label: "상관없음" },
   ], next: "vc-budget" },
   { id: "vc-budget", type: "number-input", message: "구매 예산 상한을 입력해주세요.", answerKey: `${n}.budget`, min: 0, unit: "원", next: "vc-summary" },
-  { id: "vc-summary", type: "assistant-message", message: "조건을 요약했어요.", buildMessage: (a) => `적용 조건: ${String(v(a, "powerType"))}, 흡입력 ${String(v(a, "suctionStandard"))} 독립 판정, HEPA ${v(a, "hepaRequired") ? "필수" : "선호"}, 중량 ${String(v(a, "weight"))}, 예산 ${Number(v(a, "budget")).toLocaleString("ko-KR")}원이에요.${v(a, "powerType") === "wired-major" ? " 유선이므로 배터리·충전 거치대 조건은 건너뛰었어요." : ""}`, next: "vc-confirm" },
+  { id: "vc-summary", type: "assistant-message", message: "조건을 요약했어요.", buildMessage: (a) => `적용 조건: ${displayLabel(VACUUM_POWER_LABELS, v(a, "powerType"))}, ${displayLabel(VACUUM_SUCTION_LABELS, v(a, "suctionStandard"))} 독립 판정, HEPA ${v(a, "hepaRequired") ? "필수" : "선호"}, ${displayLabel(VACUUM_WEIGHT_LABELS, v(a, "weight"))}, 예산 ${Number(v(a, "budget")).toLocaleString("ko-KR")}원이에요.${v(a, "powerType") === "wired-major" ? " 유선이므로 배터리·충전 거치대 조건은 건너뛰었어요." : ""}`, next: "vc-confirm" },
   { id: "vc-confirm", type: "confirmation", message: "추천을 시작하거나 처음부터 조건을 수정할 수 있어요.", answerKey: `${n}.confirmed`, confirmLabel: "추천 시작", cancelLabel: "조건 수정", confirmNext: "vc-result", cancelNext: "$restart" },
   { id: "vc-result", type: "result", message: "AW와 Pa를 환산하지 않고 필수 조건을 통과한 상품만 정리했어요." },
 ];

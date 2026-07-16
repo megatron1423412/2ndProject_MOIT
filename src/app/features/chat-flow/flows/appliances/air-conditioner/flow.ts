@@ -1,4 +1,5 @@
 import type { FlowAnswers, FlowDefinition, FlowStep } from "../../../core/types";
+import { AIR_CONDITIONER_PRIORITY_LABELS, AIR_CONDITIONER_TYPE_LABELS, AIR_CONDITIONER_USAGE_LABELS, displayLabel } from "../displayLabels";
 import { calculateRecommendedCoolingArea, getRequiredCoolingArea, getSelectedAirConditionerType } from "./criteria";
 
 const n = "airConditioner";
@@ -11,30 +12,8 @@ const typeBySpace: Record<string, string> = {
   window: "window",
 };
 
-export const AIR_CONDITIONER_TYPE_LABELS: Record<string, string> = {
-  wall: "벽걸이형",
-  standing: "스탠드형",
-  "two-in-one": "2in1",
-  window: "창문형",
-};
-
-export const AIR_CONDITIONER_USAGE_LABELS: Record<string, string> = {
-  under4: "4시간 미만",
-  "4to8": "4~8시간",
-  over8: "8시간 이상",
-  unknown: "잘 모르겠어요",
-};
-
-export const AIR_CONDITIONER_PRIORITY_LABELS: Record<string, string> = {
-  "low-purchase-price": "구매가격이 낮은 제품",
-  "electricity-saving": "전기요금까지 아끼는 제품",
-  maintenance: "청소와 관리가 편한 제품",
-  "good-current-price": "현재 가격이 좋은 제품",
-  balanced: "가격·효율 균형 추천",
-};
-
 const inferredType = (answers: FlowAnswers) => typeBySpace[String(value(answers, "installationSpace"))] ?? "wall";
-const typeLabel = (type: unknown) => AIR_CONDITIONER_TYPE_LABELS[String(type)] ?? String(type);
+const typeLabel = (type: unknown) => displayLabel(AIR_CONDITIONER_TYPE_LABELS, type, "에어컨 타입");
 
 const typeOptions = [
   { value: "wall", label: "벽걸이형" },
@@ -74,7 +53,7 @@ const steps: FlowStep[] = [
     const home = Number(value(answers, "homePyeong"));
     const area = calculateRecommendedCoolingArea(home);
     return getSelectedAirConditionerType(answers) === "two-in-one"
-      ? `${home}평 집이라면 주 실내기 냉방면적 ${area}평 이상을 기준으로 찾아볼게요. 2in1 상품의 ratedCoolingAreaPyeong을 주 실내기 비교값으로 사용해요.`
+      ? `${home}평 집이라면 주 실내기 냉방면적 ${area}평 이상을 기준으로 찾아볼게요. 2in1 제품은 주 실내기의 냉방면적을 기준으로 비교해요.`
       : `${home}평 집이라면 냉방면적 ${area}평 이상을 기준으로 찾아볼게요.`;
   }, next: "ac-area-mode" },
   { id: "ac-area-mode", type: "single-choice", message: "계산한 냉방 면적을 적용할까요?", answerKey: `${n}.coolingAreaMode`, options: [
@@ -104,8 +83,8 @@ const steps: FlowStep[] = [
       "선택 조건",
       `- 타입: ${typeLabel(selectedType)}`,
       `- ${areaLabel}: ${getRequiredCoolingArea(answers)}평`,
-      `- 하루 사용: ${AIR_CONDITIONER_USAGE_LABELS[String(value(answers, "dailyUsage"))]}`,
-      `- 가성비 기준: ${AIR_CONDITIONER_PRIORITY_LABELS[String(value(answers, "valuePriority"))]}`,
+      `- 예상 사용: ${displayLabel(AIR_CONDITIONER_USAGE_LABELS, value(answers, "dailyUsage"))}`,
+      `- 가성비 기준: ${displayLabel(AIR_CONDITIONER_PRIORITY_LABELS, value(answers, "valuePriority"))}`,
       `- 제품 가격: ${budget === "none" ? "예산 제한 없음" : `${Number(budget).toLocaleString("ko-KR")}원 이하`}`,
     ].join("\n");
   }, next: "ac-confirm" },

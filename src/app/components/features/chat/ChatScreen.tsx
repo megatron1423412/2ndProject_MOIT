@@ -5,6 +5,7 @@ import type { ConversationHistoryItem, SubCategory, SubCategoryId, TopActionStat
 import ChatFlowInput from "./ChatFlowInput";
 import ChatHeader from "./ChatHeader";
 import ChatMessage from "./ChatMessage";
+import ChatTimelineRow from "./ChatTimelineRow";
 import ChatSidebar from "./ChatSidebar";
 import DiagnosisResultCard from "./DiagnosisResultCard";
 import { buildSmartShoppingGreeting } from "../../../features/smart-shopping/greeting/buildSmartShoppingGreeting";
@@ -82,7 +83,7 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
         <main ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-5">
           <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
             {item.parentCategory === "appliances" && (
-              <ChatMessage sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} />
+              <ChatTimelineRow kind="assistant"><ChatMessage sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} /></ChatTimelineRow>
             )}
             {flow.messages.map((message, index) => {
               const isLast = index === flow.messages.length - 1;
@@ -98,22 +99,24 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
               return (
                 <React.Fragment key={message.id}>
                   {message.text && (
-                    <ChatMessage
-                      sender={message.sender}
-                      text={message.text}
-                      timestamp={message.timestamp}
-                      step={currentStepForMessage}
-                      completed={isLast ? flow.completed : false}
-                      onSubmit={flow.submitAnswer}
-                      onReset={flow.reset}
-                      canUndo={isLast && isAi && Boolean(flow.currentStep) && flow.canUndo}
-                      undoDisabled={flow.isTransitioning}
-                      onUndo={flow.undoLatestAnswer}
-                    />
+                    <ChatTimelineRow kind={isAi ? "assistant" : "user"}>
+                      <ChatMessage
+                        sender={message.sender}
+                        text={message.text}
+                        timestamp={message.timestamp}
+                        step={currentStepForMessage}
+                        completed={isLast ? flow.completed : false}
+                        onSubmit={flow.submitAnswer}
+                        onReset={flow.reset}
+                        canUndo={isLast && isAi && Boolean(flow.currentStep) && flow.canUndo}
+                        undoDisabled={flow.isTransitioning}
+                        onUndo={flow.undoLatestAnswer}
+                      />
+                    </ChatTimelineRow>
                   )}
                   {message.type === "result" && renderedResult && (
                     <div
-                      className={isSmartShoppingResult ? "w-full min-w-0 self-stretch" : "w-full self-start pl-11"}
+                      className={isSmartShoppingResult ? "contents" : "w-full self-start pl-11"}
                       data-smart-shopping-result-root={isSmartShoppingResult || undefined}
                     >
                       <DiagnosisResultCard result={renderedResult} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} onTimelineChange={() => setTimelineRevision((value) => value + 1)} userId={userProfile.id} favorites={favorites} onToggleFavorite={onToggleFavorite} />

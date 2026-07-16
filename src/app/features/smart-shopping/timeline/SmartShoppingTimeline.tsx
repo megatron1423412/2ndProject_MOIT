@@ -1,5 +1,6 @@
 import React from "react";
 import ChatMessage from "../../../components/features/chat/ChatMessage";
+import ChatTimelineRow from "../../../components/features/chat/ChatTimelineRow";
 import type { ProductDetailActionId } from "../actions/productDetailActions";
 import PurchaseGradeResultCard from "../grade/PurchaseGradeResultCard";
 import NextActionSelection from "../next-actions/NextActionSelection";
@@ -41,21 +42,7 @@ interface Props {
 }
 
 export default function SmartShoppingTimeline(props: Props) {
-  return <div className="flex w-full min-w-0 flex-col gap-4" aria-live="polite" data-smart-shopping-timeline>{props.timeline.map((item) => <TimelineItemRenderer key={item.id} item={item} {...props} />)}</div>;
-}
-
-export type SmartShoppingTimelineRowKind = "assistant" | "user" | "wide";
-
-export function SmartShoppingTimelineRow({ kind, children }: { kind: SmartShoppingTimelineRowKind; children: React.ReactNode }) {
-  const alignment = kind === "user" ? "justify-end" : "justify-start";
-  return (
-    <div
-      className={kind === "wide" ? "w-full min-w-0" : `flex w-full min-w-0 ${alignment}`}
-      data-timeline-row={kind}
-    >
-      {children}
-    </div>
-  );
+  return <div className="contents" aria-live="polite" data-smart-shopping-timeline>{props.timeline.map((item) => <TimelineItemRenderer key={item.id} item={item} {...props} />)}</div>;
 }
 
 function TimelineItemRenderer({ item, ...props }: Props & { item: SmartShoppingTimelineItem }) {
@@ -63,24 +50,24 @@ function TimelineItemRenderer({ item, ...props }: Props & { item: SmartShoppingT
     const alternatives = item.metadata?.alternatives as ProductRecommendation[] | undefined;
     const isAssistant = item.type === "assistant-text";
     return <>
-      <SmartShoppingTimelineRow kind={isAssistant ? "assistant" : "user"}>
+      <ChatTimelineRow kind={isAssistant ? "assistant" : "user"}>
         <ChatMessage sender={isAssistant ? "ai" : "user"} text={item.text} timestamp={item.timestamp} />
-      </SmartShoppingTimelineRow>
-      {alternatives?.length ? <SmartShoppingTimelineRow kind="wide"><AlternativeCards items={alternatives} /></SmartShoppingTimelineRow> : null}
+      </ChatTimelineRow>
+      {alternatives?.length ? <ChatTimelineRow kind="wide"><AlternativeCards items={alternatives} /></ChatTimelineRow> : null}
     </>;
   }
   if (item.type === "recommendation-list") {
     const asInternal = (recommendation: ProductRecommendation): SelectedShoppingProduct => ({ source: "internal", recommendation });
     const asNaver = (product: NaverShoppingProduct): SelectedShoppingProduct => ({ source: "naver", product, matchedInternalProduct: matchInternalProduct(product, props.catalogProducts) });
-    return <SmartShoppingTimelineRow kind="wide"><div className="grid items-start gap-4 xl:grid-cols-2"><OptimizedRecommendationList items={item.snapshot.recommendations} catalogSource={item.snapshot.catalogSource} isActive={item.isActive} onSelect={props.onSelectRecommendation} isFavorite={(recommendation) => props.isFavorite(asInternal(recommendation))} onToggleFavorite={(recommendation) => props.onToggleFavorite(asInternal(recommendation))} /><NaverLowestPriceList items={item.snapshot.naverItems} status={item.snapshot.naverStatus} errorMessage={item.snapshot.naverErrorMessage} isActive={item.isActive} onRetry={props.onRetryNaver} onSelect={props.onSelectNaverProduct} isFavorite={(product) => props.isFavorite(asNaver(product))} onToggleFavorite={(product) => props.onToggleFavorite(asNaver(product))} /></div></SmartShoppingTimelineRow>;
+    return <ChatTimelineRow kind="wide"><div className="grid items-start gap-4 xl:grid-cols-2"><OptimizedRecommendationList items={item.snapshot.recommendations} catalogSource={item.snapshot.catalogSource} isActive={item.isActive} onSelect={props.onSelectRecommendation} isFavorite={(recommendation) => props.isFavorite(asInternal(recommendation))} onToggleFavorite={(recommendation) => props.onToggleFavorite(asInternal(recommendation))} /><NaverLowestPriceList items={item.snapshot.naverItems} status={item.snapshot.naverStatus} errorMessage={item.snapshot.naverErrorMessage} isActive={item.isActive} onRetry={props.onRetryNaver} onSelect={props.onSelectNaverProduct} isFavorite={(product) => props.isFavorite(asNaver(product))} onToggleFavorite={(product) => props.onToggleFavorite(asNaver(product))} /></div></ChatTimelineRow>;
   }
-  if (item.type === "product-detail") return <SmartShoppingTimelineRow kind="wide"><ProductDetailView categoryId={item.snapshot.categoryId} selected={item.snapshot.selected} internalRecommendations={item.snapshot.internalRecommendations} interactive={false} isFavorite={props.isFavorite(item.snapshot.selected)} onToggleFavorite={() => props.onToggleFavorite(item.snapshot.selected)} /></SmartShoppingTimelineRow>;
-  if (item.type === "action-group" && item.group === "detail") return <SmartShoppingTimelineRow kind="wide"><div className="rounded-xl border border-border bg-card p-4 shadow-sm"><ProductDetailActionBar showAlternative={item.showAlternative ?? false} isQuestionLoading={props.questionLoading} isActive={item.isActive} onAction={props.onDetailAction} onBack={props.onBackToList} onNext={props.onNextStep} /></div></SmartShoppingTimelineRow>;
-  if (item.type === "action-group") return <SmartShoppingTimelineRow kind="wide"><NextActionSelection showPurchaseGrade={item.group === "next"} isActive={item.isActive} onSelect={props.onNextAction} /></SmartShoppingTimelineRow>;
-  if (item.type === "question-input") return <SmartShoppingTimelineRow kind="wide">{item.isActive ? <div className="rounded-xl border border-border bg-card p-4 shadow-sm"><ProductQuestionInput isLoading={props.questionLoading} errorMessage={props.questionError} onSubmit={props.onQuestionSubmit} onRetry={props.onQuestionRetry} onCancel={props.onQuestionCancel} /></div> : <p className="text-xs text-muted-foreground">직접 질문 입력을 완료했어요.</p>}</SmartShoppingTimelineRow>;
-  if (item.type === "purchase-link") return <SmartShoppingTimelineRow kind="wide"><PurchaseLinkAction link={item.link} isActive={item.isActive} onCancel={props.onCancelPurchaseLink} /></SmartShoppingTimelineRow>;
-  if (item.type === "price-alert-form") return <SmartShoppingTimelineRow kind="wide"><PriceAlertForm inputId={`target-price-${item.id}`} productName={item.productName} currentPrice={item.currentPrice} allTimeLow={item.allTimeLow} isActive={item.isActive} onSubmit={props.onSavePriceAlert} onCancel={props.onCancelPriceAlert} /></SmartShoppingTimelineRow>;
-  return <SmartShoppingTimelineRow kind="wide"><PurchaseGradeResultCard input={item.input} result={item.result} /></SmartShoppingTimelineRow>;
+  if (item.type === "product-detail") return <ChatTimelineRow kind="wide"><ProductDetailView categoryId={item.snapshot.categoryId} selected={item.snapshot.selected} internalRecommendations={item.snapshot.internalRecommendations} interactive={false} isFavorite={props.isFavorite(item.snapshot.selected)} onToggleFavorite={() => props.onToggleFavorite(item.snapshot.selected)} /></ChatTimelineRow>;
+  if (item.type === "action-group" && item.group === "detail") return <ChatTimelineRow kind="wide"><div className="rounded-xl border border-border bg-card p-4 shadow-sm"><ProductDetailActionBar showAlternative={item.showAlternative ?? false} isQuestionLoading={props.questionLoading} isActive={item.isActive} onAction={props.onDetailAction} onBack={props.onBackToList} onNext={props.onNextStep} /></div></ChatTimelineRow>;
+  if (item.type === "action-group") return <ChatTimelineRow kind="wide"><NextActionSelection showPurchaseGrade={item.group === "next"} isActive={item.isActive} onSelect={props.onNextAction} /></ChatTimelineRow>;
+  if (item.type === "question-input") return <ChatTimelineRow kind="wide">{item.isActive ? <div className="rounded-xl border border-border bg-card p-4 shadow-sm"><ProductQuestionInput isLoading={props.questionLoading} errorMessage={props.questionError} onSubmit={props.onQuestionSubmit} onRetry={props.onQuestionRetry} onCancel={props.onQuestionCancel} /></div> : <p className="text-xs text-muted-foreground">직접 질문 입력을 완료했어요.</p>}</ChatTimelineRow>;
+  if (item.type === "purchase-link") return <ChatTimelineRow kind="wide"><PurchaseLinkAction link={item.link} isActive={item.isActive} onCancel={props.onCancelPurchaseLink} /></ChatTimelineRow>;
+  if (item.type === "price-alert-form") return <ChatTimelineRow kind="wide"><PriceAlertForm inputId={`target-price-${item.id}`} productName={item.productName} currentPrice={item.currentPrice} allTimeLow={item.allTimeLow} isActive={item.isActive} onSubmit={props.onSavePriceAlert} onCancel={props.onCancelPriceAlert} /></ChatTimelineRow>;
+  return <ChatTimelineRow kind="wide"><PurchaseGradeResultCard input={item.input} result={item.result} /></ChatTimelineRow>;
 }
 
 function AlternativeCards({ items }: { items: ProductRecommendation[] }) {

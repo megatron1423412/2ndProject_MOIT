@@ -2,6 +2,7 @@ import type { FlowAnswers } from "../../../core/types";
 import { getPricePositionScore } from "../../../../product-catalog/core/priceHistory";
 import { dataCompleteness, sortRecommendations } from "../../../../product-catalog/core/ranking";
 import type { AirConditionerProduct, ExcludedProduct, ProductRecommendation } from "../../../../product-catalog/core/types";
+import { AIR_CONDITIONER_PRIORITY_LABELS, AIR_CONDITIONER_USAGE_LABELS, displayLabel } from "../displayLabels";
 import { AIR_CONDITIONER_CRITERIA, getRequiredCoolingArea, getSelectedAirConditionerType } from "./criteria";
 
 type RankingWeights = Record<keyof typeof AIR_CONDITIONER_CRITERIA.weights, number>;
@@ -61,8 +62,8 @@ const buildRecommendation = (
   const score = totalWeight > 0
     ? components.reduce((sum, component) => sum + component.value * Math.max(0, component.weight), 0) / totalWeight
     : 0;
-  const priority = String(answers["airConditioner.valuePriority"] ?? "balanced");
-  const dailyUsage = String(answers["airConditioner.dailyUsage"] ?? "unknown");
+  const priority = displayLabel(AIR_CONDITIONER_PRIORITY_LABELS, answers["airConditioner.valuePriority"] ?? "balanced");
+  const dailyUsage = displayLabel(AIR_CONDITIONER_USAGE_LABELS, answers["airConditioner.dailyUsage"] ?? "unknown");
 
   return {
     product,

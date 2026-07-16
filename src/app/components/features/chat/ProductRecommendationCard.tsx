@@ -4,12 +4,13 @@ import type { ProductRecommendation } from "../../../features/product-catalog/co
 import CriteriaMatchList from "./CriteriaMatchList";
 import FavoriteToggleButton from "../../../features/favorites/FavoriteToggleButton";
 import ProductDetailDataSections from "../../../features/smart-shopping/product-detail/ProductDetailDataSections";
+import { AIR_CONDITIONER_TYPE_LABELS, displayLabel, REFRIGERATOR_DOOR_LABELS, TV_RESOLUTION_LABELS } from "../../../features/chat-flow/flows/appliances/displayLabels";
 
 const specLabels = (product: ProductRecommendation["product"]) => {
   switch (product.categoryId) {
-    case "air-conditioner": return [product.specs.type, `냉방 ${product.specs.ratedCoolingAreaPyeong}평`, `효율 ${product.specs.energyGrade}등급`];
-    case "tv": return [`${product.specs.screenSizeInches}인치`, product.specs.resolution.toUpperCase(), product.specs.panel.toUpperCase(), `보증 ${product.specs.warrantyYears}년`];
-    case "refrigerator": return [`${product.specs.capacityLiters}L`, product.specs.doorType, `핵심부품 ${product.specs.corePartWarrantyYears}년 보증`];
+    case "air-conditioner": return [displayLabel(AIR_CONDITIONER_TYPE_LABELS, product.specs.type), `냉방 ${product.specs.ratedCoolingAreaPyeong}평`, `효율 ${product.specs.energyGrade}등급`];
+    case "tv": return [`${product.specs.screenSizeInches}인치`, displayLabel(TV_RESOLUTION_LABELS, product.specs.resolution), product.specs.panel.toUpperCase(), `보증 ${product.specs.warrantyYears}년`];
+    case "refrigerator": return [`${product.specs.capacityLiters}L`, displayLabel(REFRIGERATOR_DOOR_LABELS, product.specs.doorType), `핵심부품 ${product.specs.corePartWarrantyYears}년 보증`];
     case "vacuum": return [product.specs.suctionAw !== undefined ? `${product.specs.suctionAw}AW` : `${product.specs.suctionPa?.toLocaleString("ko-KR")}Pa`, product.specs.hepaGrade, `${product.specs.bodyWeightKg}kg`];
   }
 };

@@ -88,7 +88,8 @@ try {
   twoInOneState = submit(airModule, twoInOneState, "two-in-one", "2in1으로 진행");
   assert.equal(twoInOneState.currentStepId, "ac-home", "2in1은 집 전체 크기를 질문");
   twoInOneState = submit(airModule, twoInOneState, 30, "30평");
-  assert.ok(twoInOneState.messages.some(({ text }) => text?.includes("주 실내기 냉방면적 15평") && text.includes("ratedCoolingAreaPyeong")), "2in1은 기존 필드를 주 실내기 비교값으로 설명");
+  assert.ok(twoInOneState.messages.some(({ text }) => text?.includes("주 실내기 냉방면적 15평") && text.includes("2in1 제품은 주 실내기의 냉방면적을 기준으로 비교")), "2in1 냉방면적은 자연스러운 한국어로 설명");
+  assert.ok(twoInOneState.messages.every(({ text }) => !text?.includes("ratedCoolingAreaPyeong")), "계산 메시지에 내부 냉방면적 필드명 미노출");
   const initialAirMessages = airFlowState.messages.map(({ text }) => text);
   airFlowState = submit(airModule, airFlowState, "room", "방 또는 원룸");
   assert.equal(airFlowState.currentStepId, "ac-inferred-type");
@@ -133,6 +134,9 @@ try {
   assert.ok(airFlowState.result.recommendations.length > 0 && airFlowState.result.recommendations.every(({ product, verificationNeeded }) => product.source === "real" && !verificationNeeded), "실제 에어컨을 설치·환급 확인 후보로 분류하지 않음");
   assert.equal(airFlowState.answers["airConditioner.dailyUsage"], "4to8"); assert.equal(airFlowState.answers["airConditioner.valuePriority"], "balanced", "사용 시간·가성비 우선순위 state 보존");
   assert.equal(airFlowState.result.metadata.category, "air-conditioner", "에어컨 전용 결과 사용");
+  const airVisibleRecommendationCopy = airFlowState.result.recommendations.flatMap(({ recommendationReasons, matchedCoreCriteria, unmatchedOrUnknownCriteria }) => [...recommendationReasons, ...matchedCoreCriteria, ...unmatchedOrUnknownCriteria]).join("\n");
+  assert.ok(airVisibleRecommendationCopy.includes("하루 4~8시간") && airVisibleRecommendationCopy.includes("가격·효율 균형 추천"), "추천 이유에 사용 시간·우선순위 표시 라벨 사용");
+  assert.ok(!/ratedCoolingAreaPyeong|two-in-one|under4|4to8|over8|maintenance|good-current-price|airConditioner\./.test(airVisibleRecommendationCopy), "에어컨 추천 표시 문구에 내부 식별자·enum 미노출");
   assert.strictEqual(runtime.undoLatestFlowAnswer(airModule, airFlowState), airFlowState, "추천 생성 뒤 undo 비활성");
 
   const tvModule = getFlowModule("tv");
@@ -144,8 +148,25 @@ try {
   assert.equal(tvFlowState.checkpoints.length, 0, "TV flow에는 condition undo를 활성화하지 않음");
   for (const id of ["tv", "refrigerator", "vacuum"]) assert.equal(getFlowModule(id).definition.enableConditionUndo, undefined, `${id} flow undo 비활성 유지`);
   assert.ok(tvFlowState.messages.some(({ text }) => text?.includes("적용 조건: 55인치")), "TV 조건 요약에 전용 answer 전달");
+  assert.ok(tvFlowState.messages.some(({ text }) => text?.includes("OS 상관없음") && text.includes("패널 상관없음")), "TV 조건 요약에 표시 라벨 사용");
   assert.ok(tvFlowState.result.recommendations.length > 0 && tvFlowState.result.recommendations.every(({ product }) => product.source === "real"), "TV flow가 실제 카탈로그를 사용");
   assert.equal(tvFlowState.result.metadata.category, "tv", "TV 전용 결과 사용");
+
+  const buildStepMessage = (module, stepId, answers) => module.definition.steps.find((step) => step.id === stepId).buildMessage(answers);
+  const refrigeratorModule = getFlowModule("refrigerator");
+  const refrigeratorSummary = buildStepMessage(refrigeratorModule, "rf-summary", { "refrigerator.doorType": "four-door-value", "refrigerator.capacityMode": "600-800", "refrigerator.metalRequired": true, "refrigerator.useDefaults": "yes", "refrigerator.budget": 2_000_000 });
+  const vacuumFlowModule = getFlowModule("vacuum");
+  const vacuumSummary = buildStepMessage(vacuumFlowModule, "vc-summary", { "vacuum.powerType": "wireless-value", "vacuum.suctionStandard": "aw", "vacuum.hepaRequired": true, "vacuum.weight": "under-2.5", "vacuum.budget": 700_000 });
+  assert.ok(refrigeratorSummary.includes("실속형 4도어") && refrigeratorSummary.includes("600~800L") && !/four-door-value|600-800/.test(refrigeratorSummary), "냉장고 요약에 내부 enum 미노출");
+  assert.ok(vacuumSummary.includes("가성비 무선") && vacuumSummary.includes("200AW 이상") && vacuumSummary.includes("2.5kg 이하") && !/wireless-value|under-2.5/.test(vacuumSummary), "청소기 요약에 내부 enum 미노출");
+
+  const { formatSmartShoppingCriteria } = await load("/src/app/features/chat-flow/flows/appliances/displayLabels.ts");
+  const formattedCriteria = formatSmartShoppingCriteria({ "airConditioner.type": "two-in-one", "airConditioner.dailyUsage": "4to8", "airConditioner.valuePriority": "maintenance", "airConditioner.budget": "none" });
+  assert.deepEqual(formattedCriteria, ["에어컨 타입: 2in1", "예상 사용 시간: 하루 4~8시간", "가성비 기준: 청소와 관리 편의", "제품 가격 예산: 예산 제한 없음"], "내부 조건 key·enum을 명시적 표시 라벨로 변환");
+  const { buildProductQuestionPrompt } = await load("/src/app/features/smart-shopping/product-detail/productQuestionContext.ts");
+  const safeQuestionPrompt = buildProductQuestionPrompt({ question: "이 제품 어때요?", selectedProduct: { name: "테스트 에어컨", brand: "MOIT", categoryId: "air-conditioner", source: "internal" }, userCriteria: { "airConditioner.type": "two-in-one", "airConditioner.dailyUsage": "4to8", "airConditioner.valuePriority": "balanced" }, fit: { matchedCriteria: ["타입 일치"], unmatchedCriteria: [] }, priceSummary: { currentPrice: 1_000_000, history: [] }, sourceAndConfidence: { dataStatus: "verified", verifiedInformation: [], unknownInformation: [] } });
+  assert.ok(safeQuestionPrompt.includes("에어컨 타입: 2in1") && safeQuestionPrompt.includes("하루 4~8시간") && safeQuestionPrompt.includes("가격·효율 균형 추천"), "직접 Q&A 문맥도 사용자 표시 라벨 사용");
+  assert.ok(!/airConditioner\.|air-conditioner|two-in-one|4to8|balanced|ratedCoolingAreaPyeong/.test(safeQuestionPrompt), "직접 Q&A 문맥에 raw category·criteria key·enum 미노출");
 
   const phoneModule = getFlowModule("phone");
   let phoneFlowState = runtime.createInitialFlowState(phoneModule);
@@ -289,6 +310,7 @@ try {
     assert.ok(!markup.includes("MOCK DATA") && !markup.includes("REAL DATA") && !markup.includes("주의점"), `${product.categoryId} 상세 출처 배지·주의점 없음`);
     assert.ok(markup.indexOf('data-strengths-card="true"') < markup.indexOf('data-price-history-card="true"'), `${product.categoryId} 장점 왼쪽·차트 오른쪽 순서`);
     assert.equal((markup.match(/역대 최저가 추이/g) ?? []).length, 1, `${product.categoryId} 상세 그래프 중복 없음`);
+    assert.ok(!/two-in-one|four-door-value|two-door|4k-uhd|full-hd|wireless-value|wired-major/.test(markup), `${product.categoryId} 상세 스펙에 raw enum 미노출`);
   }
   const airDetailMarkup = renderToStaticMarkup(React.createElement(ProductRecommendationCard, { recommendation: detailRecommendation(AIR_CONDITIONER_PRODUCTS[0]) }));
   const tvDetailMarkup = renderToStaticMarkup(React.createElement(ProductRecommendationCard, { recommendation: detailRecommendation(TV_PRODUCTS[0]) }));
@@ -300,36 +322,50 @@ try {
   const chatScreenSource = await readFile("src/app/components/features/chat/ChatScreen.tsx", "utf8");
   const chatMessageSource = await readFile("src/app/components/features/chat/ChatMessage.tsx", "utf8");
   const chatFlowInputSource = await readFile("src/app/components/features/chat/ChatFlowInput.tsx", "utf8");
-  const { default: SmartShoppingTimeline, SmartShoppingTimelineRow } = await load("/src/app/features/smart-shopping/timeline/SmartShoppingTimeline.tsx");
-  const assistantRailMarkup = renderToStaticMarkup(React.createElement(SmartShoppingTimelineRow, { kind: "assistant" }, React.createElement("span", null, "assistant")));
-  const userRailMarkup = renderToStaticMarkup(React.createElement(SmartShoppingTimelineRow, { kind: "user" }, React.createElement("span", null, "user")));
-  const wideRailMarkup = renderToStaticMarkup(React.createElement(SmartShoppingTimelineRow, { kind: "wide" }, React.createElement("span", null, "wide")));
+  const { default: SmartShoppingTimeline } = await load("/src/app/features/smart-shopping/timeline/SmartShoppingTimeline.tsx");
+  const { default: ChatTimelineRow } = await load("/src/app/components/features/chat/ChatTimelineRow.tsx");
+  const assistantRailMarkup = renderToStaticMarkup(React.createElement(ChatTimelineRow, { kind: "assistant" }, React.createElement("span", null, "assistant")));
+  const userRailMarkup = renderToStaticMarkup(React.createElement(ChatTimelineRow, { kind: "user" }, React.createElement("span", null, "user")));
+  const wideRailMarkup = renderToStaticMarkup(React.createElement(ChatTimelineRow, { kind: "wide" }, React.createElement("span", null, "wide")));
   const alignmentTimeline = [
-    { id: "user-before", type: "user-action", text: "상품 선택", timestamp: "오전 10:00" },
-    { id: "assistant-before", type: "assistant-text", text: "상세를 보여드릴게요.", timestamp: "오전 10:01" },
+    { id: "assistant-before", type: "assistant-text", text: "상품을 골라볼게요.", timestamp: "오전 10:00" },
+    { id: "user-product", type: "user-action", text: "상품 선택", timestamp: "오전 10:01" },
+    { id: "product-detail", type: "product-detail", snapshot: { categoryId: "tv", selected: { source: "internal", recommendation: tvResult.recommendations[0] }, internalRecommendations: tvResult.recommendations, showAlternative: false } },
     { id: "wide-action", type: "action-group", group: "detail", isActive: false },
     { id: "user-after", type: "user-action", text: "예상 세일 달 제안", timestamp: "오전 10:02" },
     { id: "assistant-after", type: "assistant-text", text: "세일 달 답변", timestamp: "오전 10:03" },
     { id: "wide-action-later", type: "action-group", group: "detail", isActive: false },
-    { id: "user-later", type: "user-text", text: "직접 질문", timestamp: "오전 10:04" },
+    { id: "user-tip", type: "user-action", text: "싸게 구매하는 법 TIP", timestamp: "오전 10:04" },
+    { id: "assistant-tip", type: "assistant-text", text: "구매 팁 답변", timestamp: "오전 10:05" },
+    { id: "wide-action-tip", type: "action-group", group: "detail", isActive: false },
+    { id: "user-alternative", type: "user-action", text: "다른 제품 추천", timestamp: "오전 10:06" },
+    { id: "assistant-alternative", type: "assistant-text", text: "대체 상품 답변", timestamp: "오전 10:07" },
+    { id: "wide-action-alternative", type: "action-group", group: "detail", isActive: false },
+    { id: "user-return", type: "user-action", text: "제품 목록으로 돌아가기", timestamp: "오전 10:08" },
+    { id: "assistant-return", type: "assistant-text", text: "목록 복원 답변", timestamp: "오전 10:09" },
+    { id: "recommendation-list", type: "recommendation-list", isActive: false, snapshot: { snapshotId: "restored-list", query: "TV", recommendations: tvResult.recommendations, catalogSource: "mock", naverItems: [], naverStatus: "success", naverErrorMessage: "" } },
+    { id: "user-question", type: "user-text", text: "직접 질문", timestamp: "오전 10:10" },
+    { id: "assistant-question", type: "assistant-text", text: "직접 질문 답변", timestamp: "오전 10:11" },
+    { id: "wide-action-question", type: "action-group", group: "detail", isActive: false },
   ];
   const timelineRailProps = { timeline: alignmentTimeline, questionLoading: false, questionError: "", onSelectRecommendation: () => {}, onSelectNaverProduct: () => {}, onRetryNaver: () => {}, onDetailAction: () => {}, onBackToList: () => {}, onNextStep: () => {}, onQuestionSubmit: () => {}, onQuestionRetry: () => {}, onQuestionCancel: () => {}, onNextAction: () => {}, onCancelPurchaseLink: () => {}, onSavePriceAlert: () => {}, onCancelPriceAlert: () => {}, catalogProducts: [], isFavorite: () => false, onToggleFavorite: () => {} };
   const alignedTimelineMarkup = renderToStaticMarkup(React.createElement(SmartShoppingTimeline, timelineRailProps));
   assert.ok(diagnosisResultSource.includes("result.recommendations") && diagnosisResultSource.includes("RecommendationSelectionView"), "가전 결과를 스마트쇼핑 추천 목록으로 연결");
   assert.ok(diagnosisResultSource.includes("PhoneDiagnosisReport") && diagnosisResultSource.includes("InternetDiagnosisReport") && diagnosisResultSource.includes("IptvDiagnosisReport"), "생활비 전용 결과 화면 보존");
   assert.ok(chatScreenSource.includes("buildSmartShoppingGreeting") && chatScreenSource.includes("onCreatePriceAlert") && chatScreenSource.includes("onEndSmartShoppingChat"), "스마트쇼핑 인사·알람·종료 경계 연결");
-  assert.ok(chatScreenSource.includes('isSmartShoppingResult ? "w-full min-w-0 self-stretch" : "w-full self-start pl-11"'), "스마트쇼핑 결과만 기존 결과용 pl-11 중첩에서 분리하고 생활비 결과 들여쓰기는 보존");
-  assert.ok(assistantRailMarkup.includes('data-timeline-row="assistant"') && assistantRailMarkup.includes("justify-start"), "모든 assistant 턴은 공용 왼쪽 레일");
-  assert.ok(userRailMarkup.includes('data-timeline-row="user"') && userRailMarkup.includes("justify-end"), "모든 user 턴은 공용 오른쪽 레일");
-  assert.ok(wideRailMarkup.includes('data-timeline-row="wide"') && !wideRailMarkup.includes("justify-end") && !wideRailMarkup.includes("justify-start"), "넓은 카드 행은 메시지 정렬 부모와 독립");
-  assert.equal((alignedTimelineMarkup.match(/data-timeline-row="user"/g) ?? []).length, 3, "상품 선택 전후·여러 액션 뒤의 모든 사용자 턴이 같은 오른쪽 행 사용");
-  assert.equal((alignedTimelineMarkup.match(/data-timeline-row="assistant"/g) ?? []).length, 2, "상세·액션 뒤의 모든 assistant 턴이 같은 왼쪽 행 사용");
-  assert.equal((alignedTimelineMarkup.match(/data-chat-assistant-logo="true"/g) ?? []).length, 2, "후속 assistant 답변의 MOIT 로고가 동일한 왼쪽 레일에 유지");
-  assert.equal((alignedTimelineMarkup.match(/data-timeline-row="wide"/g) ?? []).length, 2, "여러 넓은 액션 카드가 후속 메시지 행과 형제 구조로 유지");
+  assert.ok(chatScreenSource.includes('isSmartShoppingResult ? "contents" : "w-full self-start pl-11"'), "스마트쇼핑 결과의 레이아웃 box를 제거하고 생활비 결과 들여쓰기는 보존");
+  assert.ok(chatScreenSource.includes('<ChatTimelineRow kind="assistant"><ChatMessage sender="ai"') && chatScreenSource.includes('<ChatTimelineRow kind={isAi ? "assistant" : "user"}>'), "초기 인사·조건 메시지도 공용 대화 레일 사용");
+  assert.ok(assistantRailMarkup.includes('data-chat-timeline-row="assistant"') && assistantRailMarkup.includes("justify-start"), "모든 assistant 턴은 공용 왼쪽 레일");
+  assert.ok(userRailMarkup.includes('data-chat-timeline-row="user"') && userRailMarkup.includes("justify-end"), "모든 user 턴은 공용 오른쪽 레일");
+  assert.ok(wideRailMarkup.includes('data-chat-timeline-row="wide"') && !wideRailMarkup.includes("justify-end") && !wideRailMarkup.includes("justify-start"), "넓은 카드 행은 메시지 정렬 부모와 독립");
+  assert.equal((alignedTimelineMarkup.match(/data-chat-timeline-row="user"/g) ?? []).length, 6, "상품 선택과 모든 후속 액션의 사용자 턴이 같은 오른쪽 행 사용");
+  assert.equal((alignedTimelineMarkup.match(/data-chat-timeline-row="assistant"/g) ?? []).length, 6, "초기·세일·팁·대체 상품·목록 복원·Q&A 답변이 같은 왼쪽 행 사용");
+  assert.equal((alignedTimelineMarkup.match(/data-chat-assistant-logo="true"/g) ?? []).length, 6, "상품 상세 전후 모든 assistant MOIT 로고가 동일한 레일 계약 사용");
+  assert.equal((alignedTimelineMarkup.match(/data-chat-timeline-row="wide"/g) ?? []).length, 7, "상세·액션·복원 목록이 후속 대화와 형제인 독립 wide 행 사용");
   for (const categoryId of ["air-conditioner", "tv", "refrigerator", "vacuum"]) {
     const categoryMarkup = renderToStaticMarkup(React.createElement(SmartShoppingTimeline, { ...timelineRailProps, timeline: alignmentTimeline.map((entry) => ({ ...entry, id: `${categoryId}-${entry.id}` })) }));
-    assert.equal((categoryMarkup.match(/data-timeline-row="user"/g) ?? []).length, 3, `${categoryId} 공용 사용자 레일`);
-    assert.equal((categoryMarkup.match(/data-timeline-row="assistant"/g) ?? []).length, 2, `${categoryId} 공용 assistant 레일`);
+    assert.equal((categoryMarkup.match(/data-chat-timeline-row="user"/g) ?? []).length, 6, `${categoryId} 공용 사용자 레일`);
+    assert.equal((categoryMarkup.match(/data-chat-timeline-row="assistant"/g) ?? []).length, 6, `${categoryId} 공용 assistant 레일`);
   }
   assert.ok(chatScreenSource.includes("isLast && isAi && Boolean(flow.currentStep) && flow.canUndo"), "최신 활성 질문에만 undo 전달");
   assert.ok(chatMessageSource.includes("⤴️") && chatMessageSource.includes('title="이전 조건 다시 입력"') && chatMessageSource.includes('aria-label="이전 조건 다시 입력"'), "undo 문자·도움말·접근성 이름");
@@ -452,6 +488,7 @@ try {
   assert.ok(optimizedListSource.includes("disabled={!isActive}") && !optimizedListSource.includes("<FavoriteToggleButton isFavorite={isFavorite(item)} disabled={!isActive}"), "AI 목록의 과거 읽기 전용 상품 선택과 전역 즐겨찾기 토글을 분리");
   assert.ok(productRecommendationCardSource.includes("recommendation.score") && productRecommendationCardSource.includes("FavoriteToggleButton") && productDetailViewSource.includes("<NaverProductDetail") && productDetailViewSource.includes("onToggleFavorite={props.onToggleFavorite}"), "상세 카드의 점수 배지를 보존하고 내부·네이버 별 버튼 연결");
   assert.ok(timelineSource.includes("isFavorite={props.isFavorite(item.snapshot.selected)}") && timelineSource.includes("onToggleFavorite={() => props.onToggleFavorite(item.snapshot.selected)}"), "누적 상품 상세 snapshot은 제품 정보는 유지하고 현재 즐겨찾기 저장소 상태를 사용");
+  assert.ok(timelineSource.includes('import ChatTimelineRow from') && timelineSource.includes('className="contents"') && !timelineSource.includes("SmartShoppingTimelineRow"), "후속 타임라인이 초기 flow와 동일한 공용 레일을 사용하고 자체 레이아웃 box를 만들지 않음");
   const { toggleFavoriteWithoutSelecting } = await load("/src/app/features/favorites/FavoriteToggleButton.tsx");
   let propagationStopped = false; let favoriteToggled = false;
   toggleFavoriteWithoutSelecting({ stopPropagation: () => { propagationStopped = true; } }, () => { favoriteToggled = true; });
@@ -501,6 +538,7 @@ try {
   assert.notEqual(shoppingSession.sessionId, refrigeratorSession.sessionId, "다른 소분류 세션 격리");
   const recommendationViewSource = await readFile("src/app/features/smart-shopping/recommendation/RecommendationSelectionView.tsx", "utf8");
   assert.ok(recommendationViewSource.includes("SmartShoppingTimeline") && recommendationViewSource.includes("session.recommendationSnapshot"), "타임라인 렌더링·목록 스냅샷 재사용");
+  assert.ok(recommendationViewSource.includes('return <div className="contents"') && recommendationViewSource.includes('appendText("assistant-text", getUpcomingPromotionMessage') && recommendationViewSource.includes('appendText("assistant-text", buildPurchaseTipMessage') && recommendationViewSource.includes('appendText("assistant-text", alternatives.length') && recommendationViewSource.includes('appendText("assistant-text", "이전에 확인한 조건으로 상품 목록을 다시 보여드릴게요."'), "세일·구매 팁·대체 상품·목록 복원 응답은 모두 flat assistant-text로 저장되고 레이아웃 부모를 만들지 않음");
   assert.ok(!recommendationViewSource.includes("onClearSupplementalMessages"), "단계 전환 시 보조 대화 초기화 제거");
 
   const { productQuestionRoute } = await load("/server/productQuestionRoute.ts");

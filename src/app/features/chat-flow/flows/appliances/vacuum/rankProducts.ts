@@ -2,6 +2,7 @@ import type { FlowAnswers } from "../../../core/types";
 import { getPricePositionScore } from "../../../../product-catalog/core/priceHistory";
 import { dataCompleteness, sortRecommendations } from "../../../../product-catalog/core/ranking";
 import type { ExcludedProduct, ProductRecommendation, VacuumProduct } from "../../../../product-catalog/core/types";
+import { displayLabel, VACUUM_POWER_LABELS } from "../displayLabels";
 import { VACUUM_CRITERIA } from "./criteria";
 
 export const rankVacuums = (products: VacuumProduct[], answers: FlowAnswers) => {
@@ -29,7 +30,7 @@ export const rankVacuums = (products: VacuumProduct[], answers: FlowAnswers) => 
     const score = (budget > 0 ? Math.min(1, budget / product.currentPrice) * w.budget : 0) + suctionRatio * w.suction + filterRatio * w.filtration + Math.min(1, product.specs.warrantyYears / 3) * w.warranty + (convenienceMatches / 3) * w.convenience + getPricePositionScore(product.currentPrice, product.priceHistory) / 100 * w.marketPrice;
     const preferences = [product.currentPrice <= budget, product.specs.softRoller, product.specs.bodyWeightKg <= 2.5, !wireless || product.specs.replaceableBattery, !wireless || product.specs.standingDock].filter(Boolean).length;
     const suctionLabel = product.specs.suctionAw !== undefined ? `${product.specs.suctionAw}AW` : product.specs.suctionPa !== undefined ? `${product.specs.suctionPa.toLocaleString("ko-KR")}Pa` : "흡입력 확인 필요";
-    recommendations.push({ product, score: Math.round(score), matchedCoreCriteria: [String(a("powerType")), suctionLabel, product.specs.hepaGrade], unmatchedOrUnknownCriteria: [...(product.currentPrice > budget ? ["예산 초과"] : []), ...(product.specs.suctionAw === undefined ? ["AW 정보 없음"] : []), ...(product.specs.suctionPa === undefined ? ["Pa 정보 없음"] : [])], recommendationReasons: ["선택한 흡입력 단위만 독립 판정", "필터·편의 구성·현재 시세 위치를 점수화"], preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
+    recommendations.push({ product, score: Math.round(score), matchedCoreCriteria: [displayLabel(VACUUM_POWER_LABELS, a("powerType")), suctionLabel, product.specs.hepaGrade], unmatchedOrUnknownCriteria: [...(product.currentPrice > budget ? ["예산 초과"] : []), ...(product.specs.suctionAw === undefined ? ["AW 정보 없음"] : []), ...(product.specs.suctionPa === undefined ? ["Pa 정보 없음"] : [])], recommendationReasons: ["선택한 흡입력 단위만 독립 판정", "필터·편의 구성·현재 시세 위치를 점수화"], preferenceMatchCount: preferences, dataCompleteness: dataCompleteness(product.specs) });
   }
   return { recommendations: sortRecommendations(recommendations).slice(0, 10), excludedProducts };
 };

@@ -22,6 +22,7 @@ import { createSmartShoppingSession, smartShoppingSessionReducer } from "../sess
 import type { RecommendationSnapshot, TimelineActionGroupKind } from "../session/smartShoppingSessionTypes";
 import { createActionGroupTimelineItem, createCriteriaSnapshot, createPriceAlertTimelineItem, createProductDetailSnapshot, createProductDetailTimelineItem, createPurchaseGradeTimelineItem, createPurchaseLinkTimelineItem, createQuestionInputTimelineItem, createRecommendationListTimelineItem, createRecommendationSnapshot, createTextTimelineItem } from "../timeline/createTimelineSnapshot";
 import SmartShoppingTimeline from "../timeline/SmartShoppingTimeline";
+import ChatTimelineRow from "../../../components/features/chat/ChatTimelineRow";
 import type { NaverShoppingProduct, SelectedShoppingProduct } from "../types/recommendation";
 import { initialRecommendationViewState, recommendationViewReducer } from "../types/recommendation";
 import type { FavoriteDraft, FavoriteProduct } from "../../favorites/types";
@@ -226,11 +227,13 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     setShowedOverBudget(true);
   };
 
-  return <div className="w-full" data-stage={session.currentStage}>
+  return <div className="contents" data-stage={session.currentStage}>
     {!showedOverBudget && (metadata?.overBudgetRecommendations?.length ?? 0) > 0 && (
-      <button type="button" onClick={showClosestOverBudget} className="mb-4 rounded-lg border border-accent bg-card px-4 py-2.5 text-sm font-black text-accent shadow-sm transition hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-accent/40">
-        예산 초과가 가장 적은 상품 보기
-      </button>
+      <ChatTimelineRow kind="wide">
+        <button type="button" onClick={showClosestOverBudget} className="rounded-lg border border-accent bg-card px-4 py-2.5 text-sm font-black text-accent shadow-sm transition hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-accent/40">
+          예산 초과가 가장 적은 상품 보기
+        </button>
+      </ChatTimelineRow>
     )}
     <SmartShoppingTimeline timeline={session.timeline} questionLoading={questionLoading} questionError={questionError} onSelectRecommendation={(recommendation) => selectProduct({ source: "internal", recommendation })} onSelectNaverProduct={(product) => selectProduct({ source: "naver", product, matchedInternalProduct: matchInternalProduct(product, result.catalogProducts ?? []) })} onRetryNaver={() => void loadNaver()} onDetailAction={handleDetailAction} onBackToList={backToList} onNextStep={nextStep} onQuestionSubmit={(question) => void handleQuestionSubmit(question)} onQuestionRetry={(question) => void handleQuestionSubmit(question, false)} onQuestionCancel={() => { sessionDispatch({ type: "deactivate-interactions" }); appendText("user-action", "질문 입력 취소"); appendActionGroup("detail", showAlternative); }} onNextAction={handleNextAction} onCancelPurchaseLink={cancelPurchaseLink} onSavePriceAlert={savePriceAlert} onCancelPriceAlert={cancelPriceAlert} catalogProducts={result.catalogProducts ?? []} isFavorite={(selectedProduct) => favoriteIdentities.has(getFavoriteProductIdentity(favoriteDraftFor(selectedProduct)))} onToggleFavorite={(selectedProduct) => onToggleFavorite(favoriteDraftFor(selectedProduct))} />
   </div>;
