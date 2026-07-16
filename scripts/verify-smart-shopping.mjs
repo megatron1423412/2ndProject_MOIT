@@ -79,6 +79,52 @@ try {
   assert.equal(buildTvSearchQuery({ "tv.viewingDistance": "2.5-3", "tv.recommendedScreenSize": "65" }), "TV 65인치 4K", "거리 추천 크기도 기존 네이버 검색어에 전달");
   assert.ok(tvResult.recommendations.every((item, index, list) => index === 0 || list[index - 1].score >= item.score), "필수 필터 후 선호 점수 정렬");
 
+  const refrigeratorCriteria = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/criteria.ts");
+  const { REFRIGERATOR_PRODUCTS } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/products.ts");
+  const { rankRefrigerators } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/rankProducts.ts");
+  const { buildRefrigeratorSearchQuery } = await load("/src/app/features/smart-shopping/naver/buildSearchQuery.ts");
+  const capacityValue = (household, habit) => refrigeratorCriteria.getRecommendedCapacityStage(household, habit).value;
+  assert.deepEqual([capacityValue("1", "general"), capacityValue("2", "general"), capacityValue("3-4", "general"), capacityValue("5-plus", "general")], ["under-500", "500-600", "600-800", "over-800"], "가구원별 기본 냉장고 용량 단계");
+  assert.deepEqual([capacityValue("1", "small-frequent"), capacityValue("2", "small-frequent"), capacityValue("3-4", "bulk"), capacityValue("3-4", "frozen-meal-prep"), capacityValue("5-plus", "bulk")], ["under-500", "under-500", "over-800", "over-800", "over-800"], "보관 습관별 한 단계 조정과 최저·최고 제한");
+
+  const refrigeratorAnswers = { "refrigerator.householdSize": "3-4", "refrigerator.storageHabit": "general", "refrigerator.capacityMode": "recommended", "refrigerator.installationType": "unknown", "refrigerator.doorType": "any", "refrigerator.valuePriority": "balanced", "refrigerator.budget": "none" };
+  assert.equal(refrigeratorCriteria.getSelectedCapacityRange({ ...refrigeratorAnswers, "refrigerator.capacityMode": "custom", "refrigerator.customCapacity": "500-600" }).label, "500~600L", "직접 수정한 용량 범위 적용");
+  assert.equal(buildRefrigeratorSearchQuery({ ...refrigeratorAnswers, "refrigerator.doorType": "four-door-value" }), "냉장고 600~800L 4도어", "냉장고 검색어도 계산 용량과 표시 도어 사용");
+
+  const refrigeratorBase = REFRIGERATOR_PRODUCTS.find(({ id }) => id === "rf-value-650");
+  const kitchenFit = { ...refrigeratorBase, id: "rf-kitchen-fit", modelNumber: "RF-KITCHEN-FIT", specs: { ...refrigeratorBase.specs, freestanding: false } };
+  const generalInstall = { ...refrigeratorBase, id: "rf-general-install", modelNumber: "RF-GENERAL-INSTALL", specs: { ...refrigeratorBase.specs, freestanding: true } };
+  assert.deepEqual(rankRefrigerators([generalInstall, kitchenFit], { ...refrigeratorAnswers, "refrigerator.installationType": "kitchen-fit" }).recommendations.map(({ product }) => product.id), ["rf-kitchen-fit"], "키친핏은 freestanding false만 필터 통과");
+  assert.deepEqual(rankRefrigerators([generalInstall, kitchenFit], { ...refrigeratorAnswers, "refrigerator.installationType": "general" }).recommendations.map(({ product }) => product.id), ["rf-general-install"], "일반 설치는 freestanding true만 필터 통과");
+  assert.equal(rankRefrigerators([generalInstall, kitchenFit], refrigeratorAnswers).recommendations.length, 2, "설치 공간 모름은 설치 형태로 필터하지 않음");
+
+  const twoDoor = { ...refrigeratorBase, id: "rf-two-door", modelNumber: "RF-TWO-DOOR", specs: { ...refrigeratorBase.specs, doorType: "two-door" } };
+  const fourDoor = { ...refrigeratorBase, id: "rf-four-door", modelNumber: "RF-FOUR-DOOR", specs: { ...refrigeratorBase.specs, doorType: "four-door-value" } };
+  assert.deepEqual(rankRefrigerators([twoDoor, fourDoor], { ...refrigeratorAnswers, "refrigerator.doorType": "two-door" }).recommendations.map(({ product }) => product.id), ["rf-two-door"], "명시한 2도어만 필터 통과");
+  assert.deepEqual(rankRefrigerators([twoDoor, fourDoor], { ...refrigeratorAnswers, "refrigerator.doorType": "four-door-value" }).recommendations.map(({ product }) => product.id), ["rf-four-door"], "명시한 4도어만 필터 통과");
+  assert.equal(rankRefrigerators([twoDoor, fourDoor], refrigeratorAnswers).recommendations.length, 2, "도어 상관없음은 도어 형태로 필터하지 않음");
+
+  const basicTechnology = { ...refrigeratorBase, id: "rf-basic-technology", modelNumber: "RF-BASIC-TECH", currentPrice: 500_000, priceHistory: [], specs: { ...refrigeratorBase.specs, metalDoor: false, coolingMethod: "direct", inverter: false, corePartWarrantyYears: 3, energyGrade: 5 } };
+  const premiumTechnology = { ...refrigeratorBase, id: "rf-premium-technology", modelNumber: "RF-PREMIUM-TECH", currentPrice: 1_000_000, priceHistory: [], specs: { ...refrigeratorBase.specs, metalDoor: true, coolingMethod: "indirect", inverter: true, corePartWarrantyYears: 10, energyGrade: 1 } };
+  assert.equal(rankRefrigerators([basicTechnology], refrigeratorAnswers).recommendations.length, 1, "직접 냉각·비인버터·10년 미만 보증은 자동 탈락하지 않음");
+  assert.equal(rankRefrigerators([basicTechnology], { ...refrigeratorAnswers, "refrigerator.budget": 400_000 }).recommendations.length, 0, "냉장고 예산은 currentPrice 상한 필터로만 적용");
+  assert.equal(rankRefrigerators([{ ...basicTechnology, dataStatus: "unverified" }, { ...premiumTechnology, dataStatus: "stale" }], refrigeratorAnswers).recommendations.length, 2, "unverified와 stale은 추천 후보 유지");
+  assert.equal(rankRefrigerators([{ ...basicTechnology, dataStatus: "discontinued" }], refrigeratorAnswers).recommendations.length, 0, "discontinued만 일반 추천에서 제외");
+  assert.equal(rankRefrigerators([basicTechnology, premiumTechnology], { ...refrigeratorAnswers, "refrigerator.valuePriority": "low-purchase-price" }).recommendations[0].product.id, "rf-basic-technology", "구매가격 우선은 낮은 currentPrice 비중 상승");
+  assert.equal(rankRefrigerators([basicTechnology, premiumTechnology], { ...refrigeratorAnswers, "refrigerator.valuePriority": "electricity-saving" }).recommendations[0].product.id, "rf-premium-technology", "전기요금 우선은 에너지등급과 인버터 비중 상승");
+  const refrigeratorWeights = refrigeratorCriteria.getRefrigeratorRankingWeights;
+  assert.ok(refrigeratorWeights({ "refrigerator.valuePriority": "storage-convenience" }).capacity > refrigeratorWeights({ "refrigerator.valuePriority": "low-purchase-price" }).capacity && refrigeratorWeights({ "refrigerator.valuePriority": "storage-convenience" }).storageConvenience > refrigeratorWeights({ "refrigerator.valuePriority": "balanced" }).storageConvenience, "수납 편의 우선은 용량 적합도와 도어 비중 상승");
+  assert.ok(refrigeratorWeights({ "refrigerator.valuePriority": "good-current-price" }).marketPrice > refrigeratorWeights({ "refrigerator.valuePriority": "balanced" }).marketPrice, "현재 가격 우선은 저장 가격 이력 위치 비중 상승");
+
+  const favorableRefrigeratorHistory = { ...refrigeratorBase, id: "rf-history-good", modelNumber: "RF-HISTORY-GOOD", currentPrice: 900_000, priceHistory: [{ date: "2026-06-01", lowestPrice: 880_000 }, { date: "2026-07-01", lowestPrice: 950_000 }] };
+  const unfavorableRefrigeratorHistory = { ...refrigeratorBase, id: "rf-history-bad", modelNumber: "RF-HISTORY-BAD", currentPrice: 900_000, priceHistory: [{ date: "2026-06-01", lowestPrice: 400_000 }, { date: "2026-07-01", lowestPrice: 500_000 }] };
+  assert.deepEqual(rankRefrigerators([unfavorableRefrigeratorHistory, favorableRefrigeratorHistory], { ...refrigeratorAnswers, "refrigerator.valuePriority": "good-current-price" }).recommendations.map(({ product }) => product.id), ["rf-history-good", "rf-history-bad"], "현재가의 저장된 역대 최저가 위치를 냉장고 순위에 반영");
+  const noRefrigeratorHistory = rankRefrigerators([basicTechnology], { ...refrigeratorAnswers, "refrigerator.valuePriority": "good-current-price" }).recommendations[0];
+  assert.ok(noRefrigeratorHistory.unmatchedOrUnknownCriteria.includes("가격 이력 없음") && noRefrigeratorHistory.recommendationReasons.every((reason) => !reason.includes("역대 최저가")), "가격 이력이 없으면 가짜 최저가 점수·이유를 만들지 않음");
+  const metalFalseScore = rankRefrigerators([{ ...premiumTechnology, id: "rf-metal-false", specs: { ...premiumTechnology.specs, metalDoor: false } }], refrigeratorAnswers).recommendations[0].score;
+  const metalTrueScore = rankRefrigerators([{ ...premiumTechnology, id: "rf-metal-true", specs: { ...premiumTechnology.specs, metalDoor: true } }], refrigeratorAnswers).recommendations[0].score;
+  assert.equal(metalFalseScore, metalTrueScore, "metalDoor는 가성비 필터나 추천 점수에 사용하지 않음");
+
   const runtime = await load("/src/app/features/chat-flow/engine/flowRuntime.ts");
   const { FLOW_REGISTRY, getFlowModule } = await load("/src/app/features/chat-flow/registry/loadFlows.ts");
   const expectedModules = [
@@ -204,38 +250,100 @@ try {
 
   const buildStepMessage = (module, stepId, answers) => module.definition.steps.find((step) => step.id === stepId).buildMessage(answers);
   const refrigeratorModule = getFlowModule("refrigerator");
-  const refrigeratorSummary = buildStepMessage(refrigeratorModule, "rf-summary", { "refrigerator.doorType": "four-door-value", "refrigerator.capacityMode": "600-800", "refrigerator.metalRequired": true, "refrigerator.useDefaults": "yes", "refrigerator.budget": 2_000_000 });
+  const refrigeratorSummaryAnswers = { ...refrigeratorAnswers, "refrigerator.installationType": "kitchen-fit", "refrigerator.doorType": "four-door-value", "refrigerator.valuePriority": "balanced", "refrigerator.budget": 2_000_000 };
+  const refrigeratorSummary = buildStepMessage(refrigeratorModule, "rf-summary", refrigeratorSummaryAnswers);
   const vacuumFlowModule = getFlowModule("vacuum");
-  const vacuumSummary = buildStepMessage(vacuumFlowModule, "vc-summary", { "vacuum.powerType": "wireless-value", "vacuum.suctionStandard": "aw", "vacuum.hepaRequired": true, "vacuum.weight": "under-2.5", "vacuum.budget": 700_000 });
-  for (const [module, firstStepId, value, label, answerKey] of [
-    [refrigeratorModule, "rf-door", "four-door-value", "실속형 4도어", "refrigerator.doorType"],
-    [vacuumFlowModule, "vc-power", "wireless-value", "가성비 무선", "vacuum.powerType"],
-  ]) {
-    let state = runtime.createInitialFlowState(module);
-    const initialMessages = state.messages.map(({ text }) => text);
-    assert.equal(state.currentStepId, firstStepId); assert.equal(state.checkpoints.length, 0, `${module.id} 첫 질문에는 undo 없음`);
-    state = submit(module, state, value, label);
-    assert.equal(state.checkpoints.length, 1, `${module.id} 답변은 공용 checkpoint 생성`);
-    state = runtime.undoLatestFlowAnswer(module, state);
-    assert.equal(state.currentStepId, firstStepId); assert.equal(state.answers[answerKey], undefined, `${module.id} 복원 선택 비움`);
-    assert.deepEqual(state.messages.map(({ text }) => text), initialMessages, `${module.id} 한 번에 한 조건만 복원`);
-  }
+  const vacuumSummaryAnswers = { "vacuum.primaryUse": "short-daily", "vacuum.powerType": "wireless-value", "vacuum.floorEnvironment": "hard-floor", "vacuum.weightImportance": "very", "vacuum.valuePriority": "balanced", "vacuum.budget": 700_000 };
+  const vacuumSummary = buildStepMessage(vacuumFlowModule, "vc-summary", vacuumSummaryAnswers);
+  const refrigeratorFlowCopy = refrigeratorModule.definition.steps.filter((step) => "message" in step).map((step) => step.message).filter((message) => typeof message === "string").join("\n");
+  assert.ok(refrigeratorFlowCopy.includes("함께 사용하는 가구원은 몇 명인가요?") && refrigeratorFlowCopy.includes("평소 식재료를 어떻게 보관하는 편인가요?") && refrigeratorFlowCopy.includes("추천 용량을 적용할까요?") && refrigeratorFlowCopy.includes("냉장고를 어떤 공간에 설치할 예정인가요?") && refrigeratorFlowCopy.includes("선호하는 도어 구조가 있나요?") && refrigeratorFlowCopy.includes("어떤 기준의 가성비를 가장 중요하게 볼까요?") && refrigeratorFlowCopy.includes("냉장고 제품 가격은 최대 얼마까지 생각하고 있나요?"), "새 냉장고 질문 순서·문구");
+  assert.ok(!/원하는 도어 구조는요|메탈 소재 도어가 필수인가요|간접 냉각 또는 간랭식이 필수인가요|인버터 컴프레서가 필수인가요|핵심 부품 10년 이상 무상 보증이 필수인가요|프리스탠딩 설치 형태가 필수인가요|기본 기준.*필수로 적용할까요/.test(refrigeratorFlowCopy), "기존 냉장고 기술 조건 질문 제거");
+  assert.ok(!refrigeratorModule.definition.steps.some((step) => "answerKey" in step && ["refrigerator.metalRequired", "refrigerator.useDefaults", "refrigerator.coolingRequired", "refrigerator.inverterRequired", "refrigerator.warrantyRequired", "refrigerator.freestandingRequired"].includes(step.answerKey)), "제거된 냉장고 기술 질문 answerKey 없음");
+  assert.deepEqual(refrigeratorModule.definition.steps.find((step) => step.id === "rf-capacity-custom").options.map(({ label }) => label), ["500L 이하", "500~600L", "600~800L", "800L 이상"], "냉장고 용량 직접 수정 선택지");
+
   let refrigeratorUndoState = runtime.createInitialFlowState(refrigeratorModule);
-  for (const [value, label] of [["four-door-value", "실속형 4도어"], [4, "4명"], ["600-800", "600~800L"], [true, "필수"], ["yes", "기본 기준 적용"], [2_000_000, "2,000,000원"]]) refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, value, label);
-  assert.equal(refrigeratorUndoState.currentStepId, "rf-confirm");
+  const initialRefrigeratorMessages = refrigeratorUndoState.messages.map(({ text }) => text);
+  assert.equal(refrigeratorUndoState.currentStepId, "rf-household", "냉장고 첫 질문은 가구원");
+  assert.equal(refrigeratorUndoState.checkpoints.length, 0, "냉장고 첫 질문에는 undo 없음");
+  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, "3-4", "3~4명");
+  assert.equal(refrigeratorUndoState.currentStepId, "rf-storage", "가구원 다음은 보관 습관");
+  const beforeStorageAnswerCount = refrigeratorUndoState.messages.length;
+  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, "general", "일반적인 수준이에요");
+  assert.equal(refrigeratorUndoState.currentStepId, "rf-capacity-mode", "보관 습관 다음은 추천 용량 확인");
+  assert.ok(refrigeratorUndoState.messages.some(({ text }) => text?.includes("3~4명이 일반적으로 사용한다면 600~800L부터 살펴보는 것을 추천해요.")), "가구원과 보관 습관을 자연스러운 권장 용량 안내로 계산");
+  refrigeratorUndoState = runtime.undoLatestFlowAnswer(refrigeratorModule, refrigeratorUndoState);
+  assert.equal(refrigeratorUndoState.currentStepId, "rf-storage"); assert.equal(refrigeratorUndoState.messages.length, beforeStorageAnswerCount, "용량 확인 undo는 보관 습관 답·계산 안내·확인 질문을 함께 제거");
+  assert.equal(refrigeratorUndoState.answers["refrigerator.storageHabit"], undefined); assert.equal(refrigeratorUndoState.answers["refrigerator.householdSize"], "3-4", "복원한 보관 습관은 비우고 앞선 가구원 답은 유지");
+  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, "general", "일반적인 수준이에요");
+  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, "recommended", "추천 범위 적용");
+  assert.equal(refrigeratorUndoState.currentStepId, "rf-installation", "추천 범위 적용 후 설치 공간 질문");
+  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, "kitchen-fit", "가구장에 맞추는 키친핏 공간");
+  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, "four-door-value", "수납 정리가 편한 4도어");
+  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, "balanced", "가격·용량·효율 균형 추천");
+  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, 2_000_000, "2,000,000원");
+  assert.equal(refrigeratorUndoState.currentStepId, "rf-confirm", "냉장고 최종 확인 단계");
+  assert.ok(refrigeratorUndoState.messages.some(({ text }) => text?.includes("다음 조건으로 냉장고를 찾아볼게요.") && text.includes("가구원: 3~4명") && text.includes("보관 습관: 일반적인 수준") && text.includes("권장 용량: 600~800L") && text.includes("설치 형태: 키친핏") && text.includes("도어 구조: 4도어") && text.includes("가격·용량·효율 균형 추천") && text.includes("제품 예산: 최대 2,000,000원")), "냉장고 최종 조건을 자연스러운 표시 라벨로 요약");
+  assert.ok(refrigeratorUndoState.messages.some(({ text }) => text?.includes("모잇 자동 기준") && text.includes("예산 초과 제품과 판매 중단 제품 제외") && text.includes("에너지등급, 인버터, 냉각 방식, 핵심부품 보증기간은 추천 점수에 반영")), "냉장고 자동 필터·점수 정책 안내");
+  assert.ok(!/four-door-value|freestanding|recommended|refrigerator\./.test(refrigeratorUndoState.messages.map(({ text }) => text).join("\n")), "냉장고 사용자 메시지에 criteria key·enum 미노출");
   refrigeratorUndoState = runtime.undoLatestFlowAnswer(refrigeratorModule, refrigeratorUndoState);
   assert.equal(refrigeratorUndoState.currentStepId, "rf-budget"); assert.equal(refrigeratorUndoState.answers["refrigerator.budget"], undefined, "냉장고 최종 확인 undo는 빈 예산 단계");
-  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, 2_000_000, "2,000,000원"); refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, true, "추천 시작");
+  assert.equal(refrigeratorUndoState.messages.some(({ text }) => text?.startsWith("다음 조건으로 냉장고를 찾아볼게요.")), false, "냉장고 예산 답에서 파생된 최종 요약 제거");
+  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, "none", "예산 제한 없음");
+  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, true, "추천 시작");
+  assert.equal(refrigeratorUndoState.completed, true, "냉장고 질문 흐름 완료");
+  assert.ok(refrigeratorUndoState.result.recommendations.length > 0, "새 냉장고 조건으로 실제 추천 생성");
+  const refrigeratorVisibleRecommendationCopy = refrigeratorUndoState.result.recommendations.flatMap(({ recommendationReasons, matchedCoreCriteria, unmatchedOrUnknownCriteria }) => [...recommendationReasons, ...matchedCoreCriteria, ...unmatchedOrUnknownCriteria]).join("\n");
+  assert.ok(!/four-door-value|freestanding|recommended|refrigerator\./.test(refrigeratorVisibleRecommendationCopy), "냉장고 추천 이유에도 내부 criteria 값 미노출");
   assert.strictEqual(runtime.undoLatestFlowAnswer(refrigeratorModule, refrigeratorUndoState), refrigeratorUndoState, "냉장고 추천 생성 뒤 undo 비활성");
+
+  let customCapacityState = runtime.createInitialFlowState(refrigeratorModule);
+  for (const [value, label] of [["2", "2명"], ["general", "일반적인 수준이에요"], ["custom", "직접 수정"], ["over-800", "800L 이상"]]) customCapacityState = submit(refrigeratorModule, customCapacityState, value, label);
+  assert.equal(customCapacityState.currentStepId, "rf-installation"); assert.equal(refrigeratorCriteria.getSelectedCapacityRange(customCapacityState.answers).label, "800L 이상", "냉장고 용량 직접 수정 경로");
+
+  const vacuumFlowCopy = vacuumFlowModule.definition.steps.filter((step) => "message" in step).map((step) => step.message).filter((message) => typeof message === "string").join("\n");
+  assert.ok(vacuumFlowCopy.includes("청소기를 주로 어떻게 사용할 예정인가요?") && vacuumFlowCopy.includes("어떤 방식이 더 편한가요?") && vacuumFlowCopy.includes("주로 어떤 바닥을 청소하나요?") && vacuumFlowCopy.includes("청소기를 들고 움직일 때 가벼운 무게가 중요한가요?") && vacuumFlowCopy.includes("어떤 기준의 가성비를 가장 중요하게 볼까요?") && vacuumFlowCopy.includes("청소기 제품 가격은 최대 얼마까지 생각하고 있나요?"), "새 청소기 질문 순서·정확한 문구");
+  assert.ok(!/실질 흡입력 기준을 골라주세요|배터리 분리·교체가 필수인가요|스탠드형 충전 거치대가 필수인가요|HEPA 필터가 필수인가요|소프트 롤러 브러시가 필수인가요|본체 중량 기준은요/.test(vacuumFlowCopy), "기존 청소기 기술 조건 질문 제거");
+  assert.ok(!vacuumFlowModule.definition.steps.some((step) => "answerKey" in step && ["vacuum.suctionStandard", "vacuum.replaceableBatteryRequired", "vacuum.standingDockRequired", "vacuum.hepaRequired", "vacuum.softRollerRequired", "vacuum.weight"].includes(step.answerKey)), "제거된 청소기 기술 질문 answerKey 없음");
+
   let vacuumUndoState = runtime.createInitialFlowState(vacuumFlowModule);
-  for (const [value, label] of [["wireless-value", "가성비 무선"], ["aw", "200AW 이상"], [true, "필수"], [true, "필수"], [true, "필수"], [true, "필수"], ["under-2.5", "2.5kg 이하"], [700_000, "700,000원"]]) vacuumUndoState = submit(vacuumFlowModule, vacuumUndoState, value, label);
-  assert.equal(vacuumUndoState.currentStepId, "vc-confirm");
+  assert.equal(vacuumUndoState.currentStepId, "vc-usage", "청소기 첫 질문은 주 사용 방식");
+  assert.equal(vacuumUndoState.checkpoints.length, 0, "청소기 첫 질문에는 undo 없음");
+  const vacuumSteps = [
+    ["vc-usage", "vacuum.primaryUse", "short-daily", "자주 짧게 일상 청소", "vc-power"],
+    ["vc-power", "vacuum.powerType", "wireless-value", "이동이 편한 무선", "vc-floor"],
+    ["vc-floor", "vacuum.floorEnvironment", "hard-floor", "마루·타일 위주", "vc-weight"],
+    ["vc-weight", "vacuum.weightImportance", "very", "매우 중요해요", "vc-priority"],
+    ["vc-priority", "vacuum.valuePriority", "balanced", "가격·성능 균형 추천", "vc-budget"],
+    ["vc-budget", "vacuum.budget", 700_000, "700,000원", "vc-confirm"],
+  ];
+  for (const [stepId, answerKey, answerValue, answerLabel, nextStepId] of vacuumSteps) {
+    assert.equal(vacuumUndoState.currentStepId, stepId);
+    const beforeAnswerMessages = vacuumUndoState.messages.map(({ text }) => text);
+    const beforeAnswers = { ...vacuumUndoState.answers };
+    vacuumUndoState = submit(vacuumFlowModule, vacuumUndoState, answerValue, answerLabel);
+    assert.equal(vacuumUndoState.currentStepId, nextStepId);
+    const restored = runtime.undoLatestFlowAnswer(vacuumFlowModule, vacuumUndoState);
+    assert.equal(restored.currentStepId, stepId); assert.equal(restored.answers[answerKey], undefined, `${stepId} undo는 복원 입력을 비움`);
+    assert.deepEqual(restored.answers, beforeAnswers, `${stepId} undo는 더 이른 답변을 유지`);
+    assert.deepEqual(restored.messages.map(({ text }) => text), beforeAnswerMessages, `${stepId} undo는 직전 답과 파생 질문·안내를 제거`);
+    vacuumUndoState = submit(vacuumFlowModule, restored, answerValue, answerLabel);
+  }
+  assert.ok(vacuumUndoState.messages.some(({ text }) => text?.includes("다음 조건으로 청소기를 찾아볼게요.") && text.includes("주 사용 방식: 자주 짧게 일상 청소") && text.includes("동력 방식: 무선") && text.includes("바닥 환경: 마루·타일 위주") && text.includes("무게 중요도: 매우 중요") && text.includes("가성비 기준: 가격·성능 균형 추천") && text.includes("제품 예산: 최대 700,000원")), "청소기 최종 조건을 자연스러운 표시 라벨로 요약");
+  assert.ok(vacuumUndoState.messages.some(({ text }) => text?.includes("모잇 자동 기준") && text.includes("예산 초과 제품과 판매 중단 제품 제외") && text.includes("표기 단위는 환산하지 않고 각각 비교") && text.includes("흡입력, 무게, 필터, 배터리, 롤러, 거치대, 보증기간 반영")), "청소기 자동 필터·점수 정책 안내");
+  assert.ok(!/wireless-value|wired-major|short-daily|hard-floor|suctionAw|suctionPa|H13|vacuum\./.test(vacuumUndoState.messages.map(({ text }) => text).join("\n")), "청소기 사용자 메시지에 내부 필드·enum 미노출");
   vacuumUndoState = runtime.undoLatestFlowAnswer(vacuumFlowModule, vacuumUndoState);
   assert.equal(vacuumUndoState.currentStepId, "vc-budget"); assert.equal(vacuumUndoState.answers["vacuum.budget"], undefined, "청소기 최종 확인 undo는 빈 예산 단계");
-  vacuumUndoState = submit(vacuumFlowModule, vacuumUndoState, 700_000, "700,000원"); vacuumUndoState = submit(vacuumFlowModule, vacuumUndoState, true, "추천 시작");
+  assert.equal(vacuumUndoState.messages.some(({ text }) => text?.startsWith("다음 조건으로 청소기를 찾아볼게요.")), false, "청소기 예산 답에서 파생된 최종 요약 제거");
+  vacuumUndoState = submit(vacuumFlowModule, vacuumUndoState, "none", "예산 제한 없음");
+  vacuumUndoState = submit(vacuumFlowModule, vacuumUndoState, true, "추천 시작");
+  assert.equal(vacuumUndoState.completed, true, "청소기 질문 흐름 완료");
+  assert.ok(vacuumUndoState.result.recommendations.length > 0, "새 청소기 조건으로 실제 추천 생성");
+  const vacuumVisibleRecommendationCopy = vacuumUndoState.result.recommendations.flatMap(({ recommendationReasons, matchedCoreCriteria, unmatchedOrUnknownCriteria }) => [...recommendationReasons, ...matchedCoreCriteria, ...unmatchedOrUnknownCriteria]).join("\n");
+  assert.ok(!/wireless-value|wired-major|short-daily|hard-floor|suctionAw|suctionPa|H13|vacuum\./.test(vacuumVisibleRecommendationCopy), "청소기 추천 이유에 내부 필드·enum 미노출");
+  assert.ok(!/자동 먼지|먼지 자동|자동 비움|청정스테이션/.test(vacuumVisibleRecommendationCopy), "스탠드 거치대를 자동 먼지 비움이나 청정스테이션으로 추론하지 않음");
   assert.strictEqual(runtime.undoLatestFlowAnswer(vacuumFlowModule, vacuumUndoState), vacuumUndoState, "청소기 추천 생성 뒤 undo 비활성");
-  assert.ok(refrigeratorSummary.includes("실속형 4도어") && refrigeratorSummary.includes("600~800L") && !/four-door-value|600-800/.test(refrigeratorSummary), "냉장고 요약에 내부 enum 미노출");
-  assert.ok(vacuumSummary.includes("가성비 무선") && vacuumSummary.includes("200AW 이상") && vacuumSummary.includes("2.5kg 이하") && !/wireless-value|under-2.5/.test(vacuumSummary), "청소기 요약에 내부 enum 미노출");
+  assert.ok(refrigeratorSummary.includes("4도어") && refrigeratorSummary.includes("600~800L") && refrigeratorSummary.includes("키친핏") && !/four-door-value|freestanding|recommended|refrigerator\./.test(refrigeratorSummary), "냉장고 요약에 내부 enum 미노출");
+  assert.ok(vacuumSummary.includes("자주 짧게 일상 청소") && vacuumSummary.includes("무선") && vacuumSummary.includes("마루·타일 위주") && vacuumSummary.includes("매우 중요") && !/wireless-value|short-daily|hard-floor|suctionAw|H13/.test(vacuumSummary), "청소기 요약에 내부 enum 미노출");
 
   const { formatSmartShoppingCriteria } = await load("/src/app/features/chat-flow/flows/appliances/displayLabels.ts");
   const formattedCriteria = formatSmartShoppingCriteria({ "airConditioner.type": "two-in-one", "airConditioner.dailyUsage": "4to8", "airConditioner.valuePriority": "maintenance", "airConditioner.budget": "none" });
@@ -243,6 +351,12 @@ try {
   const formattedTvCriteria = formatSmartShoppingCriteria(tvAnswers);
   assert.ok(formattedTvCriteria.includes("시청 거리: 1.5~2.5m") && formattedTvCriteria.includes("주 사용: 방송·유튜브·OTT 시청") && formattedTvCriteria.includes("예상 사용 시간: 하루 3~6시간") && formattedTvCriteria.includes("스마트 플랫폼: 삼성·LG 등 다른 스마트 OS도 가능") && formattedTvCriteria.includes("가성비 기준: 가격·화질 균형 추천"), "TV 조건을 사용자 표시 라벨로 변환");
   assert.ok(!/broadcast-streaming|3to6|other-allowed|balanced|tv\./.test(formattedTvCriteria.join("\n")), "TV 표시 조건에 내부 enum·key 미노출");
+  const formattedRefrigeratorCriteria = formatSmartShoppingCriteria(refrigeratorSummaryAnswers);
+  assert.ok(formattedRefrigeratorCriteria.includes("가구원: 3~4명") && formattedRefrigeratorCriteria.includes("보관 습관: 일반적인 수준") && formattedRefrigeratorCriteria.includes("설치 형태: 키친핏") && formattedRefrigeratorCriteria.includes("도어 구조: 4도어") && formattedRefrigeratorCriteria.includes("가성비 기준: 가격·용량·효율 균형 추천"), "냉장고 조건을 사용자 표시 라벨로 변환");
+  assert.ok(!/four-door-value|freestanding|recommended|refrigerator\./.test(formattedRefrigeratorCriteria.join("\n")), "냉장고 표시 조건에 내부 enum·key 미노출");
+  const formattedVacuumCriteria = formatSmartShoppingCriteria(vacuumSummaryAnswers);
+  assert.ok(formattedVacuumCriteria.includes("주 사용 방식: 자주 짧게 일상 청소") && formattedVacuumCriteria.includes("동력 방식: 무선") && formattedVacuumCriteria.includes("바닥 환경: 마루·타일 위주") && formattedVacuumCriteria.includes("무게 중요도: 매우 중요") && formattedVacuumCriteria.includes("가성비 기준: 가격·성능 균형 추천"), "청소기 조건을 사용자 표시 라벨로 변환");
+  assert.ok(!/wireless-value|short-daily|hard-floor|suctionAw|H13|vacuum\./.test(formattedVacuumCriteria.join("\n")), "청소기 표시 조건에 내부 enum·key 미노출");
   assert.deepEqual(formatSmartShoppingCriteria({ "tv.recommendedScreenSize": "other", "tv.screenSize": "65" }), ["화면 크기: 65인치"], "TV 다른 크기 선택 내부 결정은 숨기고 최종 크기만 표시");
   assert.equal(tvCriteria.getTvPlatformDisplayLabel({ brand: "삼성전자", specs: { os: "other" } }), "Tizen");
   assert.equal(tvCriteria.getTvPlatformDisplayLabel({ brand: "LG전자", specs: { os: "other" } }), "webOS");
@@ -299,27 +413,63 @@ try {
   assert.ok(airResult.recommendations.length > 0, "네이버 실패와 무관하게 내부 목록 유지");
 
   const { getRecommendedCapacityRange } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/criteria.ts");
-  assert.deepEqual(getRecommendedCapacityRange(2), { maxPeople: 2, minLiters: 300, maxLiters: 500 }, "1~2인 용량 추천");
-  assert.deepEqual(getRecommendedCapacityRange(4), { maxPeople: 4, minLiters: 600, maxLiters: 800 }, "3~4인 용량 추천");
+  assert.equal(getRecommendedCapacityRange(2).label, "500~600L", "2인 기본 용량 추천");
+  assert.equal(getRecommendedCapacityRange(4).label, "600~800L", "3~4인 기본 용량 추천");
 
-  const { vacuumFlow } = await load("/src/app/features/chat-flow/flows/appliances/vacuum/flow.ts");
-  const vacuumModule = { id: "vacuum", categoryId: "appliances", definition: vacuumFlow, buildResult: () => ({}) };
-  let vacuumState = runtime.createInitialFlowState(vacuumModule);
-  vacuumState = runtime.submitFlowAnswer(vacuumModule, vacuumState, { value: "wired-major", displayValue: "대기업 유선" });
-  vacuumState = runtime.submitFlowAnswer(vacuumModule, vacuumState, { value: "aw", displayValue: "200AW 이상" });
-  assert.equal(vacuumState.currentStepId, "vc-hepa", "유선은 배터리·거치대 질문 건너뛰기");
-  assert.equal(vacuumState.answers["vacuum.replaceableBatteryRequired"], undefined);
+  const vacuumState = runtime.createInitialFlowState(vacuumFlowModule);
   const detailedConversationState = runtime.appendSupplementalFlowMessage(vacuumState, { sender: "user", text: "싸게 구매하는 법 TIP", type: "text" });
   const detailedConversationReply = runtime.appendSupplementalFlowMessage(detailedConversationState, { sender: "ai", text: "제공된 정보만 기준으로 안내해요.", type: "text" });
   assert.equal(detailedConversationReply.supplementalMessages.length, 2, "상세 후속 대화도 기존 ChatFlowMessage 형식 사용");
 
   const { VACUUM_PRODUCTS } = await load("/src/app/features/chat-flow/flows/appliances/vacuum/products.ts");
-  const { rankVacuums } = await load("/src/app/features/chat-flow/flows/appliances/vacuum/rankProducts.ts");
-  const vacuumBase = { "vacuum.powerType": "wireless-value", "vacuum.hepaRequired": false, "vacuum.softRollerRequired": false, "vacuum.weight": "any", "vacuum.budget": 1_000_000 };
-  const awResult = rankVacuums(VACUUM_PRODUCTS, { ...vacuumBase, "vacuum.suctionStandard": "aw" });
-  const paResult = rankVacuums(VACUUM_PRODUCTS, { ...vacuumBase, "vacuum.suctionStandard": "pa" });
-  assert.ok(awResult.recommendations.every(({ product }) => product.specs.suctionAw !== undefined && product.specs.suctionAw >= 200), "AW 독립 판정");
-  assert.deepEqual(paResult.recommendations.map(({ product }) => product.id), ["vc-pa-30000"], "Pa 독립 판정");
+  const { rankVacuums, getIndependentSuctionScores } = await load("/src/app/features/chat-flow/flows/appliances/vacuum/rankProducts.ts");
+  const vacuumCriteria = await load("/src/app/features/chat-flow/flows/appliances/vacuum/criteria.ts");
+  const vacuumRankerSource = await readFile("src/app/features/chat-flow/flows/appliances/vacuum/rankProducts.ts", "utf8");
+  assert.ok(!/product\.(strengths|aiReviewSummary)|autoEmptyStation/.test(vacuumRankerSource), "자유 형식 리뷰·장점과 존재하지 않는 자동 비움 필드를 필터·점수에 사용하지 않음");
+  const vacuumBase = { "vacuum.primaryUse": "balanced", "vacuum.powerType": "any", "vacuum.floorEnvironment": "mixed", "vacuum.weightImportance": "somewhat", "vacuum.valuePriority": "balanced", "vacuum.budget": "none" };
+  const awResult = rankVacuums(VACUUM_PRODUCTS, vacuumBase);
+  assert.equal(awResult.recommendations.length, VACUUM_PRODUCTS.length, "흡입력·배터리·필터·롤러·거치대·무게·보증은 하드 필터가 아님");
+  assert.ok(rankVacuums(VACUUM_PRODUCTS, { ...vacuumBase, "vacuum.powerType": "wireless-value" }).recommendations.every(({ product }) => product.specs.powerType === "wireless-value"), "명시한 무선만 동력 방식 하드 필터");
+  assert.deepEqual(rankVacuums(VACUUM_PRODUCTS, { ...vacuumBase, "vacuum.powerType": "wired-major" }).recommendations.map(({ product }) => product.id), ["vc-cord-pro"], "명시한 유선만 동력 방식 하드 필터");
+  assert.equal(rankVacuums(VACUUM_PRODUCTS, { ...vacuumBase, "vacuum.powerType": "any" }).recommendations.length, VACUUM_PRODUCTS.length, "동력 방식 상관없음은 타입으로 필터하지 않음");
+
+  const vacuumProductBase = VACUUM_PRODUCTS.find(({ id }) => id === "vc-air-220");
+  const awLow = { ...vacuumProductBase, id: "vc-aw-low", modelNumber: "VC-AW-LOW", specs: { ...vacuumProductBase.specs, suctionAw: 100, suctionPa: undefined } };
+  const awHigh = { ...vacuumProductBase, id: "vc-aw-high", modelNumber: "VC-AW-HIGH", specs: { ...vacuumProductBase.specs, suctionAw: 200, suctionPa: undefined } };
+  const paLow = { ...vacuumProductBase, id: "vc-pa-low", modelNumber: "VC-PA-LOW", specs: { ...vacuumProductBase.specs, suctionAw: undefined, suctionPa: 10_000 } };
+  const paHigh = { ...vacuumProductBase, id: "vc-pa-high", modelNumber: "VC-PA-HIGH", specs: { ...vacuumProductBase.specs, suctionAw: undefined, suctionPa: 20_000 } };
+  const independentSuctionScores = getIndependentSuctionScores([awLow, awHigh, paLow, paHigh]);
+  assert.deepEqual([independentSuctionScores.get("vc-aw-low"), independentSuctionScores.get("vc-aw-high")], [0, 1], "AW 제품은 AW 그룹 안에서만 정규화");
+  assert.deepEqual([independentSuctionScores.get("vc-pa-low"), independentSuctionScores.get("vc-pa-high")], [0, 1], "Pa 제품은 Pa 그룹 안에서만 정규화");
+  assert.equal(independentSuctionScores.get("vc-aw-high"), independentSuctionScores.get("vc-pa-high"), "단위별 평가 뒤 비교 가능한 점수로만 결합하고 AW·Pa 수치는 환산하지 않음");
+
+  const weights = vacuumCriteria.getVacuumRankingWeights;
+  const weightFor = (overrides) => weights({ ...vacuumBase, ...overrides });
+  assert.ok(weightFor({ "vacuum.primaryUse": "short-daily" }).weight > weightFor({ "vacuum.primaryUse": "balanced" }).weight && weightFor({ "vacuum.primaryUse": "short-daily" }).standingDock > weightFor({ "vacuum.primaryUse": "balanced" }).standingDock, "짧은 일상 청소는 낮은 무게와 충전·보관 편의 비중 상승");
+  assert.ok(weightFor({ "vacuum.primaryUse": "whole-home" }).suction > weightFor({ "vacuum.primaryUse": "balanced" }).suction && weightFor({ "vacuum.primaryUse": "whole-home" }).replaceableBattery > weightFor({ "vacuum.primaryUse": "balanced" }).replaceableBattery, "집 전체 청소는 흡입력과 교체형 배터리 비중 상승");
+  assert.ok(weightFor({ "vacuum.primaryUse": "dust-hair" }).suction > weightFor({ "vacuum.primaryUse": "balanced" }).suction && weightFor({ "vacuum.primaryUse": "dust-hair" }).softRoller > weightFor({ "vacuum.primaryUse": "balanced" }).softRoller, "먼지·머리카락 청소는 흡입력과 소프트 롤러 비중 상승");
+  assert.ok(weightFor({ "vacuum.primaryUse": "allergy" }).filtration > weightFor({ "vacuum.primaryUse": "balanced" }).filtration, "알레르기 관리는 확인된 필터 등급 비중 상승");
+  assert.ok(weightFor({ "vacuum.floorEnvironment": "hard-floor" }).softRoller > weightFor({ "vacuum.floorEnvironment": "mixed" }).softRoller && weightFor({ "vacuum.floorEnvironment": "carpet-rug" }).suction > weightFor({ "vacuum.floorEnvironment": "mixed" }).suction, "바닥 환경은 마루 롤러 또는 같은 단위 흡입력 비중에 반영");
+  assert.ok(weightFor({ "vacuum.weightImportance": "very" }).weight > weightFor({ "vacuum.weightImportance": "somewhat" }).weight && weightFor({ "vacuum.weightImportance": "none" }).weight === 0, "무게 중요도에 따라 본체 무게 비중을 강함·중간·없음으로 조정");
+  assert.ok(weightFor({ "vacuum.valuePriority": "low-purchase-price" }).currentPrice > weightFor({ "vacuum.valuePriority": "balanced" }).currentPrice && weightFor({ "vacuum.valuePriority": "good-current-price" }).marketPrice > weightFor({ "vacuum.valuePriority": "balanced" }).marketPrice && weightFor({ "vacuum.valuePriority": "strong-suction" }).suction > weightFor({ "vacuum.valuePriority": "balanced" }).suction, "가성비 기준별 현재가·가격 이력·흡입력 비중 변화");
+
+  const vacuumOneYearWarrantyResult = rankVacuums([VACUUM_PRODUCTS.find(({ id }) => id === "vc-pa-30000")], vacuumBase);
+  assert.equal(vacuumOneYearWarrantyResult.recommendations.length, 1, "1년 보증도 정상 추천 후보이며 탈락 조건이 아님");
+  assert.equal(rankVacuums([vacuumProductBase], { ...vacuumBase, "vacuum.budget": 100_000 }).recommendations.length, 0, "청소기 예산은 currentPrice 상한 필터로만 적용");
+  assert.equal(rankVacuums([{ ...vacuumProductBase, dataStatus: "discontinued" }], vacuumBase).recommendations.length, 0, "판매 중단 상품 제외");
+  assert.equal(rankVacuums([{ ...vacuumProductBase, id: "vc-unverified", dataStatus: "unverified" }, { ...vacuumProductBase, id: "vc-stale", dataStatus: "stale" }], vacuumBase).recommendations.length, 2, "unverified와 stale 청소기는 추천 후보 유지");
+
+  const missingVacuumData = { ...vacuumProductBase, id: "vc-missing-data", modelNumber: "VC-MISSING", priceHistory: [], specs: { ...vacuumProductBase.specs, suctionAw: undefined, suctionPa: undefined, hepaGrade: undefined, bodyWeightKg: undefined } };
+  const missingVacuumRecommendation = rankVacuums([missingVacuumData], vacuumBase).recommendations[0];
+  assert.ok(missingVacuumRecommendation.unmatchedOrUnknownCriteria.includes("흡입력 정보 없음") && missingVacuumRecommendation.unmatchedOrUnknownCriteria.includes("필터 등급 정보 없음") && missingVacuumRecommendation.unmatchedOrUnknownCriteria.includes("가격 이력 없음"), "누락된 흡입력·필터·가격 이력을 사실대로 표시");
+  assert.ok(missingVacuumRecommendation.recommendationReasons.every((reason) => !/고성능 필터|역대 최저가/.test(reason)), "누락된 필터나 가격 이력에 가짜 값·이유를 만들지 않음");
+
+  const favorableVacuumHistory = { ...vacuumProductBase, id: "vc-history-good", modelNumber: "VC-HISTORY-GOOD", currentPrice: 500_000, priceHistory: [{ date: "2026-06-01", lowestPrice: 480_000 }, { date: "2026-07-01", lowestPrice: 540_000 }] };
+  const unfavorableVacuumHistory = { ...vacuumProductBase, id: "vc-history-bad", modelNumber: "VC-HISTORY-BAD", currentPrice: 500_000, priceHistory: [{ date: "2026-06-01", lowestPrice: 200_000 }, { date: "2026-07-01", lowestPrice: 300_000 }] };
+  assert.deepEqual(rankVacuums([unfavorableVacuumHistory, favorableVacuumHistory], { ...vacuumBase, "vacuum.valuePriority": "good-current-price" }).recommendations.map(({ product }) => product.id), ["vc-history-good", "vc-history-bad"], "유효한 저장 가격 이력의 현재가 위치를 순위에 반영");
+  const structuredVacuumReasons = rankVacuums([vacuumProductBase], { ...vacuumBase, "vacuum.floorEnvironment": "carpet-rug" }).recommendations[0].recommendationReasonItems;
+  assert.ok(["사용 방식", "흡입 성능", "무게와 이동 편의", "필터 관리", "현재 가격"].every((label) => structuredVacuumReasons.some((item) => item.label === label)), "실제로 적용한 청소기 점수 요소만 자연스러운 구조화 이유로 설명");
+  assert.ok(structuredVacuumReasons.some(({ description }) => description.includes("전용 브러시 성능을 의미하지 않아요")), "흡입력만으로 카펫 전용 성능을 주장하지 않음");
 
   const { summarizePriceHistory, summarizeStoredPriceHistory, getValidPriceHistory } = await load("/src/app/features/product-catalog/core/priceHistory.ts");
   const metricHistory = [{ date: "2026-07-13", lowestPrice: 140 }, { date: "2026-05-01", lowestPrice: 100 }];
@@ -413,7 +563,6 @@ try {
   assert.ok(priceChartSource.includes('"tooltip"') && priceChartSource.includes("point.date") && priceChartSource.includes("won(point.lowestPrice)") && priceChartSource.includes("onMouseEnter") && priceChartSource.includes("onFocus"), "호버·키보드 포커스 tooltip의 정확한 전체 날짜·원화 가격");
   assert.ok(priceChartSource.includes("setHoveredIndex(index)") && priceChartSource.includes("setFocusedIndex(index)") && priceChartSource.includes("onMouseLeave={() => setHoveredIndex(null)}") && priceChartSource.includes("onBlur={() => setFocusedIndex(null)"), "hover/focus가 일시 강조를 우선하고 각각 종료 시 기본 강조로 복귀");
   assert.ok(priceChartSource.includes("points.map") && priceChartSource.includes("getPriceHistoryAxisLabelIndexes") && priceChartSource.includes("getPriceBubblePlacement") && priceChartSource.includes('key={`${productId}|${pointIdentity}`}') && priceChartSource.includes("text-sm\">{formatPriceHistoryAxisDate"), "모든 점 유지·축 라벨 간격·충돌 대응 버블·상품별 상태 초기화·표준 UI 날짜 크기");
-  const { REFRIGERATOR_PRODUCTS } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/products.ts");
   const { rankRefrigerators: rankRepresentativeRefrigerators } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/rankProducts.ts");
   const { default: ProductRecommendationCard } = await load("/src/app/components/features/chat/ProductRecommendationCard.tsx");
   const { default: ProductDetailView } = await load("/src/app/features/smart-shopping/recommendation/ProductDetailView.tsx");
@@ -429,7 +578,7 @@ try {
     assert.equal((markup.match(/역대 최저가 추이/g) ?? []).length, 1, `${product.categoryId} 상세 그래프 중복 없음`);
     assert.ok(!/two-in-one|four-door-value|two-door|4k-uhd|full-hd|wireless-value|wired-major/.test(markup), `${product.categoryId} 상세 스펙에 raw enum 미노출`);
   }
-  const refrigeratorReasonResult = rankRepresentativeRefrigerators(REFRIGERATOR_PRODUCTS, { "refrigerator.doorType": "four-door-value", "refrigerator.capacityMode": "600-800", "refrigerator.useDefaults": "yes", "refrigerator.metalRequired": false, "refrigerator.budget": 10_000_000 });
+  const refrigeratorReasonResult = rankRepresentativeRefrigerators(REFRIGERATOR_PRODUCTS, { ...refrigeratorAnswers, "refrigerator.budget": 10_000_000 });
   const structuredReasonRecommendations = [airFlowState.result.recommendations[0], tvResult.recommendations[0], refrigeratorReasonResult.recommendations[0], awResult.recommendations[0]];
   for (const recommendation of structuredReasonRecommendations) {
     assert.ok(recommendation.recommendationReasonItems?.length >= 3, `${recommendation.product.categoryId} 실제 적용 이유를 구조화해 저장`);
@@ -700,7 +849,7 @@ try {
   assert.equal(questionStatus, 503); assert.equal(JSON.parse(questionBody).code, "OPENAI_API_NOT_CONFIGURED", "OpenAI 키 미설정 안내");
 
   const airState = runtime.createInitialFlowState(airModule);
-  const freshVacuumState = runtime.createInitialFlowState(vacuumModule);
+  const freshVacuumState = runtime.createInitialFlowState(vacuumFlowModule);
   assert.notStrictEqual(airState.answers, freshVacuumState.answers, "상품군별 답변 상태 격리");
   assert.equal(airState.flowId, "air-conditioner"); assert.equal(freshVacuumState.flowId, "vacuum");
 
@@ -761,10 +910,9 @@ try {
   assert.ok(realTvResult.recommendations.length > 0 && realTvResult.recommendations.every(({ product }) => product.dataStatus === "unverified"), "unverified 실제 상품도 추천 대상");
   const discontinuedTv = { ...realTv, id: `${realTv.id}-discontinued`, modelNumber: `${realTv.modelNumber}-DISCONTINUED`, dataStatus: "discontinued" };
   assert.ok(rankTvs([realTv, discontinuedTv], tvAnswers).excludedProducts.some(({ productId, reasons }) => productId === discontinuedTv.id && reasons.includes("판매 중단 상품")), "discontinued 상품은 일반 추천에서 제외");
-  const { rankRefrigerators } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/rankProducts.ts");
   const representativeAir = rankAirConditioners(repository.getProducts("air-conditioner"), { "airConditioner.type": "wall", "airConditioner.actualCoolingArea": 1, "airConditioner.dailyUsage": "unknown", "airConditioner.valuePriority": "balanced", "airConditioner.budget": "none" });
-  const representativeRefrigerator = rankRefrigerators(repository.getProducts("refrigerator"), { "refrigerator.doorType": "four-door-value", "refrigerator.capacityMode": "600-800", "refrigerator.useDefaults": "no", "refrigerator.metalRequired": false, "refrigerator.coolingRequired": false, "refrigerator.inverterRequired": false, "refrigerator.warrantyRequired": false, "refrigerator.freestandingRequired": false, "refrigerator.budget": 10_000_000 });
-  const representativeVacuum = rankVacuums(repository.getProducts("vacuum"), { "vacuum.powerType": "wireless-value", "vacuum.suctionStandard": "unknown", "vacuum.replaceableBatteryRequired": false, "vacuum.standingDockRequired": false, "vacuum.hepaRequired": false, "vacuum.softRollerRequired": false, "vacuum.weight": "any", "vacuum.budget": 10_000_000 });
+  const representativeRefrigerator = rankRefrigerators(repository.getProducts("refrigerator"), { ...refrigeratorAnswers, "refrigerator.budget": 10_000_000 });
+  const representativeVacuum = rankVacuums(repository.getProducts("vacuum"), { ...vacuumBase, "vacuum.powerType": "wireless-value", "vacuum.budget": 10_000_000 });
   assert.ok(representativeAir.recommendations.length > 0 && realTvResult.recommendations.length > 0 && representativeRefrigerator.recommendations.length > 0 && representativeVacuum.recommendations.length > 0, "각 실제 카테고리에서 일치 조건은 내부 결과를 생성");
   assert.ok(optimizedListSource.includes("catalogSource") && optimizedListSource.includes('isReal ? "REAL" : "MOCK"') && !optimizedListSource.includes("MOIT 내부 DB · MOCK"), "내부 결과 출처 배지는 활성 카탈로그에서 유도");
   assert.ok(optimizedListSource.includes("실제 상품 데이터") && optimizedListSource.includes("내부 더미 상품"), "REAL 빈 상태는 더미 표현을 쓰지 않고 mock fallback 문구는 보존");

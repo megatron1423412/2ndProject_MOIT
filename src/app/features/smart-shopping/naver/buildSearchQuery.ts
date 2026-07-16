@@ -1,7 +1,7 @@
 import { getSubCategoryById } from "../../../data/categories";
 import type { FlowAnswers } from "../../chat-flow/core/types";
 import { getRequiredCoolingArea, getSelectedAirConditionerType } from "../../chat-flow/flows/appliances/air-conditioner/criteria";
-import { getRecommendedCapacityRange } from "../../chat-flow/flows/appliances/refrigerator/criteria";
+import { getSelectedCapacityRange } from "../../chat-flow/flows/appliances/refrigerator/criteria";
 import { getSelectedTvSize } from "../../chat-flow/flows/appliances/tv/criteria";
 import type { ProductCategoryId } from "../../product-catalog/core/types";
 
@@ -18,10 +18,9 @@ export const buildTvSearchQuery = (answers: FlowAnswers) =>
   [itemName("tv"), `${getSelectedTvSize(answers)}인치`, "4K"].filter(Boolean).join(" ");
 
 export const buildRefrigeratorSearchQuery = (answers: FlowAnswers) => {
-  const capacityMode = answers["refrigerator.capacityMode"];
-  const range = capacityMode === "recommended" ? getRecommendedCapacityRange(Number(answers["refrigerator.householdSize"])) : null;
-  const capacity = range ? `${range.minLiters} ${range.maxLiters}L` : capacityMode ? `${capacityMode}L` : "";
-  const door = answers["refrigerator.doorType"] === "two-door" ? "2도어" : "4도어";
+  const capacity = getSelectedCapacityRange(answers).label;
+  const door = answers["refrigerator.doorType"] === "two-door" ? "2도어"
+    : answers["refrigerator.doorType"] === "four-door-value" ? "4도어" : "";
   return [itemName("refrigerator"), capacity, door].filter(Boolean).join(" ");
 };
 

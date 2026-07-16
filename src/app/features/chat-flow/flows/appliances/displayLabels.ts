@@ -29,11 +29,17 @@ export const TV_PRIMARY_USE_LABELS: Record<string, string> = { "broadcast-stream
 export const TV_USAGE_LABELS: Record<string, string> = { under3: "하루 3시간 미만", "3to6": "하루 3~6시간", over6: "하루 6시간 이상", unknown: "하루 사용 시간 잘 모르겠어요" };
 export const TV_PLATFORM_REQUIREMENT_LABELS: Record<string, string> = { "google-android-required": "Google TV 또는 Android TV 필수", "other-allowed": "삼성·LG 등 다른 스마트 OS도 가능", none: "스마트 플랫폼 상관없음" };
 export const TV_PRIORITY_LABELS: Record<string, string> = { "low-purchase-price": "구매가격이 낮은 제품", "good-current-price": "현재 가격이 좋은 제품", "picture-quality": "화질이 좋은 제품", "electricity-saving": "전기요금을 아끼는 제품", balanced: "가격·화질 균형 추천" };
-export const REFRIGERATOR_DOOR_LABELS: Record<string, string> = { "two-door": "2도어", "four-door-value": "실속형 4도어" };
-export const REFRIGERATOR_CAPACITY_LABELS: Record<string, string> = { "300-500": "300~500L", "600-800": "600~800L", recommended: "가구원 수 기준 추천 용량" };
-export const VACUUM_POWER_LABELS: Record<string, string> = { "wireless-value": "가성비 무선", "wired-major": "대기업 유선" };
-export const VACUUM_SUCTION_LABELS: Record<string, string> = { aw: "200AW 이상", pa: "25,000Pa 이상", unknown: "흡입력 단위 잘 모르겠음" };
-export const VACUUM_WEIGHT_LABELS: Record<string, string> = { "under-2.5": "2.5kg 이하", any: "중량 상관없음" };
+export const REFRIGERATOR_HOUSEHOLD_LABELS: Record<string, string> = { "1": "1명", "2": "2명", "3-4": "3~4명", "5-plus": "5명 이상" };
+export const REFRIGERATOR_STORAGE_LABELS: Record<string, string> = { "small-frequent": "필요할 때마다 조금씩 구매", bulk: "한 번에 많이 구매", "frozen-meal-prep": "냉동식품과 밀프렙을 많이 보관", general: "일반적인 수준" };
+export const REFRIGERATOR_CAPACITY_LABELS: Record<string, string> = { "under-500": "500L 이하", "500-600": "500~600L", "600-800": "600~800L", "over-800": "800L 이상" };
+export const REFRIGERATOR_INSTALLATION_LABELS: Record<string, string> = { "kitchen-fit": "키친핏", general: "일반 설치", unknown: "제한 없음" };
+export const REFRIGERATOR_DOOR_LABELS: Record<string, string> = { "two-door": "2도어", "four-door-value": "4도어", any: "제한 없음" };
+export const REFRIGERATOR_PRIORITY_LABELS: Record<string, string> = { "low-purchase-price": "구매가격이 낮은 제품", "good-current-price": "현재 가격이 좋은 제품", "electricity-saving": "전기요금을 아끼는 제품", "storage-convenience": "수납과 정리가 편한 제품", balanced: "가격·용량·효율 균형 추천" };
+export const VACUUM_USAGE_LABELS: Record<string, string> = { "short-daily": "자주 짧게 일상 청소", "whole-home": "한 번에 집 전체 청소", "dust-hair": "먼지와 머리카락 청소", allergy: "미세먼지·알레르기 관리", balanced: "일반적인 균형 사용" };
+export const VACUUM_POWER_LABELS: Record<string, string> = { "wireless-value": "무선", "wired-major": "유선", any: "제한 없음" };
+export const VACUUM_FLOOR_LABELS: Record<string, string> = { "hard-floor": "마루·타일 위주", "carpet-rug": "카펫·러그도 많음", mixed: "여러 바닥이 섞여 있음", unknown: "잘 모르겠어요" };
+export const VACUUM_WEIGHT_IMPORTANCE_LABELS: Record<string, string> = { very: "매우 중요", somewhat: "어느 정도 중요", none: "상관없음" };
+export const VACUUM_PRIORITY_LABELS: Record<string, string> = { "low-purchase-price": "구매가격이 낮은 제품", "good-current-price": "현재 가격이 좋은 제품", "strong-suction": "흡입력이 강한 제품", convenience: "사용과 관리가 편한 제품", balanced: "가격·성능 균형 추천" };
 export const PRODUCT_CATEGORY_LABELS: Record<string, string> = { "air-conditioner": "에어컨", tv: "TV", refrigerator: "냉장고", vacuum: "청소기" };
 
 export const displayLabel = (labels: Record<string, string>, value: unknown, fallback = "선택 정보 없음") =>
@@ -62,24 +68,20 @@ const criteriaFormatters: Record<string, { label: string; format: (value: unknow
   "tv.platformRequirement": { label: "스마트 플랫폼", format: (value) => displayLabel(TV_PLATFORM_REQUIREMENT_LABELS, value) },
   "tv.valuePriority": { label: "가성비 기준", format: (value) => displayLabel(TV_PRIORITY_LABELS, value) },
   "tv.budget": { label: "제품 가격 예산", format: won },
+  "refrigerator.householdSize": { label: "가구원", format: (value) => displayLabel(REFRIGERATOR_HOUSEHOLD_LABELS, value) },
+  "refrigerator.storageHabit": { label: "보관 습관", format: (value) => displayLabel(REFRIGERATOR_STORAGE_LABELS, value) },
+  "refrigerator.capacityMode": { label: "용량 선택", format: (value) => displayLabel({ recommended: "추천 범위 적용", custom: "직접 수정" }, value) },
+  "refrigerator.customCapacity": { label: "권장 용량", format: (value) => displayLabel(REFRIGERATOR_CAPACITY_LABELS, value) },
+  "refrigerator.installationType": { label: "설치 형태", format: (value) => displayLabel(REFRIGERATOR_INSTALLATION_LABELS, value) },
   "refrigerator.doorType": { label: "도어 구조", format: (value) => displayLabel(REFRIGERATOR_DOOR_LABELS, value) },
-  "refrigerator.householdSize": { label: "가구원", format: (value) => numberWithUnit(value, "명") },
-  "refrigerator.capacityMode": { label: "용량", format: (value) => displayLabel(REFRIGERATOR_CAPACITY_LABELS, value) },
-  "refrigerator.metalRequired": { label: "메탈 도어", format: yesNo },
-  "refrigerator.useDefaults": { label: "기본 성능 기준", format: (value) => value === "yes" ? "적용" : "직접 선택" },
-  "refrigerator.coolingRequired": { label: "간접·간랭식 냉각", format: yesNo },
-  "refrigerator.inverterRequired": { label: "인버터", format: yesNo },
-  "refrigerator.warrantyRequired": { label: "핵심 부품 10년 보증", format: yesNo },
-  "refrigerator.freestandingRequired": { label: "프리스탠딩", format: yesNo },
-  "refrigerator.budget": { label: "구매 예산", format: won },
+  "refrigerator.valuePriority": { label: "가성비 기준", format: (value) => displayLabel(REFRIGERATOR_PRIORITY_LABELS, value) },
+  "refrigerator.budget": { label: "제품 가격 예산", format: won },
+  "vacuum.primaryUse": { label: "주 사용 방식", format: (value) => displayLabel(VACUUM_USAGE_LABELS, value) },
   "vacuum.powerType": { label: "동력 방식", format: (value) => displayLabel(VACUUM_POWER_LABELS, value) },
-  "vacuum.suctionStandard": { label: "흡입력 기준", format: (value) => displayLabel(VACUUM_SUCTION_LABELS, value) },
-  "vacuum.replaceableBatteryRequired": { label: "교체형 배터리", format: yesNo },
-  "vacuum.standingDockRequired": { label: "스탠드 충전 거치대", format: yesNo },
-  "vacuum.hepaRequired": { label: "H13 이상 HEPA", format: yesNo },
-  "vacuum.softRollerRequired": { label: "소프트 롤러", format: yesNo },
-  "vacuum.weight": { label: "본체 중량", format: (value) => displayLabel(VACUUM_WEIGHT_LABELS, value) },
-  "vacuum.budget": { label: "구매 예산", format: won },
+  "vacuum.floorEnvironment": { label: "바닥 환경", format: (value) => displayLabel(VACUUM_FLOOR_LABELS, value) },
+  "vacuum.weightImportance": { label: "무게 중요도", format: (value) => displayLabel(VACUUM_WEIGHT_IMPORTANCE_LABELS, value) },
+  "vacuum.valuePriority": { label: "가성비 기준", format: (value) => displayLabel(VACUUM_PRIORITY_LABELS, value) },
+  "vacuum.budget": { label: "제품 가격 예산", format: won },
 };
 
 export const formatSmartShoppingCriteria = (answers: FlowAnswers) => Object.entries(answers).flatMap(([key, value]) => {
