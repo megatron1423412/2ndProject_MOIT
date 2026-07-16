@@ -17,12 +17,11 @@ interface ProductBase<C extends ProductCategoryId, S> {
   name: string;
   imagePath: string;
   shortInfo: string;
-  /** 문구 자체도 실제 리뷰 분석 결과가 아닌 더미임을 드러내야 합니다. */
+  /** 저장된 리뷰 요약을 상세 화면에 그대로 표시합니다. */
   aiReviewSummary: string;
   currentPrice: number;
   priceHistory: PriceHistoryPoint[];
   strengths: string[];
-  weaknesses: string[];
   /** mock은 기존 화면 검증용 데이터, 나머지는 직접 입력한 실제 상품의 검증 상태입니다. */
   dataStatus: ProductDataStatus;
   source: ProductSource;
@@ -36,12 +35,8 @@ export interface AirConditionerSpecs {
   type: "standing" | "wall" | "two-in-one" | "window";
   ratedCoolingAreaPyeong: number;
   inverter: boolean;
-  basicInstallationIncluded: boolean | null;
-  officialInstallation: boolean | null;
   autoDry: boolean;
   energyGrade: 1 | 2 | 3 | 4 | 5;
-  /** true=환급 대상 확인, false=비대상 확인, null=아직 확인하지 못함 */
-  rebateEligible: boolean | null;
 }
 
 export interface TvSpecs {

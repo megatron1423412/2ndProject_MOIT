@@ -114,7 +114,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     sessionDispatch({ type: "deactivate-interactions" });
     sessionDispatch({ type: "select-product", product });
     appendText("user-action", `${name} 상품 선택`);
-    sessionDispatch({ type: "append", item: createProductDetailTimelineItem(session.sessionId, createProductDetailSnapshot({ selected: product, internalRecommendations: activeRecommendations, showAlternative: productShowAlternative })) });
+    sessionDispatch({ type: "append", item: createProductDetailTimelineItem(session.sessionId, createProductDetailSnapshot({ categoryId: category, selected: product, internalRecommendations: activeRecommendations, showAlternative: productShowAlternative })) });
     appendActionGroup("detail", productShowAlternative);
     setQuestionError("");
     dispatch({ type: "select-product", product });

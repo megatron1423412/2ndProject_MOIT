@@ -1,5 +1,5 @@
 import type { FlowAnswers } from "../../chat-flow/core/types";
-import type { ProductRecommendation, ProductSource } from "../../product-catalog/core/types";
+import type { ProductCategoryId, ProductRecommendation, ProductSource } from "../../product-catalog/core/types";
 import type { PurchaseGradeResult } from "../grade/calculatePurchaseGrade";
 import type { NaverShoppingProduct, PurchaseGradeDiagnosisInput, SelectedShoppingProduct } from "../types/recommendation";
 import type { ProductDetailSnapshot, RecommendationSnapshot, SmartShoppingTimelineItem, TimelineActionGroupKind, TimelineTextKind } from "../session/smartShoppingSessionTypes";
@@ -20,7 +20,7 @@ export const createRecommendationSnapshotId = (query: string, recommendations: P
 
 export const createRecommendationSnapshot = ({ query, recommendations, catalogSource, naverItems, naverStatus, naverErrorMessage }: { query: string; recommendations: ProductRecommendation[]; catalogSource: ProductSource; naverItems: NaverShoppingProduct[]; naverStatus: RecommendationSnapshot["naverStatus"]; naverErrorMessage: string }): RecommendationSnapshot => clone({ snapshotId: createRecommendationSnapshotId(query, recommendations), query, recommendations, catalogSource, naverItems, naverStatus, naverErrorMessage });
 
-export const createProductDetailSnapshot = ({ selected, internalRecommendations, showAlternative }: { selected: SelectedShoppingProduct; internalRecommendations: ProductRecommendation[]; showAlternative: boolean }): ProductDetailSnapshot => clone({ selected, internalRecommendations, showAlternative });
+export const createProductDetailSnapshot = ({ categoryId, selected, internalRecommendations, showAlternative }: { categoryId: ProductCategoryId; selected: SelectedShoppingProduct; internalRecommendations: ProductRecommendation[]; showAlternative: boolean }): ProductDetailSnapshot => clone({ categoryId, selected, internalRecommendations, showAlternative });
 
 export const createTextTimelineItem = (sessionId: string, type: TimelineTextKind, text: string, metadata?: Record<string, unknown>): SmartShoppingTimelineItem => ({ id: id(sessionId), type, text, timestamp: timestamp(), metadata: metadata ? clone(metadata) : undefined });
 

@@ -13,7 +13,7 @@ const validateCategorySpecs = (product: CatalogProduct, label: string, errors: s
     if (!["standing", "wall", "two-in-one", "window"].includes(String(specs.type))) error("type", "값이 올바르지 않습니다.");
     if (!isFiniteNumber(specs.ratedCoolingAreaPyeong) || specs.ratedCoolingAreaPyeong <= 0) error("ratedCoolingAreaPyeong", "는 0보다 큰 숫자여야 합니다.");
     ["inverter", "autoDry"].forEach((field) => { if (!isBoolean(specs[field])) error(field, "는 boolean이어야 합니다."); });
-    ["basicInstallationIncluded", "officialInstallation", "rebateEligible"].forEach((field) => { if (!isBooleanOrNull(specs[field])) error(field, "는 boolean 또는 null이어야 합니다."); });
+    ["basicInstallationIncluded", "officialInstallation", "rebateEligible"].forEach((field) => { if (field in specs) error(field, "는 제거된 에어컨 스펙 필드입니다."); });
     if (![1, 2, 3, 4, 5].includes(Number(specs.energyGrade))) error("energyGrade", "값이 올바르지 않습니다.");
   } else if (product.categoryId === "tv") {
     if (!["android-tv", "google-tv", "other"].includes(String(specs.os))) error("os", "값이 올바르지 않습니다.");
@@ -52,13 +52,15 @@ export const validateProductData = (mockProducts: readonly CatalogProduct[], rea
     for (const product of products) {
       const label = `${collectionName}:${product.id || "(id 없음)"}`;
       if (!product.id || !product.brand || !product.modelNumber || !product.name || !product.imagePath || !product.shortInfo || !product.aiReviewSummary || !product.specs) errors.push(`${label}: 필수 필드가 누락되었습니다.`);
+      if ("weaknesses" in product) errors.push(`${label}: weaknesses는 제거된 상품 필드입니다.`);
+      if (!Array.isArray(product.strengths)) errors.push(`${label}: strengths는 배열이어야 합니다.`);
       if (!categoryIds.includes(product.categoryId)) errors.push(`${label}: 알 수 없는 categoryId (${String(product.categoryId)})입니다.`);
       if (categoryIds.includes(product.categoryId)) validateCategorySpecs(product, label, errors);
       if (!Number.isFinite(product.currentPrice) || product.currentPrice < 0) errors.push(`${label}: currentPrice는 0 이상의 숫자여야 합니다.`);
       if (!Array.isArray(product.priceHistory)) errors.push(`${label}: priceHistory는 배열이어야 합니다.`);
-      for (const point of product.priceHistory ?? []) {
-        if (!isDate(point.date)) errors.push(`${label}: 잘못된 가격 이력 날짜 (${String(point.date)})입니다.`);
-        if (!Number.isFinite(point.lowestPrice) || point.lowestPrice <= 0) errors.push(`${label}: 가격 이력은 0보다 커야 합니다.`);
+      for (const [index, point] of (product.priceHistory ?? []).entries()) {
+        if (!isDate(point.date)) errors.push(`${label}: priceHistory[${index}].date 값이 올바르지 않습니다 (${String(point.date)}).`);
+        if (!Number.isFinite(point.lowestPrice) || point.lowestPrice <= 0) errors.push(`${label}: priceHistory[${index}].lowestPrice는 0보다 커야 합니다.`);
       }
       if (product.dataStatus === "verified" && !isDate(product.verifiedAt)) errors.push(`${label}: verified 상품에는 verifiedAt(YYYY-MM-DD)이 필요합니다.`);
       if (collectionName === "realProducts" && product.dataStatus === "mock") errors.push(`${label}: 실제 상품은 dataStatus: "mock"일 수 없습니다.`);

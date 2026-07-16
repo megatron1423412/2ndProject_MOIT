@@ -17,6 +17,7 @@ export interface RecommendationSnapshot {
 }
 
 export interface ProductDetailSnapshot {
+  categoryId: ProductCategoryId;
   selected: SelectedShoppingProduct;
   internalRecommendations: ProductRecommendation[];
   showAlternative: boolean;

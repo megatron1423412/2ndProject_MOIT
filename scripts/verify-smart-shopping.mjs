@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createServer } from "vite";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 const server = await createServer({ server: { middlewareMode: true }, appType: "custom" });
 const load = (path) => server.ssrLoadModule(path);
@@ -33,20 +35,18 @@ try {
   assert.deepEqual(airResult.recommendations.map(({ product }) => product.id), ["ac-pure-wall-10"], "에어컨 필수 조건 제외");
   assert.ok(airResult.excludedProducts.some(({ productId, reasons }) => productId === "ac-value-wall-8" && reasons.some((reason) => reason.includes("인버터"))));
   assert.ok(airResult.recommendations.every(({ verificationNeeded, verificationRequiredFields }) => !verificationNeeded && !verificationRequiredFields), "설치·환급 미확인은 후보 분류에 사용하지 않음");
+  assert.ok(airResult.recommendations.every((item) => JSON.stringify(item).match(/basicInstallationIncluded|officialInstallation|rebateEligible|공식 지정 설치|환급/) === null), "제거된 에어컨 필드가 추천 설명·검증 상태에 없음");
   assert.ok(getAirConditionerRankingWeights({ "airConditioner.dailyUsage": "under4", "airConditioner.valuePriority": "balanced" }).currentPrice > getAirConditionerRankingWeights({ "airConditioner.dailyUsage": "over8", "airConditioner.valuePriority": "balanced" }).currentPrice, "짧은 사용은 현재가 비중 증가");
   assert.ok(getAirConditionerRankingWeights({ "airConditioner.dailyUsage": "over8", "airConditioner.valuePriority": "electricity-saving" }).energyGrade > getAirConditionerRankingWeights({ "airConditioner.dailyUsage": "under4", "airConditioner.valuePriority": "low-purchase-price" }).energyGrade, "긴 사용·전기요금 우선은 효율 비중 증가");
   const pricedBase = { ...AIR_CONDITIONER_PRODUCTS.find(({ id }) => id === "ac-pure-wall-10"), currentPrice: 780_000 };
-  const favorableHistory = { ...pricedBase, id: "history-good", modelNumber: "HISTORY-GOOD", priceHistory: [{ date: "a", lowestPrice: 760_000 }, { date: "b", lowestPrice: 800_000 }] };
-  const unfavorableHistory = { ...pricedBase, id: "history-bad", modelNumber: "HISTORY-BAD", priceHistory: [{ date: "a", lowestPrice: 400_000 }, { date: "b", lowestPrice: 500_000 }] };
+  const favorableHistory = { ...pricedBase, id: "history-good", modelNumber: "HISTORY-GOOD", priceHistory: [{ date: "2026-06-01", lowestPrice: 760_000 }, { date: "2026-07-01", lowestPrice: 800_000 }] };
+  const unfavorableHistory = { ...pricedBase, id: "history-bad", modelNumber: "HISTORY-BAD", priceHistory: [{ date: "2026-06-01", lowestPrice: 400_000 }, { date: "2026-07-01", lowestPrice: 500_000 }] };
   const historyRanked = rankAirConditioners([unfavorableHistory, favorableHistory], { ...airAnswers, "airConditioner.valuePriority": "good-current-price" });
   assert.deepEqual(historyRanked.recommendations.map(({ product }) => product.id), ["history-good", "history-bad"], "가격 이력이 있으면 현재가의 과거 위치를 순위에 반영");
   const emptyHistory = { ...favorableHistory, id: "history-empty", modelNumber: "HISTORY-EMPTY", priceHistory: [] };
   const emptyHistoryResult = rankAirConditioners([emptyHistory], airAnswers);
   assert.equal(emptyHistoryResult.recommendations[0].recommendationReasons.some((reason) => reason.includes("과거 최저가")), false, "빈 가격 이력은 역사 가격 점수 생략");
   assert.ok(emptyHistoryResult.recommendations[0].unmatchedOrUnknownCriteria.includes("가격 이력 없음"), "빈 가격 이력을 사실대로 표시");
-  const unknownInstall = { ...favorableHistory, specs: { ...favorableHistory.specs, basicInstallationIncluded: null, officialInstallation: null, rebateEligible: null } };
-  const knownInstall = { ...unfavorableHistory, specs: { ...unfavorableHistory.specs, basicInstallationIncluded: true, officialInstallation: true, rebateEligible: true } };
-  assert.equal(rankAirConditioners([unknownInstall], airAnswers).recommendations[0].score, rankAirConditioners([{ ...unknownInstall, specs: knownInstall.specs }], airAnswers).recommendations[0].score, "설치·환급 필드는 에어컨 점수에 영향 없음");
   const budgetOnlyMiss = rankAirConditioners([favorableHistory], { ...airAnswers, "airConditioner.budget": 100_000 });
   assert.equal(budgetOnlyMiss.recommendations.length, 0); assert.deepEqual(budgetOnlyMiss.overBudgetRecommendations.map(({ product }) => product.id), ["history-good"], "예산만 초과한 필수조건 충족 상품 제공");
 
@@ -216,13 +216,67 @@ try {
   assert.ok(awResult.recommendations.every(({ product }) => product.specs.suctionAw !== undefined && product.specs.suctionAw >= 200), "AW 독립 판정");
   assert.deepEqual(paResult.recommendations.map(({ product }) => product.id), ["vc-pa-30000"], "Pa 독립 판정");
 
-  const { summarizePriceHistory } = await load("/src/app/features/product-catalog/core/priceHistory.ts");
-  assert.deepEqual(summarizePriceHistory(120, [{ date: "a", lowestPrice: 100 }, { date: "b", lowestPrice: 140 }]), { allTimeLow: 100, averagePrice: 120, differenceFromLow: 20, percentAboveLow: 20 }, "가격 이력 계산");
+  const { summarizePriceHistory, summarizeStoredPriceHistory, getValidPriceHistory } = await load("/src/app/features/product-catalog/core/priceHistory.ts");
+  const metricHistory = [{ date: "2026-07-13", lowestPrice: 140 }, { date: "2026-05-01", lowestPrice: 100 }];
+  assert.deepEqual(summarizePriceHistory(120, metricHistory), { allTimeLow: 100, averagePrice: 120, differenceFromLow: 20, percentAboveLow: 20 }, "가격 이력 계산");
+  assert.deepEqual(summarizeStoredPriceHistory(1_200, [{ date: "2026-01-01", lowestPrice: 800 }, { date: "2026-02-01", lowestPrice: 1_000 }]), { allTimeLow: 800, averagePrice: 900, differenceFromLow: 400, percentAboveLow: 50 }, "현재가·최저가·평균가·차액·비율 정확성");
+  assert.equal(summarizeStoredPriceHistory(1_200, []), null, "빈 가격 이력은 역사 지표를 만들지 않음");
+  assert.deepEqual(getValidPriceHistory(metricHistory).map(({ date }) => date), ["2026-05-01", "2026-07-13"], "저장 날짜 기준 오름차순 정렬");
+
+  const { default: PriceHistoryChart, buildPriceHistoryChartPoints } = await load("/src/app/features/smart-shopping/product-detail/PriceHistoryChart.tsx");
+  const storedChartHistory = [
+    { date: "2026-07-13", lowestPrice: 970_600 },
+    { date: "2026-05-01", lowestPrice: 1_080_000 },
+    { date: "2026-06-25", lowestPrice: 970_000 },
+  ];
+  const chartPoints = buildPriceHistoryChartPoints(storedChartHistory);
+  assert.deepEqual(chartPoints.map(({ date, lowestPrice }) => ({ date, lowestPrice })), [
+    { date: "2026-05-01", lowestPrice: 1_080_000 },
+    { date: "2026-06-25", lowestPrice: 970_000 },
+    { date: "2026-07-13", lowestPrice: 970_600 },
+  ], "실제 저장 날짜와 lowestPrice가 모두 차트 점으로 전달");
+  assert.equal(buildPriceHistoryChartPoints([{ date: "2026-07-13", lowestPrice: 970_600 }]).length, 1, "한 점 가격 이력 안전 처리");
+  assert.equal(buildPriceHistoryChartPoints([]).length, 0, "빈 가격 이력 안전 처리");
+  const emptyChartMarkup = renderToStaticMarkup(React.createElement(PriceHistoryChart, { productId: "empty-product", history: [] }));
+  const singleChartMarkup = renderToStaticMarkup(React.createElement(PriceHistoryChart, { productId: "single-product", history: [{ date: "2026-07-13", lowestPrice: 970_600 }] }));
+  const manyChartMarkup = renderToStaticMarkup(React.createElement(PriceHistoryChart, { productId: "many-product", history: storedChartHistory }));
+  assert.ok(emptyChartMarkup.includes("저장된 가격 이력이 없습니다."), "빈 차트의 진실한 empty state");
+  assert.equal((singleChartMarkup.match(/data-price-point/g) ?? []).length, 1, "한 점 차트는 가상 점을 추가하지 않음");
+  assert.ok(singleChartMarkup.includes("2026-07-13 970,600원"), "한 점에도 정확한 날짜·가격 접근성 정보");
+  assert.equal((manyChartMarkup.match(/data-price-point/g) ?? []).length, storedChartHistory.length, "축 라벨 간격과 무관하게 저장된 모든 점 유지");
 
   const { PRODUCT_DETAIL_ACTIONS } = await load("/src/app/features/smart-shopping/actions/productDetailActions.ts");
   assert.deepEqual(PRODUCT_DETAIL_ACTIONS.map((item) => item.label), ["예상 세일 달 제안", "다른 제품 추천", "싸게 구매하는 법 TIP", "기타 · 직접 질문 입력", "목록으로 돌아가기", "다음 단계로"], "상세 하단 액션 순서");
   const detailViewSource = await readFile("src/app/features/smart-shopping/recommendation/ProductDetailView.tsx", "utf8");
+  const detailSectionsSource = await readFile("src/app/features/smart-shopping/product-detail/ProductDetailDataSections.tsx", "utf8");
+  const priceChartSource = await readFile("src/app/features/smart-shopping/product-detail/PriceHistoryChart.tsx", "utf8");
+  const recommendationCardSource = await readFile("src/app/components/features/chat/ProductRecommendationCard.tsx", "utf8");
   assert.ok(!detailViewSource.includes("ArrowLeft") && !detailViewSource.includes("BackButton"), "상세 최상단 목록 복귀 버튼 제거");
+  assert.ok(!detailViewSource.includes("MOCK DATA") && !detailViewSource.includes("REAL DATA") && !recommendationCardSource.includes("MOCK DATA") && !recommendationCardSource.includes("REAL DATA") && !detailViewSource.includes("모잇 DB 모델 매칭"), "상품 상세 데이터 출처 배지 제거");
+  assert.ok(detailSectionsSource.includes(">AI 리뷰 요약<") && !detailSectionsSource.includes("더미 AI 리뷰 요약"), "상세 섹션 제목은 정확히 AI 리뷰 요약");
+  assert.ok(!detailSectionsSource.includes("주의점") && !detailViewSource.includes("주의점") && !recommendationCardSource.includes("주의점"), "모든 상세에서 주의점 카드 제거");
+  assert.ok(detailSectionsSource.indexOf("data-strengths-card") < detailSectionsSource.indexOf("<PriceHistoryChart"), "장점 왼쪽·가격 차트 오른쪽 공통 행");
+  assert.equal((detailSectionsSource.match(/<PriceHistoryChart/g) ?? []).length, 1, "상세의 가격 그래프는 한 번만 렌더링");
+  assert.ok(priceChartSource.includes('role="tooltip"') && priceChartSource.includes("active.date") && priceChartSource.includes("won(active.lowestPrice)") && priceChartSource.includes("onMouseEnter") && priceChartSource.includes("onFocus"), "호버·키보드 포커스 tooltip의 정확한 날짜·원화 가격");
+  assert.ok(priceChartSource.includes("points.map") && priceChartSource.includes("labelInterval") && priceChartSource.includes("setActiveIndex(null); }, [productId, points.length]"), "모든 점 유지·축 라벨 간격·상품 전환 상태 초기화");
+  const { REFRIGERATOR_PRODUCTS } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/products.ts");
+  const { default: ProductRecommendationCard } = await load("/src/app/components/features/chat/ProductRecommendationCard.tsx");
+  const { default: ProductDetailView } = await load("/src/app/features/smart-shopping/recommendation/ProductDetailView.tsx");
+  const detailRecommendation = (product) => ({ product, score: 90, matchedCoreCriteria: ["대표 조건 충족"], unmatchedOrUnknownCriteria: [], recommendationReasons: ["테스트 추천 이유"], preferenceMatchCount: 1, dataCompleteness: 100 });
+  const representativeDetailProducts = [AIR_CONDITIONER_PRODUCTS[0], TV_PRODUCTS[0], REFRIGERATOR_PRODUCTS[0], VACUUM_PRODUCTS[0]];
+  for (const product of representativeDetailProducts) {
+    const markup = renderToStaticMarkup(React.createElement(ProductRecommendationCard, { recommendation: detailRecommendation(product) }));
+    assert.ok(markup.includes("AI 리뷰 요약") && markup.includes(product.aiReviewSummary), `${product.categoryId} 저장 aiReviewSummary 렌더링`);
+    assert.ok(!markup.includes("MOCK DATA") && !markup.includes("REAL DATA") && !markup.includes("주의점"), `${product.categoryId} 상세 출처 배지·주의점 없음`);
+    assert.ok(markup.indexOf('data-strengths-card="true"') < markup.indexOf('data-price-history-card="true"'), `${product.categoryId} 장점 왼쪽·차트 오른쪽 순서`);
+    assert.equal((markup.match(/역대 최저가 추이/g) ?? []).length, 1, `${product.categoryId} 상세 그래프 중복 없음`);
+  }
+  const airDetailMarkup = renderToStaticMarkup(React.createElement(ProductRecommendationCard, { recommendation: detailRecommendation(AIR_CONDITIONER_PRODUCTS[0]) }));
+  const tvDetailMarkup = renderToStaticMarkup(React.createElement(ProductRecommendationCard, { recommendation: detailRecommendation(TV_PRODUCTS[0]) }));
+  assert.ok(airDetailMarkup.includes("구매 전 확인") && airDetailMarkup.includes("설치비 확인 필요"), "에어컨 상세의 공통 구매 전 설치비 알림");
+  assert.ok(!tvDetailMarkup.includes("설치비 확인 필요") && tvDetailMarkup.includes("미충족·확인 필요"), "다른 상품군에는 에어컨 설치비 알림 미적용");
+  const unmatchedNaverAirMarkup = renderToStaticMarkup(React.createElement(ProductDetailView, { categoryId: "air-conditioner", selected: { source: "naver", product: naverItems[1] }, internalRecommendations: [], interactive: false }));
+  assert.ok(unmatchedNaverAirMarkup.includes("구매 전 확인") && unmatchedNaverAirMarkup.includes("설치비 확인 필요"), "내부 매칭 없는 네이버 에어컨 상세도 공통 설치비 알림");
   const diagnosisResultSource = await readFile("src/app/components/features/chat/DiagnosisResultCard.tsx", "utf8");
   const chatScreenSource = await readFile("src/app/components/features/chat/ChatScreen.tsx", "utf8");
   const chatMessageSource = await readFile("src/app/components/features/chat/ChatMessage.tsx", "utf8");
@@ -372,8 +426,11 @@ try {
   const naverErrorSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append-recommendation-list", item: timelineSnapshots.createRecommendationListTimelineItem(shoppingSession.sessionId, naverErrorSnapshot) });
   assert.equal(naverErrorSession.timeline.filter((item) => item.type === "recommendation-list").length, 1, "네이버 오류 snapshot도 목록 중복 없이 교체");
   assert.equal(naverErrorSession.timeline.find((item) => item.type === "recommendation-list").snapshot.recommendations.length, tvResult.recommendations.length, "네이버 오류에도 내부 추천 목록 유지");
-  const timelineSelected = { source: "internal", recommendation: tvResult.recommendations[0] };
-  const productTimelineSnapshot = timelineSnapshots.createProductDetailSnapshot({ selected: timelineSelected, internalRecommendations: tvResult.recommendations, showAlternative: false });
+  const timelineSelected = { source: "internal", recommendation: JSON.parse(JSON.stringify(tvResult.recommendations[0])) };
+  const productTimelineSnapshot = timelineSnapshots.createProductDetailSnapshot({ categoryId: "tv", selected: timelineSelected, internalRecommendations: tvResult.recommendations, showAlternative: false });
+  const snapshottedHistory = JSON.parse(JSON.stringify(productTimelineSnapshot.selected.recommendation.product.priceHistory));
+  timelineSelected.recommendation.product.priceHistory[0].lowestPrice = 1;
+  assert.deepEqual(productTimelineSnapshot.selected.recommendation.product.priceHistory, snapshottedHistory, "상세 snapshot이 실제 저장 가격 이력을 독립 보존");
   shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "select-product", product: timelineSelected });
   shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append", item: timelineSnapshots.createProductDetailTimelineItem(shoppingSession.sessionId, productTimelineSnapshot) });
   shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append", item: timelineSnapshots.createTextTimelineItem(shoppingSession.sessionId, "assistant-text", "예상 세일 달 제안 답변") });
@@ -425,6 +482,12 @@ try {
   assert.ok(REAL_AIR_CONDITIONER_PRODUCTS.every((product) => product.categoryId === "air-conditioner") && REAL_TV_PRODUCTS.every((product) => product.categoryId === "tv") && REAL_REFRIGERATOR_PRODUCTS.every((product) => product.categoryId === "refrigerator") && REAL_VACUUM_PRODUCTS.every((product) => product.categoryId === "vacuum"), "상품군별 실제 배열의 categoryId 정확성");
   assert.deepEqual(Object.fromEntries(["air-conditioner", "tv", "refrigerator", "vacuum"].map((categoryId) => [categoryId, realProducts.filter((product) => product.categoryId === categoryId).length])), { "air-conditioner": 17, tv: 17, refrigerator: 25, vacuum: 15 }, "네 실제 상품군 파일의 집계 수");
   assert.ok(realProducts.every((product) => product.source === "real" && product.categoryId && product.dataStatus !== "mock"), "실제 상품의 출처·카테고리 상태");
+  assert.ok([...mockProducts, ...realProducts].every((product) => !("weaknesses" in product)), "모든 real/mock 상품에서 weaknesses 제거");
+  assert.ok([...mockProducts, ...realProducts].filter((product) => product.categoryId === "air-conditioner").every((product) => ["basicInstallationIncluded", "officialInstallation", "rebateEligible"].every((field) => !(field in product.specs))), "모든 에어컨 real/mock specs에서 설치·환급 필드 제거");
+  assert.deepEqual(validateProductData(mockProducts, realProducts), [], "weaknesses 없는 전체 real/mock 상품 검증 통과");
+  const catalogTypesSource = await readFile("src/app/features/product-catalog/core/types.ts", "utf8");
+  const airSpecsTypeSource = catalogTypesSource.slice(catalogTypesSource.indexOf("export interface AirConditionerSpecs"), catalogTypesSource.indexOf("export interface TvSpecs"));
+  assert.ok(!catalogTypesSource.includes("weaknesses:") && !airSpecsTypeSource.includes("basicInstallationIncluded") && !airSpecsTypeSource.includes("officialInstallation") && !airSpecsTypeSource.includes("rebateEligible"), "공통 상품·에어컨 타입 스키마 정리");
   assert.deepEqual(catalogSourceByCategory, { "air-conditioner": "real", tv: "real", refrigerator: "real", vacuum: "real" }, "실제 데이터가 있는 카테고리는 real 선택");
   const repository = productRepository;
   assert.equal(repository.getProducts("air-conditioner").length, 17); assert.equal(repository.getProducts("tv").length, 17);
@@ -443,6 +506,13 @@ try {
   assert.equal(mixedRepository.getProductById("real-ac-01")?.source, "real", "getProductById는 real 상품을 조회");
   assert.equal(mixedRepository.getProductById("tv-google-55")?.source, "mock", "getProductById는 fallback mock 상품도 조회");
   assert.deepEqual(validateProductData(mockProducts, [realAirProduct]), [], "빈 priceHistory 실제 상품도 유효");
+  const legacyWeaknessProduct = { ...realAirProduct, id: "legacy-weakness", modelNumber: "LEGACY-WEAKNESS", weaknesses: [] };
+  assert.ok(validateProductData([], [legacyWeaknessProduct]).some((error) => error.includes("legacy-weakness") && error.includes("weaknesses")), "validator가 제거된 weaknesses를 상품 id와 함께 보고");
+  const legacyAirSpecProduct = { ...realAirProduct, id: "legacy-air-spec", modelNumber: "LEGACY-AIR-SPEC", specs: { ...realAirProduct.specs, officialInstallation: null } };
+  assert.ok(validateProductData([], [legacyAirSpecProduct]).some((error) => error.includes("legacy-air-spec") && error.includes("specs.officialInstallation")), "validator가 제거된 에어컨 스펙을 상품 id와 함께 보고");
+  const malformedHistoryProduct = { ...realAirProduct, id: "malformed-history", modelNumber: "MALFORMED-HISTORY", priceHistory: [{ date: "bad-date", lowestPrice: -1 }] };
+  const malformedHistoryErrors = validateProductData([], [malformedHistoryProduct]);
+  assert.ok(malformedHistoryErrors.some((error) => error.includes("malformed-history") && error.includes("priceHistory[0].date")) && malformedHistoryErrors.some((error) => error.includes("malformed-history") && error.includes("priceHistory[0].lowestPrice")), "잘못된 가격 이력은 정확한 상품 id·필드로 보고");
   assert.ok(validateProductData(mockProducts, [{ ...realAirProduct, id: "tv-google-55" }]).some((error) => error.includes("id가")), "중복 id 검출");
   assert.ok(validateProductData(mockProducts, [{ ...realAirProduct, modelNumber: "MV-G55" }]).some((error) => error.includes("modelNumber")), "중복 모델번호 검출");
   assert.ok(validateProductData(mockProducts, [{ ...realTv, specs: { ...realTv.specs, os: "invalid-os" } }]).some((error) => error.includes(`${realTv.id}: specs.os`)), "잘못된 카테고리 스키마는 정확한 상품·필드를 보고");

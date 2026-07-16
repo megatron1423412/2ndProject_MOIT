@@ -29,7 +29,7 @@ export default function FavoritesPage({ favorites, alerts, onBack, onDelete, onC
 function FavoriteProductDetailPage({ favorite, onBack }: { favorite: FavoriteProduct; onBack: () => void }) {
   if (!favorite.selectedProduct) return <UtilityPageShell title="즐겨찾기 상품 상세" onBack={onBack}><div className="rounded-xl border border-border bg-card p-5"><p className="text-xs font-black text-accent">저장된 즐겨찾기 정보</p><h2 className="mt-2 text-lg font-black text-primary">{favorite.name}</h2><p className="mt-2 text-sm text-muted-foreground">모잇 DB 검증 상세 정보가 저장되어 있지 않습니다.</p></div></UtilityPageShell>;
   const recommendation: ProductRecommendation | undefined = favorite.selectedProduct.source === "internal" ? favorite.selectedProduct.recommendation : undefined;
-  return <UtilityPageShell title="즐겨찾기 상품 상세" onBack={onBack}><ProductDetailView selected={favorite.selectedProduct} internalRecommendations={recommendation ? [recommendation] : []} interactive={false} /></UtilityPageShell>;
+  return <UtilityPageShell title="즐겨찾기 상품 상세" onBack={onBack}><ProductDetailView categoryId={favorite.categoryId} selected={favorite.selectedProduct} internalRecommendations={recommendation ? [recommendation] : []} interactive={false} /></UtilityPageShell>;
 }
 
 function EmptyFavorites() { return <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center"><Heart className="mx-auto size-7 text-muted-foreground" /><h2 className="mt-3 text-base font-black text-primary">아직 즐겨찾기한 상품이 없어요.</h2><p className="mt-2 text-sm text-muted-foreground">관심 있는 상품을 저장하면 가격과 상세 정보를 이곳에서 다시 확인할 수 있어요.</p></div>; }

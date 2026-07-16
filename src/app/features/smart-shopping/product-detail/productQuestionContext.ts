@@ -12,7 +12,6 @@ export interface ProductQuestionRequest {
   sourceAndConfidence: { dataStatus: ProductDataStatus | "naver-candidate"; verifiedInformation: string[]; unknownInformation: string[] };
   reviewSummary?: string;
   strengths?: string[];
-  weaknesses?: string[];
 }
 
 const getRecommendation = (selected: SelectedShoppingProduct, recommendations: ProductRecommendation[]) => selected.source === "internal"
@@ -39,7 +38,6 @@ export const buildProductQuestionRequest = ({ selected, recommendations, userCri
     },
     reviewSummary: internal?.aiReviewSummary,
     strengths: internal?.strengths,
-    weaknesses: internal?.weaknesses,
   };
 };
 

@@ -33,7 +33,7 @@ export const productQuestionRoute = ({ apiKey }: { apiKey?: string }): Plugin =>
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({
             model: "gpt-5.6",
-            instructions: "제공된 상품 문맥만 근거로 간결하고 친근한 한국어로 답변하세요. 알 수 없는 스펙·설치비·할인 정보를 만들지 말고, mock 데이터는 실제 정보처럼 단정하지 마세요. 구매를 강요하지 말고 장단점과 판매처 확인 사항을 설명하세요. 금융·할인 혜택은 실제 적용 여부를 판매처에 확인하라고 안내하세요.",
+            instructions: "제공된 상품 문맥만 근거로 간결하고 친근한 한국어로 답변하세요. 알 수 없는 스펙·설치비·할인 정보를 만들지 말고, mock 데이터는 실제 정보처럼 단정하지 마세요. 구매를 강요하지 말고 장점과 판매처 확인 사항을 설명하세요. 금융·할인 혜택은 실제 적용 여부를 판매처에 확인하라고 안내하세요.",
             input: buildProductQuestionPrompt(body),
           }),
         });
