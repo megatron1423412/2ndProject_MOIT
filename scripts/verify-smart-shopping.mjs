@@ -24,14 +24,31 @@ try {
   assert.equal(airCriteria.calculateRecommendedCoolingArea(33), 17, "에어컨 냉방 면적 계수");
 
   const { AIR_CONDITIONER_PRODUCTS } = await load("/src/app/features/chat-flow/flows/appliances/air-conditioner/products.ts");
-  const { rankAirConditioners } = await load("/src/app/features/chat-flow/flows/appliances/air-conditioner/rankProducts.ts");
-  const airResult = rankAirConditioners(AIR_CONDITIONER_PRODUCTS, {
-    "airConditioner.type": "wall", "airConditioner.homePyeong": 16, "airConditioner.coolingAreaMode": "recommended",
-    "airConditioner.useDefaults": "yes", "airConditioner.installationCost": "any", "airConditioner.energyGrade": "any",
-    "airConditioner.rebate": "any", "airConditioner.budget": 1_000_000,
-  });
+  const { rankAirConditioners, getAirConditionerRankingWeights } = await load("/src/app/features/chat-flow/flows/appliances/air-conditioner/rankProducts.ts");
+  const airAnswers = {
+    "airConditioner.type": "wall", "airConditioner.actualCoolingArea": 8,
+    "airConditioner.dailyUsage": "4to8", "airConditioner.valuePriority": "balanced", "airConditioner.budget": 1_000_000,
+  };
+  const airResult = rankAirConditioners(AIR_CONDITIONER_PRODUCTS, airAnswers);
   assert.deepEqual(airResult.recommendations.map(({ product }) => product.id), ["ac-pure-wall-10"], "에어컨 필수 조건 제외");
   assert.ok(airResult.excludedProducts.some(({ productId, reasons }) => productId === "ac-value-wall-8" && reasons.some((reason) => reason.includes("인버터"))));
+  assert.ok(airResult.recommendations.every(({ verificationNeeded, verificationRequiredFields }) => !verificationNeeded && !verificationRequiredFields), "설치·환급 미확인은 후보 분류에 사용하지 않음");
+  assert.ok(getAirConditionerRankingWeights({ "airConditioner.dailyUsage": "under4", "airConditioner.valuePriority": "balanced" }).currentPrice > getAirConditionerRankingWeights({ "airConditioner.dailyUsage": "over8", "airConditioner.valuePriority": "balanced" }).currentPrice, "짧은 사용은 현재가 비중 증가");
+  assert.ok(getAirConditionerRankingWeights({ "airConditioner.dailyUsage": "over8", "airConditioner.valuePriority": "electricity-saving" }).energyGrade > getAirConditionerRankingWeights({ "airConditioner.dailyUsage": "under4", "airConditioner.valuePriority": "low-purchase-price" }).energyGrade, "긴 사용·전기요금 우선은 효율 비중 증가");
+  const pricedBase = { ...AIR_CONDITIONER_PRODUCTS.find(({ id }) => id === "ac-pure-wall-10"), currentPrice: 780_000 };
+  const favorableHistory = { ...pricedBase, id: "history-good", modelNumber: "HISTORY-GOOD", priceHistory: [{ date: "a", lowestPrice: 760_000 }, { date: "b", lowestPrice: 800_000 }] };
+  const unfavorableHistory = { ...pricedBase, id: "history-bad", modelNumber: "HISTORY-BAD", priceHistory: [{ date: "a", lowestPrice: 400_000 }, { date: "b", lowestPrice: 500_000 }] };
+  const historyRanked = rankAirConditioners([unfavorableHistory, favorableHistory], { ...airAnswers, "airConditioner.valuePriority": "good-current-price" });
+  assert.deepEqual(historyRanked.recommendations.map(({ product }) => product.id), ["history-good", "history-bad"], "가격 이력이 있으면 현재가의 과거 위치를 순위에 반영");
+  const emptyHistory = { ...favorableHistory, id: "history-empty", modelNumber: "HISTORY-EMPTY", priceHistory: [] };
+  const emptyHistoryResult = rankAirConditioners([emptyHistory], airAnswers);
+  assert.equal(emptyHistoryResult.recommendations[0].recommendationReasons.some((reason) => reason.includes("과거 최저가")), false, "빈 가격 이력은 역사 가격 점수 생략");
+  assert.ok(emptyHistoryResult.recommendations[0].unmatchedOrUnknownCriteria.includes("가격 이력 없음"), "빈 가격 이력을 사실대로 표시");
+  const unknownInstall = { ...favorableHistory, specs: { ...favorableHistory.specs, basicInstallationIncluded: null, officialInstallation: null, rebateEligible: null } };
+  const knownInstall = { ...unfavorableHistory, specs: { ...unfavorableHistory.specs, basicInstallationIncluded: true, officialInstallation: true, rebateEligible: true } };
+  assert.equal(rankAirConditioners([unknownInstall], airAnswers).recommendations[0].score, rankAirConditioners([{ ...unknownInstall, specs: knownInstall.specs }], airAnswers).recommendations[0].score, "설치·환급 필드는 에어컨 점수에 영향 없음");
+  const budgetOnlyMiss = rankAirConditioners([favorableHistory], { ...airAnswers, "airConditioner.budget": 100_000 });
+  assert.equal(budgetOnlyMiss.recommendations.length, 0); assert.deepEqual(budgetOnlyMiss.overBudgetRecommendations.map(({ product }) => product.id), ["history-good"], "예산만 초과한 필수조건 충족 상품 제공");
 
   const { TV_PRODUCTS } = await load("/src/app/features/chat-flow/flows/appliances/tv/products.ts");
   const { rankTvs } = await load("/src/app/features/chat-flow/flows/appliances/tv/rankProducts.ts");
@@ -60,16 +77,63 @@ try {
     runtime.submitFlowAnswer(module, state, { value, displayValue });
   const airModule = getFlowModule("air-conditioner");
   let airFlowState = runtime.createInitialFlowState(airModule);
-  assert.equal(airFlowState.currentStepId, "ac-type", "에어컨 전용 첫 질문");
-  airFlowState = submit(airModule, airFlowState, "wall", "벽걸이");
-  airFlowState = submit(airModule, airFlowState, 16, "16평");
-  assert.ok(airFlowState.messages.some(({ text }) => text?.includes("권장 정격 냉방 면적은 8평")), "에어컨 계산형 안내에 flat answer 전달");
-  for (const [value, label] of [["recommended", "계산값 적용"], ["yes", "기본 기준 적용"], ["any", "상관없음"], ["any", "상관없음"], ["any", "상관없음"], [1_000_000, "1,000,000원"], [true, "추천 시작"]]) {
-    airFlowState = submit(airModule, airFlowState, value, label);
-  }
+  assert.equal(airFlowState.currentStepId, "ac-space", "에어컨 첫 질문은 설치 공간");
+  assert.equal(airFlowState.checkpoints.length, 0, "첫 조건에는 undo checkpoint 없음");
+  const airFlowMessages = airModule.definition.steps.filter((step) => "message" in step).map((step) => step.message).filter((message) => typeof message === "string").join("\n");
+  assert.ok(airFlowMessages.includes("에어컨을 주로 어디에 설치할 예정인가요?") && airFlowMessages.includes("여름철 하루에 몇 시간 정도 사용할 예정인가요?") && airFlowMessages.includes("어떤 기준의 가성비를 가장 중요하게 볼까요?"), "새 에어컨 질문 문구");
+  assert.ok(!airFlowMessages.includes("공식 지정 설치") && !airFlowMessages.includes("기본 설치비 포함") && !airFlowMessages.includes("환급"), "설치·공식설치·환급 질문 제거");
+  assert.ok(!airModule.definition.steps.some((step) => "answerKey" in step && ["airConditioner.officialRequired", "airConditioner.installationCost", "airConditioner.rebate", "airConditioner.useDefaults"].includes(step.answerKey)), "기존 에어컨 조건 answerKey 제거");
+  let twoInOneState = runtime.createInitialFlowState(airModule);
+  twoInOneState = submit(airModule, twoInOneState, "multiple", "거실과 방");
+  twoInOneState = submit(airModule, twoInOneState, "two-in-one", "2in1으로 진행");
+  assert.equal(twoInOneState.currentStepId, "ac-home", "2in1은 집 전체 크기를 질문");
+  twoInOneState = submit(airModule, twoInOneState, 30, "30평");
+  assert.ok(twoInOneState.messages.some(({ text }) => text?.includes("주 실내기 냉방면적 15평") && text.includes("ratedCoolingAreaPyeong")), "2in1은 기존 필드를 주 실내기 비교값으로 설명");
+  const initialAirMessages = airFlowState.messages.map(({ text }) => text);
+  airFlowState = submit(airModule, airFlowState, "room", "방 또는 원룸");
+  assert.equal(airFlowState.currentStepId, "ac-inferred-type");
+  assert.ok(airFlowState.messages.some(({ text }) => text?.includes("벽걸이형이 선택한 공간에 가장 실용적")), "설치 공간에서 타입 추천");
+  airFlowState = runtime.undoLatestFlowAnswer(airModule, airFlowState);
+  assert.equal(airFlowState.currentStepId, "ac-space"); assert.deepEqual(airFlowState.messages.map(({ text }) => text), initialAirMessages, "첫 답과 파생 타입 추천·현재 질문을 한 번에 제거");
+  assert.equal(airFlowState.answers["airConditioner.installationSpace"], undefined, "복원한 첫 입력은 비어 있음");
+  airFlowState = submit(airModule, airFlowState, "room", "방 또는 원룸");
+  airFlowState = submit(airModule, airFlowState, "wall", "벽걸이형으로 진행");
+  assert.equal(airFlowState.currentStepId, "ac-area-direct");
+  airFlowState = submit(airModule, airFlowState, "unknown", "잘 모르겠어요");
+  assert.equal(airFlowState.currentStepId, "ac-home");
+  const beforeHomeAnswerCount = airFlowState.messages.length;
+  airFlowState = submit(airModule, airFlowState, 30, "30평");
+  assert.equal(airFlowState.currentStepId, "ac-area-mode");
+  assert.ok(airFlowState.messages.some(({ text }) => text?.includes("30평 집이라면 냉방면적 15평 이상")), "설정 계수 계산 안내");
+  airFlowState = runtime.undoLatestFlowAnswer(airModule, airFlowState);
+  assert.equal(airFlowState.currentStepId, "ac-home"); assert.equal(airFlowState.messages.length, beforeHomeAnswerCount, "Policy A가 집 평수 답·계산 안내·적용 질문을 제거");
+  assert.equal(airFlowState.answers["airConditioner.homePyeong"], undefined); assert.equal(airFlowState.answers["airConditioner.actualCoolingArea"], "unknown", "이전 조건은 유지하고 복원 입력은 비움");
+  airFlowState = submit(airModule, airFlowState, 30, "30평");
+  airFlowState = submit(airModule, airFlowState, "recommended", "계산값 적용");
+  assert.equal(airFlowState.currentStepId, "ac-usage");
+  airFlowState = runtime.undoLatestFlowAnswer(airModule, airFlowState);
+  assert.equal(airFlowState.currentStepId, "ac-area-mode"); assert.equal(airFlowState.answers["airConditioner.coolingAreaMode"], undefined, "한 번 누를 때 계산값 선택 한 단계만 undo");
+  airFlowState = submit(airModule, airFlowState, "custom", "직접 수정");
+  airFlowState = submit(airModule, airFlowState, 5, "5평");
+  airFlowState = submit(airModule, airFlowState, "4to8", "4~8시간");
+  let repeatedUndoState = runtime.undoLatestFlowAnswer(airModule, airFlowState);
+  assert.equal(repeatedUndoState.currentStepId, "ac-usage", "첫 반복 undo는 사용 시간 한 단계 복원");
+  repeatedUndoState = runtime.undoLatestFlowAnswer(airModule, repeatedUndoState);
+  assert.equal(repeatedUndoState.currentStepId, "ac-area-custom", "두 번째 반복 undo는 바로 전 냉방 면적 단계만 추가 복원");
+  assert.equal(repeatedUndoState.answers["airConditioner.homePyeong"], 30, "반복 undo 뒤에도 더 이른 집 크기 답 유지");
+  airFlowState = submit(airModule, airFlowState, "balanced", "가격·효율 균형 추천");
+  airFlowState = submit(airModule, airFlowState, 1_000_000, "1,000,000원");
+  assert.equal(airFlowState.currentStepId, "ac-confirm"); assert.ok(airFlowState.messages.some(({ text }) => text?.includes("MOIT 자동 적용 규칙")), "최종 확인 규칙 표시");
+  airFlowState = runtime.undoLatestFlowAnswer(airModule, airFlowState);
+  assert.equal(airFlowState.currentStepId, "ac-budget"); assert.equal(airFlowState.answers["airConditioner.budget"], undefined, "최종 확인 undo는 빈 예산 단계 복원");
+  assert.equal(airFlowState.messages.some(({ text }) => text?.startsWith("선택 조건")), false, "최종 요약도 예산 답의 파생 메시지로 제거");
+  airFlowState = submit(airModule, airFlowState, "none", "예산 제한 없음");
+  airFlowState = submit(airModule, airFlowState, true, "추천 시작");
   assert.equal(airFlowState.completed, true, "에어컨 질문 흐름 완료");
-  assert.ok(airFlowState.result.recommendations.length > 0 && airFlowState.result.recommendations.every(({ product, verificationNeeded }) => product.source === "real" && verificationNeeded), "실제 에어컨은 공식 설치 정보가 미확인인 별도 후보로 표시");
+  assert.ok(airFlowState.result.recommendations.length > 0 && airFlowState.result.recommendations.every(({ product, verificationNeeded }) => product.source === "real" && !verificationNeeded), "실제 에어컨을 설치·환급 확인 후보로 분류하지 않음");
+  assert.equal(airFlowState.answers["airConditioner.dailyUsage"], "4to8"); assert.equal(airFlowState.answers["airConditioner.valuePriority"], "balanced", "사용 시간·가성비 우선순위 state 보존");
   assert.equal(airFlowState.result.metadata.category, "air-conditioner", "에어컨 전용 결과 사용");
+  assert.strictEqual(runtime.undoLatestFlowAnswer(airModule, airFlowState), airFlowState, "추천 생성 뒤 undo 비활성");
 
   const tvModule = getFlowModule("tv");
   let tvFlowState = runtime.createInitialFlowState(tvModule);
@@ -77,6 +141,8 @@ try {
   for (const [value, label] of [["any", "상관없음"], ["55", "55인치"], ["any", "상관없음"], ["yes", "기본 기준 적용"], [false, "선호"], ["any", "상관없음"], [2_000_000, "2,000,000원"], [true, "추천 시작"]]) {
     tvFlowState = submit(tvModule, tvFlowState, value, label);
   }
+  assert.equal(tvFlowState.checkpoints.length, 0, "TV flow에는 condition undo를 활성화하지 않음");
+  for (const id of ["tv", "refrigerator", "vacuum"]) assert.equal(getFlowModule(id).definition.enableConditionUndo, undefined, `${id} flow undo 비활성 유지`);
   assert.ok(tvFlowState.messages.some(({ text }) => text?.includes("적용 조건: 55인치")), "TV 조건 요약에 전용 answer 전달");
   assert.ok(tvFlowState.result.recommendations.length > 0 && tvFlowState.result.recommendations.every(({ product }) => product.source === "real"), "TV flow가 실제 카탈로그를 사용");
   assert.equal(tvFlowState.result.metadata.category, "tv", "TV 전용 결과 사용");
@@ -159,9 +225,16 @@ try {
   assert.ok(!detailViewSource.includes("ArrowLeft") && !detailViewSource.includes("BackButton"), "상세 최상단 목록 복귀 버튼 제거");
   const diagnosisResultSource = await readFile("src/app/components/features/chat/DiagnosisResultCard.tsx", "utf8");
   const chatScreenSource = await readFile("src/app/components/features/chat/ChatScreen.tsx", "utf8");
+  const chatMessageSource = await readFile("src/app/components/features/chat/ChatMessage.tsx", "utf8");
+  const chatFlowInputSource = await readFile("src/app/components/features/chat/ChatFlowInput.tsx", "utf8");
   assert.ok(diagnosisResultSource.includes("result.recommendations") && diagnosisResultSource.includes("RecommendationSelectionView"), "가전 결과를 스마트쇼핑 추천 목록으로 연결");
   assert.ok(diagnosisResultSource.includes("PhoneDiagnosisReport") && diagnosisResultSource.includes("InternetDiagnosisReport") && diagnosisResultSource.includes("IptvDiagnosisReport"), "생활비 전용 결과 화면 보존");
   assert.ok(chatScreenSource.includes("buildSmartShoppingGreeting") && chatScreenSource.includes("onCreatePriceAlert") && chatScreenSource.includes("onEndSmartShoppingChat"), "스마트쇼핑 인사·알람·종료 경계 연결");
+  assert.ok(chatScreenSource.includes("isLast && isAi && Boolean(flow.currentStep) && flow.canUndo"), "최신 활성 질문에만 undo 전달");
+  assert.ok(chatMessageSource.includes("⤴️") && chatMessageSource.includes('title="이전 조건 다시 입력"') && chatMessageSource.includes('aria-label="이전 조건 다시 입력"'), "undo 문자·도움말·접근성 이름");
+  assert.ok(chatMessageSource.indexOf("{isAi && canUndo && onUndo") > chatMessageSource.indexOf("{/* 선택지 컴포넌트"), "undo 버튼은 질문 버블 내용 뒤의 형제 요소로 렌더링");
+  assert.ok(chatMessageSource.includes('className="flex max-w-full items-end gap-2"') && !chatMessageSource.includes("fixed bottom") && !chatMessageSource.includes("fixed right"), "undo는 버블 하단 우측 바깥에 gap으로 고정하고 viewport fixed를 사용하지 않음");
+  assert.ok(chatMessageSource.includes("disabled={undoDisabled}") && chatFlowInputSource.includes("setInputValue(\"\")") && chatFlowInputSource.includes("setSelectedValues([])"), "전환 중 반복 undo 방지·복원 입력/선택 초기화");
   const { getSelectedPriceRisePct, findAlternativeProducts } = await load("/src/app/features/smart-shopping/actions/findAlternativeProducts.ts");
   const elevatedRecommendation = { ...tvResult.recommendations[0], product: { ...tvResult.recommendations[0].product, currentPrice: tvResult.recommendations[0].product.priceHistory[0].lowestPrice * 1.2 } };
   const elevatedSelected = { source: "internal", recommendation: elevatedRecommendation };
@@ -378,7 +451,7 @@ try {
   const discontinuedTv = { ...realTv, id: `${realTv.id}-discontinued`, modelNumber: `${realTv.modelNumber}-DISCONTINUED`, dataStatus: "discontinued" };
   assert.ok(rankTvs([realTv, discontinuedTv], { ...tvAnswers, "tv.useDefaults": "custom", "tv.fourKRequired": false, "tv.minimumWarranty": "any" }).excludedProducts.some(({ productId, reasons }) => productId === discontinuedTv.id && reasons.includes("판매 중단 상품")), "discontinued 상품은 일반 추천에서 제외");
   const { rankRefrigerators } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/rankProducts.ts");
-  const representativeAir = rankAirConditioners(repository.getProducts("air-conditioner"), { "airConditioner.type": "wall", "airConditioner.coolingAreaMode": "custom", "airConditioner.customCoolingArea": 1, "airConditioner.useDefaults": "no", "airConditioner.inverterRequired": false, "airConditioner.officialRequired": false, "airConditioner.autoDryRequired": false, "airConditioner.installationCost": "any", "airConditioner.energyGrade": "any", "airConditioner.rebate": "any", "airConditioner.budget": 10_000_000 });
+  const representativeAir = rankAirConditioners(repository.getProducts("air-conditioner"), { "airConditioner.type": "wall", "airConditioner.actualCoolingArea": 1, "airConditioner.dailyUsage": "unknown", "airConditioner.valuePriority": "balanced", "airConditioner.budget": "none" });
   const representativeRefrigerator = rankRefrigerators(repository.getProducts("refrigerator"), { "refrigerator.doorType": "four-door-value", "refrigerator.capacityMode": "600-800", "refrigerator.useDefaults": "no", "refrigerator.metalRequired": false, "refrigerator.coolingRequired": false, "refrigerator.inverterRequired": false, "refrigerator.warrantyRequired": false, "refrigerator.freestandingRequired": false, "refrigerator.budget": 10_000_000 });
   const representativeVacuum = rankVacuums(repository.getProducts("vacuum"), { "vacuum.powerType": "wireless-value", "vacuum.suctionStandard": "unknown", "vacuum.replaceableBatteryRequired": false, "vacuum.standingDockRequired": false, "vacuum.hepaRequired": false, "vacuum.softRollerRequired": false, "vacuum.weight": "any", "vacuum.budget": 10_000_000 });
   assert.ok(representativeAir.recommendations.length > 0 && realTvResult.recommendations.length > 0 && representativeRefrigerator.recommendations.length > 0 && representativeVacuum.recommendations.length > 0, "각 실제 카테고리에서 일치 조건은 내부 결과를 생성");

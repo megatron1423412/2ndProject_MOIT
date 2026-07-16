@@ -39,7 +39,7 @@ interface Props {
 }
 
 export default function RecommendationSelectionView({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId, favorites, onToggleFavorite }: Props) {
-  const metadata = result.metadata as { category?: ProductCategoryId; answers?: FlowAnswers } | undefined;
+  const metadata = result.metadata as { category?: ProductCategoryId; answers?: FlowAnswers; overBudgetRecommendations?: ProductRecommendation[] } | undefined;
   const category = metadata?.category ?? "tv";
   const catalogSource = catalogSourceByCategory[category];
   const criteria = metadata?.answers ?? {};
@@ -51,6 +51,8 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const [questionLoading, setQuestionLoading] = useState(false);
   const [questionError, setQuestionError] = useState("");
   const [returnActionGroup, setReturnActionGroup] = useState<TimelineActionGroupKind>("next");
+  const [showedOverBudget, setShowedOverBudget] = useState(false);
+  const [activeRecommendations, setActiveRecommendations] = useState(result.recommendations ?? []);
   const query = useMemo(() => buildNaverSearchQuery(category, criteria), [category, criteria]);
   const favoriteIdentities = useMemo(() => new Set(favorites.map(getFavoriteProductIdentity)), [favorites]);
 
@@ -112,7 +114,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     sessionDispatch({ type: "deactivate-interactions" });
     sessionDispatch({ type: "select-product", product });
     appendText("user-action", `${name} 상품 선택`);
-    sessionDispatch({ type: "append", item: createProductDetailTimelineItem(session.sessionId, createProductDetailSnapshot({ selected: product, internalRecommendations: result.recommendations ?? [], showAlternative: productShowAlternative })) });
+    sessionDispatch({ type: "append", item: createProductDetailTimelineItem(session.sessionId, createProductDetailSnapshot({ selected: product, internalRecommendations: activeRecommendations, showAlternative: productShowAlternative })) });
     appendActionGroup("detail", productShowAlternative);
     setQuestionError("");
     dispatch({ type: "select-product", product });
@@ -122,7 +124,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     sessionDispatch({ type: "deactivate-interactions" });
     appendText("user-action", "제품 목록으로 돌아가기");
     appendText("assistant-text", "이전에 확인한 조건으로 상품 목록을 다시 보여드릴게요.");
-    const reusableSnapshot = session.recommendationSnapshot ?? createRecommendationSnapshot({ query, recommendations: result.recommendations ?? [], catalogSource, naverItems, naverStatus, naverErrorMessage: errorMessage });
+    const reusableSnapshot = session.recommendationSnapshot ?? createRecommendationSnapshot({ query, recommendations: activeRecommendations, catalogSource, naverItems, naverStatus, naverErrorMessage: errorMessage });
     appendRecommendation(reusableSnapshot);
     setQuestionError("");
     dispatch({ type: "back-to-list" });
@@ -141,7 +143,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     if (action === "promotion") appendText("assistant-text", getUpcomingPromotionMessage({ categoryId: selectedCategory, currentPrice: selectedCurrentPrice, priceHistory: selectedInternal?.priceHistory ?? [] }));
     else if (action === "purchase-tip") appendText("assistant-text", buildPurchaseTipMessage(selectedCategory));
     else {
-      const alternatives = findAlternativeProducts({ selected, recommendations: result.recommendations ?? [] });
+      const alternatives = findAlternativeProducts({ selected, recommendations: activeRecommendations });
       const riseText = priceRisePct === null ? "현재 가격 상태를 충분히 계산하기 어렵지만" : `이 상품은 내부 가격 이력의 역대 최저가보다 현재 가격이 ${priceRisePct}% 높아요.`;
       appendText("assistant-text", alternatives.length ? `${riseText} 비슷한 조건이면서 현재 가격 부담이 낮은 상품을 찾아봤어요.` : `${riseText} 현재 조건을 유지하면서 가격이 더 유리한 대체 상품은 찾지 못했어요. 할인 시기를 기다리거나 조건 일부를 조정해보는 편이 좋아요.`, alternatives.length ? { alternatives } : undefined);
     }
@@ -153,7 +155,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     if (addUserMessage) appendText("user-text", question);
     setQuestionLoading(true); setQuestionError("");
     try {
-      const request = buildProductQuestionRequest({ selected, recommendations: result.recommendations ?? [], userCriteria: criteria });
+      const request = buildProductQuestionRequest({ selected, recommendations: activeRecommendations, userCriteria: criteria });
       const response = await askProductQuestion({ ...request, question });
       appendText("assistant-text", [response.answer, ...response.optionalWarnings].join("\n"));
       appendActionGroup("detail", showAlternative);
@@ -184,7 +186,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     setReturnActionGroup(group);
     sessionDispatch({ type: "deactivate-interactions" });
     appendText("user-action", getNextActionLabel(action));
-    if (action === "purchase-grade") return dispatch({ type: "start-purchase-grade", input: startPurchaseGradeDiagnosis({ selected, recommendations: result.recommendations ?? [], userCriteria: criteria }) });
+    if (action === "purchase-grade") return dispatch({ type: "start-purchase-grade", input: startPurchaseGradeDiagnosis({ selected, recommendations: activeRecommendations, userCriteria: criteria }) });
     if (action === "purchase-link") {
       const purchaseLink = resolvePurchaseLink(selected, naverItems);
       sessionDispatch({ type: "append", item: createPurchaseLinkTimelineItem(session.sessionId, purchaseLink) });
@@ -213,7 +215,23 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
 
   const favoriteDraftFor = (selectedProduct: SelectedShoppingProduct) => createFavoriteDraft({ userId, categoryId: category, selected: selectedProduct, naverItems });
 
+  const showClosestOverBudget = () => {
+    const alternatives = metadata?.overBudgetRecommendations ?? [];
+    if (!alternatives.length || showedOverBudget) return;
+    sessionDispatch({ type: "deactivate-interactions" });
+    appendText("user-action", "예산 초과가 가장 적은 상품 보기");
+    appendText("assistant-text", "타입·냉방 면적·인버터·판매 상태는 그대로 유지하고, 제품 가격 예산만 초과한 가까운 상품을 보여드릴게요.");
+    appendRecommendation(createRecommendationSnapshot({ query, recommendations: alternatives, catalogSource, naverItems, naverStatus, naverErrorMessage: errorMessage }));
+    setActiveRecommendations(alternatives);
+    setShowedOverBudget(true);
+  };
+
   return <div className="w-full" data-stage={session.currentStage}>
+    {!showedOverBudget && (metadata?.overBudgetRecommendations?.length ?? 0) > 0 && (
+      <button type="button" onClick={showClosestOverBudget} className="mb-4 rounded-lg border border-accent bg-card px-4 py-2.5 text-sm font-black text-accent shadow-sm transition hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-accent/40">
+        예산 초과가 가장 적은 상품 보기
+      </button>
+    )}
     <SmartShoppingTimeline timeline={session.timeline} questionLoading={questionLoading} questionError={questionError} onSelectRecommendation={(recommendation) => selectProduct({ source: "internal", recommendation })} onSelectNaverProduct={(product) => selectProduct({ source: "naver", product, matchedInternalProduct: matchInternalProduct(product, result.catalogProducts ?? []) })} onRetryNaver={() => void loadNaver()} onDetailAction={handleDetailAction} onBackToList={backToList} onNextStep={nextStep} onQuestionSubmit={(question) => void handleQuestionSubmit(question)} onQuestionRetry={(question) => void handleQuestionSubmit(question, false)} onQuestionCancel={() => { sessionDispatch({ type: "deactivate-interactions" }); appendText("user-action", "질문 입력 취소"); appendActionGroup("detail", showAlternative); }} onNextAction={handleNextAction} onCancelPurchaseLink={cancelPurchaseLink} onSavePriceAlert={savePriceAlert} onCancelPriceAlert={cancelPriceAlert} catalogProducts={result.catalogProducts ?? []} isFavorite={(selectedProduct) => favoriteIdentities.has(getFavoriteProductIdentity(favoriteDraftFor(selectedProduct)))} onToggleFavorite={(selectedProduct) => onToggleFavorite(favoriteDraftFor(selectedProduct))} />
   </div>;
 }

@@ -104,6 +104,9 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
                       completed={isLast ? flow.completed : false}
                       onSubmit={flow.submitAnswer}
                       onReset={flow.reset}
+                      canUndo={isLast && isAi && Boolean(flow.currentStep) && flow.canUndo}
+                      undoDisabled={flow.isTransitioning}
+                      onUndo={flow.undoLatestAnswer}
                     />
                   )}
                   {message.type === "result" && (message.result ?? flow.result) && (

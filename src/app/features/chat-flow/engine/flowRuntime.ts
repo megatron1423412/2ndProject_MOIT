@@ -120,6 +120,7 @@ export const createInitialFlowState = (module: ChatFlowModule): FlowRuntimeState
       error: null,
       messageSequence: 0,
       supplementalMessages: [],
+      checkpoints: [],
     },
     module.definition.startStepId,
   );
@@ -137,8 +138,11 @@ const getNextStepId = (step: AnswerInputStep, answer: SubmittedFlowAnswer, answe
       return answer.value ? step.confirmNext : step.cancelNext;
     case "multi-choice":
     case "text-input":
-    case "number-input":
       return step.next;
+    case "number-input":
+      return step.alternateOption?.value === answer.value
+        ? step.alternateOption.next ?? step.next
+        : step.next;
   }
 };
 
@@ -154,11 +158,26 @@ export const submitFlowAnswer = (
   const nextStepId = getNextStepId(step, answer, currentState.answers);
   if (!nextStepId) return { ...currentState, error: `step '${step.id}'의 다음 step이 없습니다.` };
 
+  const checkpoint = {
+    id: `${currentState.flowId}-checkpoint-${currentState.checkpoints.length + 1}-${step.id}`,
+    answeredStepId: step.id,
+    currentStepId: step.id,
+    answers: { ...currentState.answers },
+    messages: [...currentState.messages],
+    supplementalMessages: [...currentState.supplementalMessages],
+    completed: currentState.completed,
+    result: currentState.result,
+    error: currentState.error,
+    messageSequence: currentState.messageSequence,
+  };
   const stateWithAnswer = appendMessage(
     {
       ...currentState,
       answers: { ...currentState.answers, [step.answerKey]: answer.value },
       error: null,
+      checkpoints: module.definition.enableConditionUndo
+        ? [...currentState.checkpoints, checkpoint]
+        : currentState.checkpoints,
     },
     { sender: "user", text: answer.displayValue, type: "text" },
   );
@@ -166,6 +185,27 @@ export const submitFlowAnswer = (
   if (nextStepId === "$restart") return createInitialFlowState(module);
 
   return advanceToStep(module, stateWithAnswer, nextStepId);
+};
+
+/** Restores the state before the latest committed answer. Derived turns are part of that transaction. */
+export const undoLatestFlowAnswer = (
+  module: ChatFlowModule,
+  currentState: FlowRuntimeState,
+): FlowRuntimeState => {
+  if (!module.definition.enableConditionUndo || currentState.completed || currentState.checkpoints.length === 0) return currentState;
+  const checkpoint = currentState.checkpoints[currentState.checkpoints.length - 1];
+  return {
+    flowId: currentState.flowId,
+    currentStepId: checkpoint.currentStepId,
+    answers: { ...checkpoint.answers },
+    messages: [...checkpoint.messages],
+    supplementalMessages: [...checkpoint.supplementalMessages],
+    completed: checkpoint.completed,
+    result: checkpoint.result,
+    error: null,
+    messageSequence: checkpoint.messageSequence,
+    checkpoints: currentState.checkpoints.slice(0, -1),
+  };
 };
 
 /** Flow 결과 후 보조 대화를 별도 배열에 누적합니다. 기존 문자열 호출도 호환합니다. */

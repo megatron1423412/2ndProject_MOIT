@@ -13,8 +13,9 @@ const getTargets = (step: FlowStep): string[] => {
     case "assistant-message":
     case "multi-choice":
     case "text-input":
-    case "number-input":
       return [step.next];
+    case "number-input":
+      return [step.next, step.alternateOption?.next].filter((next): next is string => Boolean(next));
     case "single-choice":
       return [...step.options.map((option) => option.next ?? step.next), step.next].filter((next): next is string => Boolean(next));
     case "confirmation":

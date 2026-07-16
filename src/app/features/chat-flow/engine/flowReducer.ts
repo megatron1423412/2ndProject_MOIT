@@ -1,11 +1,12 @@
 import type { ChatFlowModule, FlowRuntimeState, SubmittedFlowAnswer } from "../core/types";
-import { createInitialFlowState, submitFlowAnswer } from "./flowRuntime";
+import { createInitialFlowState, submitFlowAnswer, undoLatestFlowAnswer } from "./flowRuntime";
 
-export type FlowAction = { type: "answer"; answer: SubmittedFlowAnswer } | { type: "reset" };
+export type FlowAction = { type: "answer"; answer: SubmittedFlowAnswer } | { type: "undo" } | { type: "reset" };
 
 /** Pure reducer factory, kept independent from React for focused testing later. */
 export const createFlowReducer = (module: ChatFlowModule) =>
   (state: FlowRuntimeState, action: FlowAction): FlowRuntimeState => {
     if (action.type === "reset") return createInitialFlowState(module);
+    if (action.type === "undo") return undoLatestFlowAnswer(module, state);
     return submitFlowAnswer(module, state, action.answer);
   };

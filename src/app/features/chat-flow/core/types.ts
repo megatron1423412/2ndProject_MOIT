@@ -54,6 +54,8 @@ export interface NumberInputStep extends AnswerStepBase {
   min?: number;
   max?: number;
   unit?: string;
+  /** Optional non-numeric route rendered beside the empty numeric input. */
+  alternateOption?: FlowChoiceOption;
   next: string;
 }
 
@@ -101,6 +103,8 @@ export interface FlowDefinition {
   categoryId: MiddleCategoryId;
   startStepId: string;
   steps: FlowStep[];
+  /** Opt-in until condition undo is deliberately enabled for another flow. */
+  enableConditionUndo?: boolean;
 }
 
 export interface FlowResultMetric {
@@ -149,6 +153,20 @@ export interface ChatFlowMessage {
 export interface FlowRuntimeState {
   flowId: string;
   currentStepId: string | null;
+  answers: FlowAnswers;
+  messages: ChatFlowMessage[];
+  supplementalMessages: ChatFlowMessage[];
+  completed: boolean;
+  result: FlowResult | null;
+  error: string | null;
+  messageSequence: number;
+  checkpoints: FlowCheckpoint[];
+}
+
+export interface FlowCheckpoint {
+  id: string;
+  answeredStepId: string;
+  currentStepId: string;
   answers: FlowAnswers;
   messages: ChatFlowMessage[];
   supplementalMessages: ChatFlowMessage[];

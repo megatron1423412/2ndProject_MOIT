@@ -5,13 +5,30 @@ import { rankAirConditioners } from "./rankProducts";
 export const buildAirConditionerResult = (answers: FlowAnswers): FlowResult => {
   const products = productRepository.getProducts("air-conditioner");
   const ranked = rankAirConditioners(products, answers);
-  const verifiedMatches = ranked.recommendations.filter((item) => !item.verificationNeeded).length;
-  const verificationNeeded = ranked.recommendations.filter((item) => item.verificationNeeded).length;
-  const summary = verificationNeeded
-    ? `필수 조건을 확인 완료한 ${verifiedMatches}개 상품과 판매처 확인이 필요한 ${verificationNeeded}개 후보를 점수순으로 표시합니다.`
-    : `필수 조건을 통과한 ${verifiedMatches}개 상품을 점수순으로 표시합니다.`;
-  const warnings = verificationNeeded
-    ? ["조건 확인이 필요한 후보는 공식 지정 설치·기본 설치비·환급 대상 여부를 판매처 또는 제조사에서 확인해야 합니다."]
-    : ranked.recommendations.length ? ["실제 설치 가능 여부와 추가 배관비는 판매처 확인이 필요해요."] : ["현재 필수 조건을 모두 만족하는 상품이 없어요. 조건을 완화해 다시 시도해주세요."];
-  return { title: "에어컨 조건별 추천", summary, grade: "카탈로그 추천", highlights: ["타입·냉방 면적·인버터·공식 설치를 먼저 필터링", "설치·효율·가격 위치는 선택에 따라 필터 또는 점수 반영"], warnings, recommendedActions: ["카드의 미충족·확인 필요 조건과 가격 추이 비교"], recommendations: ranked.recommendations, catalogProducts: products, excludedProducts: ranked.excludedProducts, metadata: { category: "air-conditioner", answers } };
+  const hasBudgetAlternative = ranked.recommendations.length === 0 && ranked.overBudgetRecommendations.length > 0;
+  return {
+    title: "에어컨 조건별 추천",
+    summary: ranked.recommendations.length
+      ? `필수 조건을 통과한 ${ranked.recommendations.length}개 상품을 선택한 기준에 맞춰 표시합니다.`
+      : hasBudgetAlternative
+        ? "필수 조건을 만족하지만 제품 가격 예산 안에 드는 상품이 없어요."
+        : "현재 필수 조건을 모두 만족하는 상품이 없어요.",
+    grade: "카탈로그 추천",
+    highlights: [
+      "타입·냉방 면적·인버터·판매 상태를 필수 조건으로 적용",
+      "현재 가격·과거 가격 위치·에너지 등급·자동 건조를 사용 시간과 가성비 기준에 맞춰 순위화",
+    ],
+    warnings: hasBudgetAlternative
+      ? ["냉방 면적이나 인버터 조건은 완화하지 않고 예산만 초과한 가까운 상품을 따로 볼 수 있어요."]
+      : ranked.recommendations.length ? [] : ["타입과 최소 냉방 면적을 확인한 뒤 조건 수정을 이용해주세요."],
+    recommendedActions: hasBudgetAlternative ? ["예산 초과가 가장 적은 상품 보기"] : ["현재 가격과 가격 추이 비교"],
+    recommendations: ranked.recommendations,
+    catalogProducts: products,
+    excludedProducts: ranked.excludedProducts,
+    metadata: {
+      category: "air-conditioner",
+      answers,
+      overBudgetRecommendations: ranked.overBudgetRecommendations,
+    },
+  };
 };

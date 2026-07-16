@@ -218,28 +218,39 @@ export default function ChatFlowInput({ step, completed, onSubmit, onReset }: Ch
   };
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border bg-input-background px-3 py-2">
-      <input
-        type={numeric ? "number" : "text"}
-        inputMode={numeric ? "numeric" : "text"}
-        min={numeric ? step.min : undefined}
-        max={numeric ? step.max : undefined}
-        value={inputValue}
-        onChange={(event) => setInputValue(event.target.value)}
-        onKeyDown={(event) => { if (event.key === "Enter") submit(); }}
-        placeholder={step.placeholder ?? "답변을 입력해주세요"}
-        className="min-w-0 flex-1 bg-transparent text-sm font-medium text-primary outline-none placeholder:text-muted-foreground"
-      />
-      <button
-        type="button"
-        onClick={submit}
-        disabled={!canSubmit}
-        className={`flex h-9 w-9 items-center justify-center rounded-lg transition-all ${canSubmit ? "bg-accent text-accent-foreground shadow-sm active:scale-[0.96]" : "bg-muted text-muted-foreground/60"}`}
-        title="전송"
-        aria-label="답변 전송"
-      >
-        <Send size={16} />
-      </button>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2 rounded-lg border border-border bg-input-background px-3 py-2">
+        <input
+          type={numeric ? "number" : "text"}
+          inputMode={numeric ? "numeric" : "text"}
+          min={numeric ? step.min : undefined}
+          max={numeric ? step.max : undefined}
+          value={inputValue}
+          onChange={(event) => setInputValue(event.target.value)}
+          onKeyDown={(event) => { if (event.key === "Enter") submit(); }}
+          placeholder={step.placeholder ?? "답변을 입력해주세요"}
+          className="min-w-0 flex-1 bg-transparent text-sm font-medium text-primary outline-none placeholder:text-muted-foreground"
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!canSubmit}
+          className={`flex h-9 w-9 items-center justify-center rounded-lg transition-all ${canSubmit ? "bg-accent text-accent-foreground shadow-sm active:scale-[0.96]" : "bg-muted text-muted-foreground/60"}`}
+          title="전송"
+          aria-label="답변 전송"
+        >
+          <Send size={16} />
+        </button>
+      </div>
+      {numeric && step.alternateOption && (
+        <button
+          type="button"
+          className="self-start rounded-full border border-border bg-card px-3.5 py-2 text-xs font-bold text-primary shadow-sm transition-all hover:border-accent/50 hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-accent/40 active:scale-[0.98]"
+          onClick={() => onSubmit({ value: step.alternateOption!.value, displayValue: step.alternateOption!.label })}
+        >
+          {step.alternateOption.label}
+        </button>
+      )}
     </div>
   );
 }
