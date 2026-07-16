@@ -24,4 +24,4 @@ const steps: FlowStep[] = [
   { id: "vc-confirm", type: "confirmation", message: "추천을 시작하거나 처음부터 조건을 수정할 수 있어요.", answerKey: `${n}.confirmed`, confirmLabel: "추천 시작", cancelLabel: "조건 수정", confirmNext: "vc-result", cancelNext: "$restart" },
   { id: "vc-result", type: "result", message: "AW와 Pa를 환산하지 않고 필수 조건을 통과한 상품만 정리했어요." },
 ];
-export const vacuumFlow: FlowDefinition = { id: "vacuum-flow", subCategoryId: "vacuum", categoryId: "appliances", startStepId: "vc-intro", steps };
+export const vacuumFlow: FlowDefinition = { id: "vacuum-flow", subCategoryId: "vacuum", categoryId: "appliances", startStepId: "vc-intro", steps, enableConditionUndo: true };

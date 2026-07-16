@@ -47,8 +47,6 @@ export interface TvSpecs {
   warrantyYears: number;
   hdr: boolean;
   energyGrade: 1 | 2 | 3 | 4 | 5;
-  /** true=환급 대상 확인, false=비대상 확인, null=아직 확인하지 못함 */
-  rebateEligible: boolean | null;
 }
 
 export interface RefrigeratorSpecs {

@@ -12,7 +12,7 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
   //   id: "tv-real-model-01", categoryId: "tv", brand: "브랜드", modelNumber: "MODEL-01", name: "실제 TV 이름",
   //   imagePath: "/assets/products/real/televisions/MODEL-01.webp", shortInfo: "확인한 짧은 설명", aiReviewSummary: "확인한 리뷰 요약",
   //   currentPrice: 1_000_000, priceHistory: [], strengths: [], dataStatus: "unverified", source: "real", updatedAt: "2026-07-14",
-  //   specs: { os: "google-tv", resolution: "4k-uhd", screenSizeInches: 55, panel: "va", warrantyYears: 2, hdr: true, energyGrade: 1, rebateEligible: null },
+  //   specs: { os: "google-tv", resolution: "4k-uhd", screenSizeInches: 55, panel: "VA", warrantyYears: 2, hdr: true, energyGrade: 1 },
   // },
   {
     id: "samsung-ku43uh8500fxkr",
@@ -37,7 +37,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -64,7 +63,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -91,7 +89,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -118,7 +115,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -145,7 +141,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -172,7 +167,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -199,7 +193,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -227,7 +220,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -255,7 +247,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -282,7 +273,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -309,7 +299,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -336,7 +325,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -363,7 +351,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -390,7 +377,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -417,7 +403,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 1,
       hdr: true,
       energyGrade: 1,
-      rebateEligible: null,
     },
   },
 
@@ -444,7 +429,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 2,
       hdr: true,
       energyGrade: 3,
-      rebateEligible: null,
     },
   },
 
@@ -471,7 +455,6 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
       warrantyYears: 2,
       hdr: true,
       energyGrade: 2,
-      rebateEligible: null,
     },
   },
 ];

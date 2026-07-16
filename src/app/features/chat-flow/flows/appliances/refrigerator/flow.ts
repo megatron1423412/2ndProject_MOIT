@@ -27,4 +27,4 @@ const steps: FlowStep[] = [
   { id: "rf-confirm", type: "confirmation", message: "추천을 시작하거나 처음부터 조건을 수정할 수 있어요.", answerKey: `${n}.confirmed`, confirmLabel: "추천 시작", cancelLabel: "조건 수정", confirmNext: "rf-result", cancelNext: "$restart" },
   { id: "rf-result", type: "result", message: "필수 조건을 통과한 냉장고를 선호 점수순으로 정리했어요." },
 ];
-export const refrigeratorFlow: FlowDefinition = { id: "refrigerator-flow", subCategoryId: "refrigerator", categoryId: "appliances", startStepId: "rf-intro", steps };
+export const refrigeratorFlow: FlowDefinition = { id: "refrigerator-flow", subCategoryId: "refrigerator", categoryId: "appliances", startStepId: "rf-intro", steps, enableConditionUndo: true };

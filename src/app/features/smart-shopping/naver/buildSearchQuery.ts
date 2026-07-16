@@ -2,6 +2,7 @@ import { getSubCategoryById } from "../../../data/categories";
 import type { FlowAnswers } from "../../chat-flow/core/types";
 import { getRequiredCoolingArea, getSelectedAirConditionerType } from "../../chat-flow/flows/appliances/air-conditioner/criteria";
 import { getRecommendedCapacityRange } from "../../chat-flow/flows/appliances/refrigerator/criteria";
+import { getSelectedTvSize } from "../../chat-flow/flows/appliances/tv/criteria";
 import type { ProductCategoryId } from "../../product-catalog/core/types";
 
 const itemName = (categoryId: ProductCategoryId) => getSubCategoryById(categoryId)?.title ?? categoryId;
@@ -14,7 +15,7 @@ export const buildAirConditionerSearchQuery = (answers: FlowAnswers) => {
 };
 
 export const buildTvSearchQuery = (answers: FlowAnswers) =>
-  [itemName("tv"), answers["tv.screenSize"] ? `${answers["tv.screenSize"]}인치` : "", "4K"].filter(Boolean).join(" ");
+  [itemName("tv"), `${getSelectedTvSize(answers)}인치`, "4K"].filter(Boolean).join(" ");
 
 export const buildRefrigeratorSearchQuery = (answers: FlowAnswers) => {
   const capacityMode = answers["refrigerator.capacityMode"];

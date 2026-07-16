@@ -33,9 +33,11 @@
 
 이미지는 TypeScript에 넣지 않습니다. `public/assets/products/real/air-conditioner/`, `tv/`, `refrigerator/`, `vacuum/` 아래에 두고 `/assets/products/real/<category>/<model-number>.webp` 경로를 저장합니다. 이미지 로드 실패 시 기존 `ImageWithFallback` placeholder가 표시됩니다.
 
-`dataStatus`는 `verified`(공식 출처 확인 완료, `verifiedAt` 필수), `unverified`(입력 후 미검증), `stale`(재확인 필요), `discontinued`(단종 확인), `mock`(기존 더미)입니다. 실제 상품은 항상 `source: "real"`이고 `mock` 상태를 사용할 수 없습니다. TV의 `rebateEligible`은 `true`(대상 확인), `false`(비대상 확인), `null`(미확인)입니다.
+`dataStatus`는 `verified`(공식 출처 확인 완료, `verifiedAt` 필수), `unverified`(입력 후 미검증), `stale`(재확인 필요), `discontinued`(단종 확인), `mock`(기존 더미)입니다. 실제 상품은 항상 `source: "real"`이고 `mock` 상태를 사용할 수 없습니다.
 
 모든 상품은 `strengths`만 저장하며 `weaknesses` 필드는 사용하지 않습니다. 에어컨 `specs`에는 `type`, `ratedCoolingAreaPyeong`, `inverter`, `autoDry`, `energyGrade`만 입력합니다. `basicInstallationIncluded`, `officialInstallation`, `rebateEligible`은 에어컨 스키마에서 제거되었습니다. 설치비는 고정 상품 스펙으로 저장하지 않고 모든 에어컨 상세의 `구매 전 확인` 영역에서 `설치비 확인 필요`라는 공통 구매 알림으로 표시합니다.
+
+TV `specs`에는 `os`, `resolution`, `screenSizeInches`, `panel`, `warrantyYears`, `hdr`, `energyGrade`만 입력합니다. `rebateEligible`은 TV 스키마에서도 제거되었으며 추천 조건이나 상세 정보에 사용하지 않습니다.
 
 ## 점진적 교체와 검증
 

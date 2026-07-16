@@ -4,7 +4,6 @@ const categoryIds: readonly ProductCategoryId[] = ["air-conditioner", "tv", "ref
 const isDate = (value: unknown) => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 const isFiniteNumber = (value: unknown) => typeof value === "number" && Number.isFinite(value);
 const isBoolean = (value: unknown) => typeof value === "boolean";
-const isBooleanOrNull = (value: unknown) => isBoolean(value) || value === null;
 
 const validateCategorySpecs = (product: CatalogProduct, label: string, errors: string[]) => {
   const specs = product.specs as Record<string, unknown>;
@@ -23,7 +22,7 @@ const validateCategorySpecs = (product: CatalogProduct, label: string, errors: s
     if (!isFiniteNumber(specs.warrantyYears) || specs.warrantyYears < 0) error("warrantyYears", "는 0 이상의 숫자여야 합니다.");
     if (!isBoolean(specs.hdr)) error("hdr", "는 boolean이어야 합니다.");
     if (![1, 2, 3, 4, 5].includes(Number(specs.energyGrade))) error("energyGrade", "값이 올바르지 않습니다.");
-    if (!isBooleanOrNull(specs.rebateEligible)) error("rebateEligible", "는 boolean 또는 null이어야 합니다.");
+    if ("rebateEligible" in specs) error("rebateEligible", "는 제거된 TV 스펙 필드입니다.");
   } else if (product.categoryId === "refrigerator") {
     if (!["two-door", "four-door-value"].includes(String(specs.doorType))) error("doorType", "값이 올바르지 않습니다.");
     if (!isFiniteNumber(specs.capacityLiters) || specs.capacityLiters <= 0) error("capacityLiters", "는 0보다 큰 숫자여야 합니다.");

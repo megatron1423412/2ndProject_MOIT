@@ -52,10 +52,31 @@ try {
 
   const { TV_PRODUCTS } = await load("/src/app/features/chat-flow/flows/appliances/tv/products.ts");
   const { rankTvs } = await load("/src/app/features/chat-flow/flows/appliances/tv/rankProducts.ts");
-  const tvAnswers = { "tv.os": "any", "tv.screenSize": "55", "tv.panel": "any", "tv.useDefaults": "yes", "tv.hdrRequired": false, "tv.rebate": "any", "tv.budget": 2_000_000 };
+  const tvCriteria = await load("/src/app/features/chat-flow/flows/appliances/tv/criteria.ts");
+  const { buildTvSearchQuery } = await load("/src/app/features/smart-shopping/naver/buildSearchQuery.ts");
+  const tvAnswers = { "tv.viewingDistance": "1.5-2.5", "tv.screenSize": "55", "tv.primaryUse": "broadcast-streaming", "tv.dailyUsage": "3to6", "tv.platformRequirement": "other-allowed", "tv.valuePriority": "balanced", "tv.budget": 2_000_000 };
   const tvResult = rankTvs(TV_PRODUCTS, tvAnswers);
   assert.ok(tvResult.excludedProducts.some(({ productId, reasons }) => productId === "tv-basic-55" && reasons.some((reason) => reason.includes("4K"))), "TV 4K 필터");
-  assert.ok(tvResult.excludedProducts.some(({ productId, reasons }) => productId === "tv-android-43" && reasons.some((reason) => reason.includes("보증"))), "TV 보증 필터");
+  const oneYearWarrantyResult = rankTvs(TV_PRODUCTS, { ...tvAnswers, "tv.screenSize": "43", "tv.platformRequirement": "none" });
+  assert.ok(oneYearWarrantyResult.recommendations.some(({ product }) => product.id === "tv-android-43"), "TV 1년 보증은 필수 제외하지 않음");
+  const otherPlatformTv = { ...TV_PRODUCTS[0], id: "tv-other-platform", modelNumber: "TV-OTHER", specs: { ...TV_PRODUCTS[0].specs, os: "other" } };
+  const requiredPlatformResult = rankTvs([TV_PRODUCTS[0], otherPlatformTv], { ...tvAnswers, "tv.platformRequirement": "google-android-required" });
+  assert.deepEqual(requiredPlatformResult.recommendations.map(({ product }) => product.id), ["tv-google-55"], "명시한 Google/Android 플랫폼 필터");
+  assert.ok(requiredPlatformResult.excludedProducts.some(({ productId, reasons }) => productId === "tv-other-platform" && reasons.some((reason) => reason.includes("Google TV 또는 Android TV"))), "다른 플랫폼은 명시적 필수일 때만 제외");
+  const emptyTvHistory = { ...TV_PRODUCTS[0], id: "tv-empty-history", modelNumber: "TV-EMPTY-HISTORY", priceHistory: [] };
+  const emptyTvHistoryResult = rankTvs([emptyTvHistory], { ...tvAnswers, "tv.valuePriority": "good-current-price" });
+  assert.ok(emptyTvHistoryResult.recommendations[0].unmatchedOrUnknownCriteria.includes("가격 이력 없음") && emptyTvHistoryResult.recommendations[0].recommendationReasons.every((reason) => !reason.includes("역대 최저가")), "TV 빈 가격 이력은 역사 점수·이유 생략");
+  const tvHistoryGood = { ...TV_PRODUCTS[0], id: "tv-history-good", modelNumber: "TV-HISTORY-GOOD", currentPrice: 900_000, priceHistory: [{ date: "2026-06-01", lowestPrice: 880_000 }, { date: "2026-07-01", lowestPrice: 950_000 }] };
+  const tvHistoryBad = { ...TV_PRODUCTS[0], id: "tv-history-bad", modelNumber: "TV-HISTORY-BAD", currentPrice: 900_000, priceHistory: [{ date: "2026-06-01", lowestPrice: 400_000 }, { date: "2026-07-01", lowestPrice: 500_000 }] };
+  assert.deepEqual(rankTvs([tvHistoryBad, tvHistoryGood], { ...tvAnswers, "tv.valuePriority": "good-current-price" }).recommendations.map(({ product }) => product.id), ["tv-history-good", "tv-history-bad"], "TV 현재 가격의 저장 이력 위치를 순위에 반영");
+  const vaCinemaTv = { ...TV_PRODUCTS[2], id: "tv-cinema-va", modelNumber: "TV-CINEMA-VA", specs: { ...TV_PRODUCTS[2].specs, panel: "VA" } };
+  const ipsCinemaTv = { ...TV_PRODUCTS[2], id: "tv-cinema-ips", modelNumber: "TV-CINEMA-IPS", specs: { ...TV_PRODUCTS[2].specs, panel: "IPS" } };
+  assert.equal(rankTvs([ipsCinemaTv, vaCinemaTv], { ...tvAnswers, "tv.screenSize": "65", "tv.primaryUse": "movies-dramas" }).recommendations[0].product.id, "tv-cinema-va", "영화·드라마는 HDR과 VA 특성 비중 증가");
+  assert.equal(rankTvs([vaCinemaTv, ipsCinemaTv], { ...tvAnswers, "tv.screenSize": "65", "tv.primaryUse": "family-wide-viewing" }).recommendations[0].product.id, "tv-cinema-ips", "여러 방향 가족 시청은 IPS 시야각 특성 비중 증가");
+  assert.equal(rankTvs([TV_PRODUCTS[0]], { ...tvAnswers, "tv.budget": 100_000 }).recommendations.length, 0, "TV 예산은 currentPrice 상한 필터로 적용");
+  assert.ok(tvCriteria.getTvRankingWeights({ ...tvAnswers, "tv.dailyUsage": "under3" }).currentPrice > tvCriteria.getTvRankingWeights({ ...tvAnswers, "tv.dailyUsage": "over6" }).currentPrice, "TV 짧은 사용은 현재가 비중 증가");
+  assert.ok(tvCriteria.getTvRankingWeights({ ...tvAnswers, "tv.dailyUsage": "over6", "tv.valuePriority": "electricity-saving" }).energyGrade > tvCriteria.getTvRankingWeights({ ...tvAnswers, "tv.dailyUsage": "under3", "tv.valuePriority": "low-purchase-price" }).energyGrade, "TV 긴 사용·전기요금 우선은 효율 비중 증가");
+  assert.equal(buildTvSearchQuery({ "tv.viewingDistance": "2.5-3", "tv.recommendedScreenSize": "65" }), "TV 65인치 4K", "거리 추천 크기도 기존 네이버 검색어에 전달");
   assert.ok(tvResult.recommendations.every((item, index, list) => index === 0 || list[index - 1].score >= item.score), "필수 필터 후 선호 점수 정렬");
 
   const runtime = await load("/src/app/features/chat-flow/engine/flowRuntime.ts");
@@ -141,14 +162,43 @@ try {
 
   const tvModule = getFlowModule("tv");
   let tvFlowState = runtime.createInitialFlowState(tvModule);
-  assert.equal(tvFlowState.currentStepId, "tv-os", "TV 전용 첫 질문");
-  for (const [value, label] of [["any", "상관없음"], ["55", "55인치"], ["any", "상관없음"], ["yes", "기본 기준 적용"], [false, "선호"], ["any", "상관없음"], [2_000_000, "2,000,000원"], [true, "추천 시작"]]) {
+  assert.equal(tvFlowState.currentStepId, "tv-distance", "TV 첫 질문은 시청 거리");
+  assert.equal(tvFlowState.checkpoints.length, 0, "TV 첫 질문에는 undo checkpoint 없음");
+  const tvFlowCopy = tvModule.definition.steps.filter((step) => "message" in step).map((step) => step.message).filter((message) => typeof message === "string").join("\n");
+  assert.ok(tvFlowCopy.includes("TV를 시청할 때 화면과의 거리는 어느 정도인가요?") && tvFlowCopy.includes("TV를 주로 어떻게 사용할 예정인가요?") && tvFlowCopy.includes("하루에 TV를 얼마나 사용할 예정인가요?") && tvFlowCopy.includes("스마트 TV 플랫폼에 꼭 필요한 조건이 있나요?") && tvFlowCopy.includes("어떤 기준의 가성비를 가장 중요하게 볼까요?") && tvFlowCopy.includes("TV 제품 가격은 최대 얼마까지 생각하고 있나요?"), "새 TV 질문 순서·문구");
+  assert.ok(!/콘솔|게임|선호 패널|HDR 화질 개선|무상 A\/S 2년|환급/.test(tvFlowCopy), "게임·패널·HDR·보증 묶음·환급 질문 제거");
+  assert.ok(!tvModule.definition.steps.some((step) => "answerKey" in step && ["tv.os", "tv.panel", "tv.useDefaults", "tv.fourKRequired", "tv.minimumWarranty", "tv.hdrRequired", "tv.rebate"].includes(step.answerKey)), "기존 TV 조건 answerKey 제거");
+  assert.deepEqual(tvCriteria.TV_SIZE_BY_DISTANCE, { "under-1.5": 43, "1.5-2.5": 55, "2.5-3": 65, "over-3": 75 }, "TV 거리별 추천 크기 매핑");
+
+  const initialTvMessages = tvFlowState.messages.map(({ text }) => text);
+  tvFlowState = submit(tvModule, tvFlowState, "2.5-3", "2.5~3m");
+  assert.equal(tvFlowState.currentStepId, "tv-recommended-size");
+  assert.ok(tvFlowState.messages.some(({ text }) => text?.includes("이 거리에서는 65인치부터 살펴보는 것을 추천해요")), "거리에서 자연스러운 크기 추천");
+  tvFlowState = runtime.undoLatestFlowAnswer(tvModule, tvFlowState);
+  assert.equal(tvFlowState.currentStepId, "tv-distance"); assert.deepEqual(tvFlowState.messages.map(({ text }) => text), initialTvMessages, "TV 거리 답·파생 크기 추천·크기 확인을 Policy A로 제거");
+  assert.equal(tvFlowState.answers["tv.viewingDistance"], undefined, "복원한 TV 거리 선택은 비어 있음");
+
+  let directTvState = runtime.createInitialFlowState(tvModule);
+  directTvState = submit(tvModule, directTvState, "unknown", "잘 모르겠어요");
+  assert.equal(directTvState.currentStepId, "tv-size", "TV 거리 미확인은 크기 직접 선택으로 이동");
+  assert.deepEqual(tvModule.definition.steps.find((step) => step.id === "tv-size").options.map(({ value }) => value), ["43", "55", "65", "75"], "지원하는 TV 크기 직접 선택");
+
+  tvFlowState = runtime.createInitialFlowState(tvModule);
+  for (const [value, label] of [["1.5-2.5", "1.5~2.5m"], ["55", "55인치 적용"], ["broadcast-streaming", "방송·유튜브·OTT 시청"], ["3to6", "3~6시간"], ["other-allowed", "삼성·LG 등 다른 스마트 OS도 괜찮음"], ["balanced", "가격·화질 균형 추천"], ["none", "예산 제한 없음"]]) {
     tvFlowState = submit(tvModule, tvFlowState, value, label);
   }
-  assert.equal(tvFlowState.checkpoints.length, 0, "TV flow에는 condition undo를 활성화하지 않음");
-  for (const id of ["tv", "refrigerator", "vacuum"]) assert.equal(getFlowModule(id).definition.enableConditionUndo, undefined, `${id} flow undo 비활성 유지`);
-  assert.ok(tvFlowState.messages.some(({ text }) => text?.includes("적용 조건: 55인치")), "TV 조건 요약에 전용 answer 전달");
-  assert.ok(tvFlowState.messages.some(({ text }) => text?.includes("OS 상관없음") && text.includes("패널 상관없음")), "TV 조건 요약에 표시 라벨 사용");
+  assert.equal(tvFlowState.currentStepId, "tv-confirm", "TV 최종 확인 단계");
+  assert.ok(tvFlowState.messages.some(({ text }) => text?.includes("선택 조건") && text.includes("화면 크기: 55인치") && text.includes("방송·유튜브·OTT 시청") && text.includes("하루 3~6시간") && text.includes("삼성·LG 등 다른 스마트 OS도 가능") && text.includes("가격·화질 균형 추천") && text.includes("예산 제한 없음")), "TV 최종 조건 요약 표시 라벨");
+  assert.ok(tvFlowState.messages.some(({ text }) => text?.includes("4K UHD 제품만 추천") && text.includes("에너지 등급과 보증 기간을 순위에 반영")), "TV MOIT 자동 정책 표시");
+  tvFlowState = runtime.undoLatestFlowAnswer(tvModule, tvFlowState);
+  assert.equal(tvFlowState.currentStepId, "tv-budget"); assert.equal(tvFlowState.answers["tv.budget"], undefined, "TV 최종 확인 undo는 빈 예산 단계 복원");
+  assert.equal(tvFlowState.messages.some(({ text }) => text?.startsWith("선택 조건")), false, "TV 예산 답에서 파생된 최종 요약 제거");
+  tvFlowState = submit(tvModule, tvFlowState, "none", "예산 제한 없음");
+  tvFlowState = submit(tvModule, tvFlowState, true, "추천 시작");
+  assert.equal(tvFlowState.completed, true, "TV 질문 흐름 완료");
+  assert.equal(tvFlowState.answers["tv.primaryUse"], "broadcast-streaming"); assert.equal(tvFlowState.answers["tv.dailyUsage"], "3to6"); assert.equal(tvFlowState.answers["tv.platformRequirement"], "other-allowed"); assert.equal(tvFlowState.answers["tv.valuePriority"], "balanced", "TV 용도·사용시간·플랫폼·가성비 state 보존");
+  assert.strictEqual(runtime.undoLatestFlowAnswer(tvModule, tvFlowState), tvFlowState, "TV 추천 생성 뒤 undo 비활성");
+  for (const id of ["air-conditioner", "tv", "refrigerator", "vacuum"]) assert.equal(getFlowModule(id).definition.enableConditionUndo, true, `${id} flow 공용 condition undo 활성`);
   assert.ok(tvFlowState.result.recommendations.length > 0 && tvFlowState.result.recommendations.every(({ product }) => product.source === "real"), "TV flow가 실제 카탈로그를 사용");
   assert.equal(tvFlowState.result.metadata.category, "tv", "TV 전용 결과 사용");
 
@@ -157,12 +207,46 @@ try {
   const refrigeratorSummary = buildStepMessage(refrigeratorModule, "rf-summary", { "refrigerator.doorType": "four-door-value", "refrigerator.capacityMode": "600-800", "refrigerator.metalRequired": true, "refrigerator.useDefaults": "yes", "refrigerator.budget": 2_000_000 });
   const vacuumFlowModule = getFlowModule("vacuum");
   const vacuumSummary = buildStepMessage(vacuumFlowModule, "vc-summary", { "vacuum.powerType": "wireless-value", "vacuum.suctionStandard": "aw", "vacuum.hepaRequired": true, "vacuum.weight": "under-2.5", "vacuum.budget": 700_000 });
+  for (const [module, firstStepId, value, label, answerKey] of [
+    [refrigeratorModule, "rf-door", "four-door-value", "실속형 4도어", "refrigerator.doorType"],
+    [vacuumFlowModule, "vc-power", "wireless-value", "가성비 무선", "vacuum.powerType"],
+  ]) {
+    let state = runtime.createInitialFlowState(module);
+    const initialMessages = state.messages.map(({ text }) => text);
+    assert.equal(state.currentStepId, firstStepId); assert.equal(state.checkpoints.length, 0, `${module.id} 첫 질문에는 undo 없음`);
+    state = submit(module, state, value, label);
+    assert.equal(state.checkpoints.length, 1, `${module.id} 답변은 공용 checkpoint 생성`);
+    state = runtime.undoLatestFlowAnswer(module, state);
+    assert.equal(state.currentStepId, firstStepId); assert.equal(state.answers[answerKey], undefined, `${module.id} 복원 선택 비움`);
+    assert.deepEqual(state.messages.map(({ text }) => text), initialMessages, `${module.id} 한 번에 한 조건만 복원`);
+  }
+  let refrigeratorUndoState = runtime.createInitialFlowState(refrigeratorModule);
+  for (const [value, label] of [["four-door-value", "실속형 4도어"], [4, "4명"], ["600-800", "600~800L"], [true, "필수"], ["yes", "기본 기준 적용"], [2_000_000, "2,000,000원"]]) refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, value, label);
+  assert.equal(refrigeratorUndoState.currentStepId, "rf-confirm");
+  refrigeratorUndoState = runtime.undoLatestFlowAnswer(refrigeratorModule, refrigeratorUndoState);
+  assert.equal(refrigeratorUndoState.currentStepId, "rf-budget"); assert.equal(refrigeratorUndoState.answers["refrigerator.budget"], undefined, "냉장고 최종 확인 undo는 빈 예산 단계");
+  refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, 2_000_000, "2,000,000원"); refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, true, "추천 시작");
+  assert.strictEqual(runtime.undoLatestFlowAnswer(refrigeratorModule, refrigeratorUndoState), refrigeratorUndoState, "냉장고 추천 생성 뒤 undo 비활성");
+  let vacuumUndoState = runtime.createInitialFlowState(vacuumFlowModule);
+  for (const [value, label] of [["wireless-value", "가성비 무선"], ["aw", "200AW 이상"], [true, "필수"], [true, "필수"], [true, "필수"], [true, "필수"], ["under-2.5", "2.5kg 이하"], [700_000, "700,000원"]]) vacuumUndoState = submit(vacuumFlowModule, vacuumUndoState, value, label);
+  assert.equal(vacuumUndoState.currentStepId, "vc-confirm");
+  vacuumUndoState = runtime.undoLatestFlowAnswer(vacuumFlowModule, vacuumUndoState);
+  assert.equal(vacuumUndoState.currentStepId, "vc-budget"); assert.equal(vacuumUndoState.answers["vacuum.budget"], undefined, "청소기 최종 확인 undo는 빈 예산 단계");
+  vacuumUndoState = submit(vacuumFlowModule, vacuumUndoState, 700_000, "700,000원"); vacuumUndoState = submit(vacuumFlowModule, vacuumUndoState, true, "추천 시작");
+  assert.strictEqual(runtime.undoLatestFlowAnswer(vacuumFlowModule, vacuumUndoState), vacuumUndoState, "청소기 추천 생성 뒤 undo 비활성");
   assert.ok(refrigeratorSummary.includes("실속형 4도어") && refrigeratorSummary.includes("600~800L") && !/four-door-value|600-800/.test(refrigeratorSummary), "냉장고 요약에 내부 enum 미노출");
   assert.ok(vacuumSummary.includes("가성비 무선") && vacuumSummary.includes("200AW 이상") && vacuumSummary.includes("2.5kg 이하") && !/wireless-value|under-2.5/.test(vacuumSummary), "청소기 요약에 내부 enum 미노출");
 
   const { formatSmartShoppingCriteria } = await load("/src/app/features/chat-flow/flows/appliances/displayLabels.ts");
   const formattedCriteria = formatSmartShoppingCriteria({ "airConditioner.type": "two-in-one", "airConditioner.dailyUsage": "4to8", "airConditioner.valuePriority": "maintenance", "airConditioner.budget": "none" });
   assert.deepEqual(formattedCriteria, ["에어컨 타입: 2in1", "예상 사용 시간: 하루 4~8시간", "가성비 기준: 청소와 관리 편의", "제품 가격 예산: 예산 제한 없음"], "내부 조건 key·enum을 명시적 표시 라벨로 변환");
+  const formattedTvCriteria = formatSmartShoppingCriteria(tvAnswers);
+  assert.ok(formattedTvCriteria.includes("시청 거리: 1.5~2.5m") && formattedTvCriteria.includes("주 사용: 방송·유튜브·OTT 시청") && formattedTvCriteria.includes("예상 사용 시간: 하루 3~6시간") && formattedTvCriteria.includes("스마트 플랫폼: 삼성·LG 등 다른 스마트 OS도 가능") && formattedTvCriteria.includes("가성비 기준: 가격·화질 균형 추천"), "TV 조건을 사용자 표시 라벨로 변환");
+  assert.ok(!/broadcast-streaming|3to6|other-allowed|balanced|tv\./.test(formattedTvCriteria.join("\n")), "TV 표시 조건에 내부 enum·key 미노출");
+  assert.deepEqual(formatSmartShoppingCriteria({ "tv.recommendedScreenSize": "other", "tv.screenSize": "65" }), ["화면 크기: 65인치"], "TV 다른 크기 선택 내부 결정은 숨기고 최종 크기만 표시");
+  assert.equal(tvCriteria.getTvPlatformDisplayLabel({ brand: "삼성전자", specs: { os: "other" } }), "Tizen");
+  assert.equal(tvCriteria.getTvPlatformDisplayLabel({ brand: "LG전자", specs: { os: "other" } }), "webOS");
+  assert.ok(!["Tizen", "webOS", tvCriteria.getTvPlatformDisplayLabel({ brand: "기타", specs: { os: "other" } })].includes("other"), "TV 사용자 플랫폼 라벨에 내부 other 미노출");
   const { buildProductQuestionPrompt } = await load("/src/app/features/smart-shopping/product-detail/productQuestionContext.ts");
   const safeQuestionPrompt = buildProductQuestionPrompt({ question: "이 제품 어때요?", selectedProduct: { name: "테스트 에어컨", brand: "MOIT", categoryId: "air-conditioner", source: "internal" }, userCriteria: { "airConditioner.type": "two-in-one", "airConditioner.dailyUsage": "4to8", "airConditioner.valuePriority": "balanced" }, fit: { matchedCriteria: ["타입 일치"], unmatchedCriteria: [] }, priceSummary: { currentPrice: 1_000_000, history: [] }, sourceAndConfidence: { dataStatus: "verified", verifiedInformation: [], unknownInformation: [] } });
   assert.ok(safeQuestionPrompt.includes("에어컨 타입: 2in1") && safeQuestionPrompt.includes("하루 4~8시간") && safeQuestionPrompt.includes("가격·효율 균형 추천"), "직접 Q&A 문맥도 사용자 표시 라벨 사용");
@@ -636,10 +720,13 @@ try {
   assert.ok(realProducts.every((product) => product.source === "real" && product.categoryId && product.dataStatus !== "mock"), "실제 상품의 출처·카테고리 상태");
   assert.ok([...mockProducts, ...realProducts].every((product) => !("weaknesses" in product)), "모든 real/mock 상품에서 weaknesses 제거");
   assert.ok([...mockProducts, ...realProducts].filter((product) => product.categoryId === "air-conditioner").every((product) => ["basicInstallationIncluded", "officialInstallation", "rebateEligible"].every((field) => !(field in product.specs))), "모든 에어컨 real/mock specs에서 설치·환급 필드 제거");
+  assert.ok([...mockProducts, ...realProducts].filter((product) => product.categoryId === "tv").every((product) => !("rebateEligible" in product.specs)), "모든 TV real/mock specs에서 rebateEligible 제거");
   assert.deepEqual(validateProductData(mockProducts, realProducts), [], "weaknesses 없는 전체 real/mock 상품 검증 통과");
   const catalogTypesSource = await readFile("src/app/features/product-catalog/core/types.ts", "utf8");
   const airSpecsTypeSource = catalogTypesSource.slice(catalogTypesSource.indexOf("export interface AirConditionerSpecs"), catalogTypesSource.indexOf("export interface TvSpecs"));
+  const tvSpecsTypeSource = catalogTypesSource.slice(catalogTypesSource.indexOf("export interface TvSpecs"), catalogTypesSource.indexOf("export interface RefrigeratorSpecs"));
   assert.ok(!catalogTypesSource.includes("weaknesses:") && !airSpecsTypeSource.includes("basicInstallationIncluded") && !airSpecsTypeSource.includes("officialInstallation") && !airSpecsTypeSource.includes("rebateEligible"), "공통 상품·에어컨 타입 스키마 정리");
+  assert.ok(!tvSpecsTypeSource.includes("rebateEligible"), "TV 타입 스키마에서 rebateEligible 제거");
   assert.deepEqual(catalogSourceByCategory, { "air-conditioner": "real", tv: "real", refrigerator: "real", vacuum: "real" }, "실제 데이터가 있는 카테고리는 real 선택");
   const repository = productRepository;
   assert.equal(repository.getProducts("air-conditioner").length, 17); assert.equal(repository.getProducts("tv").length, 17);
@@ -662,6 +749,8 @@ try {
   assert.ok(validateProductData([], [legacyWeaknessProduct]).some((error) => error.includes("legacy-weakness") && error.includes("weaknesses")), "validator가 제거된 weaknesses를 상품 id와 함께 보고");
   const legacyAirSpecProduct = { ...realAirProduct, id: "legacy-air-spec", modelNumber: "LEGACY-AIR-SPEC", specs: { ...realAirProduct.specs, officialInstallation: null } };
   assert.ok(validateProductData([], [legacyAirSpecProduct]).some((error) => error.includes("legacy-air-spec") && error.includes("specs.officialInstallation")), "validator가 제거된 에어컨 스펙을 상품 id와 함께 보고");
+  const legacyTvRebateProduct = { ...REAL_TV_PRODUCTS[0], id: "legacy-tv-rebate", modelNumber: "LEGACY-TV-REBATE", specs: { ...REAL_TV_PRODUCTS[0].specs, rebateEligible: null } };
+  assert.ok(validateProductData([], [legacyTvRebateProduct]).some((error) => error.includes("legacy-tv-rebate") && error.includes("specs.rebateEligible")), "validator가 제거된 TV rebateEligible을 상품 id와 함께 보고");
   const malformedHistoryProduct = { ...realAirProduct, id: "malformed-history", modelNumber: "MALFORMED-HISTORY", priceHistory: [{ date: "bad-date", lowestPrice: -1 }] };
   const malformedHistoryErrors = validateProductData([], [malformedHistoryProduct]);
   assert.ok(malformedHistoryErrors.some((error) => error.includes("malformed-history") && error.includes("priceHistory[0].date")) && malformedHistoryErrors.some((error) => error.includes("malformed-history") && error.includes("priceHistory[0].lowestPrice")), "잘못된 가격 이력은 정확한 상품 id·필드로 보고");
@@ -671,7 +760,7 @@ try {
   const realTvResult = rankTvs(repository.getProducts("tv"), tvAnswers);
   assert.ok(realTvResult.recommendations.length > 0 && realTvResult.recommendations.every(({ product }) => product.dataStatus === "unverified"), "unverified 실제 상품도 추천 대상");
   const discontinuedTv = { ...realTv, id: `${realTv.id}-discontinued`, modelNumber: `${realTv.modelNumber}-DISCONTINUED`, dataStatus: "discontinued" };
-  assert.ok(rankTvs([realTv, discontinuedTv], { ...tvAnswers, "tv.useDefaults": "custom", "tv.fourKRequired": false, "tv.minimumWarranty": "any" }).excludedProducts.some(({ productId, reasons }) => productId === discontinuedTv.id && reasons.includes("판매 중단 상품")), "discontinued 상품은 일반 추천에서 제외");
+  assert.ok(rankTvs([realTv, discontinuedTv], tvAnswers).excludedProducts.some(({ productId, reasons }) => productId === discontinuedTv.id && reasons.includes("판매 중단 상품")), "discontinued 상품은 일반 추천에서 제외");
   const { rankRefrigerators } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/rankProducts.ts");
   const representativeAir = rankAirConditioners(repository.getProducts("air-conditioner"), { "airConditioner.type": "wall", "airConditioner.actualCoolingArea": 1, "airConditioner.dailyUsage": "unknown", "airConditioner.valuePriority": "balanced", "airConditioner.budget": "none" });
   const representativeRefrigerator = rankRefrigerators(repository.getProducts("refrigerator"), { "refrigerator.doorType": "four-door-value", "refrigerator.capacityMode": "600-800", "refrigerator.useDefaults": "no", "refrigerator.metalRequired": false, "refrigerator.coolingRequired": false, "refrigerator.inverterRequired": false, "refrigerator.warrantyRequired": false, "refrigerator.freestandingRequired": false, "refrigerator.budget": 10_000_000 });
