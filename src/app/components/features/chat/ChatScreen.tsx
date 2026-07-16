@@ -87,6 +87,8 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
             {flow.messages.map((message, index) => {
               const isLast = index === flow.messages.length - 1;
               const isAi = message.sender === "ai";
+              const renderedResult = message.result ?? flow.result;
+              const isSmartShoppingResult = Boolean(renderedResult?.recommendations);
               
               // 선택형 단계이거나 완료 상태인 경우에만 인라인 선택지를 표시합니다.
               const isSelectionStep = flow.currentStep && ["single-choice", "multi-choice", "confirmation"].includes(flow.currentStep.type);
@@ -109,9 +111,12 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
                       onUndo={flow.undoLatestAnswer}
                     />
                   )}
-                  {message.type === "result" && (message.result ?? flow.result) && (
-                    <div className="w-full self-start pl-11">
-                      <DiagnosisResultCard result={(message.result ?? flow.result)!} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} onTimelineChange={() => setTimelineRevision((value) => value + 1)} userId={userProfile.id} favorites={favorites} onToggleFavorite={onToggleFavorite} />
+                  {message.type === "result" && renderedResult && (
+                    <div
+                      className={isSmartShoppingResult ? "w-full min-w-0 self-stretch" : "w-full self-start pl-11"}
+                      data-smart-shopping-result-root={isSmartShoppingResult || undefined}
+                    >
+                      <DiagnosisResultCard result={renderedResult} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} onTimelineChange={() => setTimelineRevision((value) => value + 1)} userId={userProfile.id} favorites={favorites} onToggleFavorite={onToggleFavorite} />
                     </div>
                   )}
                 </React.Fragment>

@@ -223,7 +223,7 @@ try {
   assert.equal(summarizeStoredPriceHistory(1_200, []), null, "빈 가격 이력은 역사 지표를 만들지 않음");
   assert.deepEqual(getValidPriceHistory(metricHistory).map(({ date }) => date), ["2026-05-01", "2026-07-13"], "저장 날짜 기준 오름차순 정렬");
 
-  const { default: PriceHistoryChart, buildPriceHistoryChartPoints } = await load("/src/app/features/smart-shopping/product-detail/PriceHistoryChart.tsx");
+  const { default: PriceHistoryChart, buildPriceHistoryChartPoints, formatPriceHistoryAxisDate, getDefaultPriceHistoryPoint, resolvePriceHistoryDisplayIndex, PRICE_HISTORY_CHART_LAYOUT } = await load("/src/app/features/smart-shopping/product-detail/PriceHistoryChart.tsx");
   const storedChartHistory = [
     { date: "2026-07-13", lowestPrice: 970_600 },
     { date: "2026-05-01", lowestPrice: 1_080_000 },
@@ -237,6 +237,21 @@ try {
   ], "실제 저장 날짜와 lowestPrice가 모두 차트 점으로 전달");
   assert.equal(buildPriceHistoryChartPoints([{ date: "2026-07-13", lowestPrice: 970_600 }]).length, 1, "한 점 가격 이력 안전 처리");
   assert.equal(buildPriceHistoryChartPoints([]).length, 0, "빈 가격 이력 안전 처리");
+  assert.deepEqual(getDefaultPriceHistoryPoint([
+    { date: "2026-07-15", lowestPrice: 950_000 },
+    { date: "2026-07-05", lowestPrice: 980_000 },
+    { date: "2026-07-09", lowestPrice: 970_000 },
+  ], new Date("2026-07-10T12:00:00+09:00")), { date: "2026-07-09", lowestPrice: 970_000 }, "오늘 이전 중 가장 최신 유효 이력을 기본 강조");
+  assert.deepEqual(getDefaultPriceHistoryPoint([
+    { date: "2026-07-15", lowestPrice: 950_000 },
+    { date: "2026-07-12", lowestPrice: 970_000 },
+  ], new Date("2026-07-10T12:00:00+09:00")), { date: "2026-07-12", lowestPrice: 970_000 }, "모든 이력이 미래면 가장 가까운 미래 이력을 기본 강조");
+  assert.equal(formatPriceHistoryAxisDate("2026-07-15"), "7.15.", "X축 날짜는 연도 없는 M.D. 형식");
+  assert.equal(resolvePriceHistoryDisplayIndex(2, 0, null), 0, "hover 강조가 기본 최신 강조보다 우선");
+  assert.equal(resolvePriceHistoryDisplayIndex(2, null, 1), 1, "키보드 focus 강조가 기본 최신 강조보다 우선");
+  assert.equal(resolvePriceHistoryDisplayIndex(2, null, null), 2, "hover/focus 종료 시 기본 최신 강조 복원");
+  const chartBaseline = PRICE_HISTORY_CHART_LAYOUT.height - PRICE_HISTORY_CHART_LAYOUT.padding.bottom;
+  assert.ok(PRICE_HISTORY_CHART_LAYOUT.axisLabelY - chartBaseline >= 36, "플롯 기준선과 X축 날짜 사이의 충분한 하단 간격");
   const emptyChartMarkup = renderToStaticMarkup(React.createElement(PriceHistoryChart, { productId: "empty-product", history: [] }));
   const singleChartMarkup = renderToStaticMarkup(React.createElement(PriceHistoryChart, { productId: "single-product", history: [{ date: "2026-07-13", lowestPrice: 970_600 }] }));
   const manyChartMarkup = renderToStaticMarkup(React.createElement(PriceHistoryChart, { productId: "many-product", history: storedChartHistory }));
@@ -244,6 +259,9 @@ try {
   assert.equal((singleChartMarkup.match(/data-price-point/g) ?? []).length, 1, "한 점 차트는 가상 점을 추가하지 않음");
   assert.ok(singleChartMarkup.includes("2026-07-13 970,600원"), "한 점에도 정확한 날짜·가격 접근성 정보");
   assert.equal((manyChartMarkup.match(/data-price-point/g) ?? []).length, storedChartHistory.length, "축 라벨 간격과 무관하게 저장된 모든 점 유지");
+  assert.ok(manyChartMarkup.includes("data-price-area=\"true\"") && manyChartMarkup.includes("opacity=\"0.12\""), "녹색 선 아래의 절제된 투명 영역 채움");
+  assert.ok(manyChartMarkup.includes("data-default-price-label=\"true\"") && manyChartMarkup.includes("970,600원") && manyChartMarkup.includes("data-price-highlight-halo=\"true\""), "호버 전에도 기본 최신 가격 라벨과 halo 표시");
+  assert.ok(manyChartMarkup.includes(">5.1.<") && manyChartMarkup.includes(">7.13.<") && !manyChartMarkup.match(/<text[^>]*>2026-/), "X축은 첫·마지막 M.D. 라벨을 사용하고 연도를 숨김");
 
   const { PRODUCT_DETAIL_ACTIONS } = await load("/src/app/features/smart-shopping/actions/productDetailActions.ts");
   assert.deepEqual(PRODUCT_DETAIL_ACTIONS.map((item) => item.label), ["예상 세일 달 제안", "다른 제품 추천", "싸게 구매하는 법 TIP", "기타 · 직접 질문 입력", "목록으로 돌아가기", "다음 단계로"], "상세 하단 액션 순서");
@@ -257,8 +275,9 @@ try {
   assert.ok(!detailSectionsSource.includes("주의점") && !detailViewSource.includes("주의점") && !recommendationCardSource.includes("주의점"), "모든 상세에서 주의점 카드 제거");
   assert.ok(detailSectionsSource.indexOf("data-strengths-card") < detailSectionsSource.indexOf("<PriceHistoryChart"), "장점 왼쪽·가격 차트 오른쪽 공통 행");
   assert.equal((detailSectionsSource.match(/<PriceHistoryChart/g) ?? []).length, 1, "상세의 가격 그래프는 한 번만 렌더링");
-  assert.ok(priceChartSource.includes('role="tooltip"') && priceChartSource.includes("active.date") && priceChartSource.includes("won(active.lowestPrice)") && priceChartSource.includes("onMouseEnter") && priceChartSource.includes("onFocus"), "호버·키보드 포커스 tooltip의 정확한 날짜·원화 가격");
-  assert.ok(priceChartSource.includes("points.map") && priceChartSource.includes("labelInterval") && priceChartSource.includes("setActiveIndex(null); }, [productId, points.length]"), "모든 점 유지·축 라벨 간격·상품 전환 상태 초기화");
+  assert.ok(priceChartSource.includes('"tooltip"') && priceChartSource.includes("displayed.date") && priceChartSource.includes("won(displayed.lowestPrice)") && priceChartSource.includes("onMouseEnter") && priceChartSource.includes("onFocus"), "호버·키보드 포커스 tooltip의 정확한 전체 날짜·원화 가격");
+  assert.ok(priceChartSource.includes("setHoveredIndex(index)") && priceChartSource.includes("setFocusedIndex(index)") && priceChartSource.includes("onMouseLeave={() => setHoveredIndex(null)}") && priceChartSource.includes("onBlur={() => setFocusedIndex(null)"), "hover/focus가 일시 강조를 우선하고 각각 종료 시 기본 강조로 복귀");
+  assert.ok(priceChartSource.includes("points.map") && priceChartSource.includes("labelInterval") && priceChartSource.includes("[productId, pointIdentity]") && priceChartSource.includes("text-xs\">{formatPriceHistoryAxisDate"), "모든 점 유지·축 라벨 간격·상품 전환 초기화·읽기 쉬운 날짜 크기");
   const { REFRIGERATOR_PRODUCTS } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/products.ts");
   const { default: ProductRecommendationCard } = await load("/src/app/components/features/chat/ProductRecommendationCard.tsx");
   const { default: ProductDetailView } = await load("/src/app/features/smart-shopping/recommendation/ProductDetailView.tsx");
@@ -281,9 +300,37 @@ try {
   const chatScreenSource = await readFile("src/app/components/features/chat/ChatScreen.tsx", "utf8");
   const chatMessageSource = await readFile("src/app/components/features/chat/ChatMessage.tsx", "utf8");
   const chatFlowInputSource = await readFile("src/app/components/features/chat/ChatFlowInput.tsx", "utf8");
+  const { default: SmartShoppingTimeline, SmartShoppingTimelineRow } = await load("/src/app/features/smart-shopping/timeline/SmartShoppingTimeline.tsx");
+  const assistantRailMarkup = renderToStaticMarkup(React.createElement(SmartShoppingTimelineRow, { kind: "assistant" }, React.createElement("span", null, "assistant")));
+  const userRailMarkup = renderToStaticMarkup(React.createElement(SmartShoppingTimelineRow, { kind: "user" }, React.createElement("span", null, "user")));
+  const wideRailMarkup = renderToStaticMarkup(React.createElement(SmartShoppingTimelineRow, { kind: "wide" }, React.createElement("span", null, "wide")));
+  const alignmentTimeline = [
+    { id: "user-before", type: "user-action", text: "상품 선택", timestamp: "오전 10:00" },
+    { id: "assistant-before", type: "assistant-text", text: "상세를 보여드릴게요.", timestamp: "오전 10:01" },
+    { id: "wide-action", type: "action-group", group: "detail", isActive: false },
+    { id: "user-after", type: "user-action", text: "예상 세일 달 제안", timestamp: "오전 10:02" },
+    { id: "assistant-after", type: "assistant-text", text: "세일 달 답변", timestamp: "오전 10:03" },
+    { id: "wide-action-later", type: "action-group", group: "detail", isActive: false },
+    { id: "user-later", type: "user-text", text: "직접 질문", timestamp: "오전 10:04" },
+  ];
+  const timelineRailProps = { timeline: alignmentTimeline, questionLoading: false, questionError: "", onSelectRecommendation: () => {}, onSelectNaverProduct: () => {}, onRetryNaver: () => {}, onDetailAction: () => {}, onBackToList: () => {}, onNextStep: () => {}, onQuestionSubmit: () => {}, onQuestionRetry: () => {}, onQuestionCancel: () => {}, onNextAction: () => {}, onCancelPurchaseLink: () => {}, onSavePriceAlert: () => {}, onCancelPriceAlert: () => {}, catalogProducts: [], isFavorite: () => false, onToggleFavorite: () => {} };
+  const alignedTimelineMarkup = renderToStaticMarkup(React.createElement(SmartShoppingTimeline, timelineRailProps));
   assert.ok(diagnosisResultSource.includes("result.recommendations") && diagnosisResultSource.includes("RecommendationSelectionView"), "가전 결과를 스마트쇼핑 추천 목록으로 연결");
   assert.ok(diagnosisResultSource.includes("PhoneDiagnosisReport") && diagnosisResultSource.includes("InternetDiagnosisReport") && diagnosisResultSource.includes("IptvDiagnosisReport"), "생활비 전용 결과 화면 보존");
   assert.ok(chatScreenSource.includes("buildSmartShoppingGreeting") && chatScreenSource.includes("onCreatePriceAlert") && chatScreenSource.includes("onEndSmartShoppingChat"), "스마트쇼핑 인사·알람·종료 경계 연결");
+  assert.ok(chatScreenSource.includes('isSmartShoppingResult ? "w-full min-w-0 self-stretch" : "w-full self-start pl-11"'), "스마트쇼핑 결과만 기존 결과용 pl-11 중첩에서 분리하고 생활비 결과 들여쓰기는 보존");
+  assert.ok(assistantRailMarkup.includes('data-timeline-row="assistant"') && assistantRailMarkup.includes("justify-start"), "모든 assistant 턴은 공용 왼쪽 레일");
+  assert.ok(userRailMarkup.includes('data-timeline-row="user"') && userRailMarkup.includes("justify-end"), "모든 user 턴은 공용 오른쪽 레일");
+  assert.ok(wideRailMarkup.includes('data-timeline-row="wide"') && !wideRailMarkup.includes("justify-end") && !wideRailMarkup.includes("justify-start"), "넓은 카드 행은 메시지 정렬 부모와 독립");
+  assert.equal((alignedTimelineMarkup.match(/data-timeline-row="user"/g) ?? []).length, 3, "상품 선택 전후·여러 액션 뒤의 모든 사용자 턴이 같은 오른쪽 행 사용");
+  assert.equal((alignedTimelineMarkup.match(/data-timeline-row="assistant"/g) ?? []).length, 2, "상세·액션 뒤의 모든 assistant 턴이 같은 왼쪽 행 사용");
+  assert.equal((alignedTimelineMarkup.match(/data-chat-assistant-logo="true"/g) ?? []).length, 2, "후속 assistant 답변의 MOIT 로고가 동일한 왼쪽 레일에 유지");
+  assert.equal((alignedTimelineMarkup.match(/data-timeline-row="wide"/g) ?? []).length, 2, "여러 넓은 액션 카드가 후속 메시지 행과 형제 구조로 유지");
+  for (const categoryId of ["air-conditioner", "tv", "refrigerator", "vacuum"]) {
+    const categoryMarkup = renderToStaticMarkup(React.createElement(SmartShoppingTimeline, { ...timelineRailProps, timeline: alignmentTimeline.map((entry) => ({ ...entry, id: `${categoryId}-${entry.id}` })) }));
+    assert.equal((categoryMarkup.match(/data-timeline-row="user"/g) ?? []).length, 3, `${categoryId} 공용 사용자 레일`);
+    assert.equal((categoryMarkup.match(/data-timeline-row="assistant"/g) ?? []).length, 2, `${categoryId} 공용 assistant 레일`);
+  }
   assert.ok(chatScreenSource.includes("isLast && isAi && Boolean(flow.currentStep) && flow.canUndo"), "최신 활성 질문에만 undo 전달");
   assert.ok(chatMessageSource.includes("⤴️") && chatMessageSource.includes('title="이전 조건 다시 입력"') && chatMessageSource.includes('aria-label="이전 조건 다시 입력"'), "undo 문자·도움말·접근성 이름");
   assert.ok(chatMessageSource.indexOf("{isAi && canUndo && onUndo") > chatMessageSource.indexOf("{/* 선택지 컴포넌트"), "undo 버튼은 질문 버블 내용 뒤의 형제 요소로 렌더링");

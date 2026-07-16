@@ -33,11 +33,12 @@ export default function ChatMessage({
   const isAi = sender === "ai";
 
   return (
-    <div className={`flex max-w-[88%] gap-3 ${isAi ? "self-start" : "self-end flex-row-reverse"}`}>
+    <div className={`flex max-w-[88%] gap-3 ${isAi ? "self-start" : "self-end flex-row-reverse"}`} data-chat-turn={isAi ? "assistant" : "user"}>
       {isAi && (
         <div
           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-emerald-100 text-white shadow-sm"
           style={{ background: "linear-gradient(135deg, #1B3A5C, #00B87A)" }}
+          data-chat-assistant-logo
         >
           <Sparkles size={14} />
         </div>
@@ -50,6 +51,7 @@ export default function ChatMessage({
                 ? "rounded-tl-sm border-border bg-card text-foreground"
                 : "rounded-tr-sm border-border bg-brand-surface text-brand-surface-foreground"
             }`}
+            data-chat-bubble={isAi ? "assistant" : "user"}
           >
             {text && <p className="whitespace-pre-wrap">{text}</p>}
             {children && <div className={text ? "mt-3" : ""}>{children}</div>}
