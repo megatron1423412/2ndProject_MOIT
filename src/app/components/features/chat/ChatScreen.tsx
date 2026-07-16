@@ -81,7 +81,7 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
         />
 
         <main ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-5">
-          <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-4" data-chat-timeline-root>
             {item.parentCategory === "appliances" && (
               <ChatTimelineRow kind="assistant"><ChatMessage sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} /></ChatTimelineRow>
             )}

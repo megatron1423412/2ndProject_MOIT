@@ -2,11 +2,9 @@ import React from "react";
 import { ImageWithFallback } from "../../../components/figma/ImageWithFallback";
 import CriteriaMatchList from "../../../components/features/chat/CriteriaMatchList";
 import ProductRecommendationCard from "../../../components/features/chat/ProductRecommendationCard";
-import type { ChatFlowMessage } from "../../chat-flow/core/types";
 import type { ProductCategoryId, ProductRecommendation } from "../../product-catalog/core/types";
 import type { ProductDetailActionId } from "../actions/productDetailActions";
 import ProductDetailActionBar from "../product-detail/ProductDetailActionBar";
-import ProductDetailConversation from "../product-detail/ProductDetailConversation";
 import ProductQuestionInput from "../product-detail/ProductQuestionInput";
 import type { SelectedShoppingProduct } from "../types/recommendation";
 import { combineProductDetail } from "./combineProductDetail";
@@ -17,7 +15,6 @@ interface Props {
   selected: SelectedShoppingProduct;
   internalRecommendations: ProductRecommendation[];
   categoryId?: ProductCategoryId;
-  messages?: ChatFlowMessage[];
   showAlternative?: boolean;
   questionOpen?: boolean;
   questionLoading?: boolean;
@@ -43,10 +40,10 @@ export default function ProductDetailView(props: Props) {
   return (
     <div className="space-y-4" data-stage="viewing-product-detail">
       {content}
-      {interactive && <><ProductDetailConversation messages={props.messages ?? []} /><div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+      {interactive && <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <ProductDetailActionBar showAlternative={props.showAlternative ?? false} isQuestionLoading={props.questionLoading ?? false} onAction={props.onAction ?? (() => {})} onBack={props.onBack ?? (() => {})} onNext={props.onNext ?? (() => {})} />
         {props.questionOpen && <div className="mt-3"><ProductQuestionInput isLoading={props.questionLoading ?? false} errorMessage={props.questionError ?? ""} onSubmit={props.onQuestionSubmit ?? (() => {})} onRetry={props.onQuestionRetry ?? (() => {})} onCancel={props.onQuestionCancel ?? (() => {})} /></div>}
-      </div></>}
+      </div>}
     </div>
   );
 }

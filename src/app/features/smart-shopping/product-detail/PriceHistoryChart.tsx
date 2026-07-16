@@ -1,12 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { getValidPriceHistory } from "../../product-catalog/core/priceHistory";
 import type { PriceHistoryPoint } from "../../product-catalog/core/types";
 
 export const PRICE_HISTORY_CHART_LAYOUT = {
   width: 640,
-  height: 240,
-  padding: { left: 42, right: 24, top: 24, bottom: 64 },
-  axisLabelY: 218,
+  height: 280,
+  padding: { left: 42, right: 24, top: 24, bottom: 92 },
+  plotBaselineY: 188,
+  axisY: 220,
+  axisLabelY: 252,
 } as const;
 
 const { width: WIDTH, height: HEIGHT, padding: PADDING } = PRICE_HISTORY_CHART_LAYOUT;
@@ -27,7 +29,7 @@ export const buildPriceHistoryChartPoints = (history: readonly PriceHistoryPoint
   const firstTimestamp = timestamps[0];
   const timestampRange = timestamps[timestamps.length - 1] - firstTimestamp;
   const chartWidth = WIDTH - PADDING.left - PADDING.right;
-  const chartHeight = HEIGHT - PADDING.top - PADDING.bottom;
+  const chartHeight = PRICE_HISTORY_CHART_LAYOUT.plotBaselineY - PADDING.top;
   return validHistory.map((point, index) => ({
     ...point,
     x: timestampRange === 0 ? PADDING.left + chartWidth / 2 : PADDING.left + (timestamps[index] - firstTimestamp) / timestampRange * chartWidth,
@@ -42,12 +44,26 @@ export const formatPriceHistoryAxisDate = (date: string) => {
   return Number.isFinite(month) && Number.isFinite(day) ? `${month}.${day}.` : date;
 };
 
-export const getDefaultPriceHistoryPoint = (history: readonly PriceHistoryPoint[], now = new Date()): PriceHistoryPoint | null => {
+/** The persistent marker is the stored historical minimum; ties use the latest stored date. */
+export const getDefaultPriceHistoryPoint = (history: readonly PriceHistoryPoint[]): PriceHistoryPoint | null => {
   const sorted = getValidPriceHistory(history);
   if (sorted.length === 0) return null;
-  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-  const latestPastOrToday = sorted.filter(({ date }) => Date.parse(date) <= today).at(-1);
-  return latestPastOrToday ?? sorted[0];
+  return sorted.reduce((lowest, point) => point.lowestPrice <= lowest.lowestPrice ? point : lowest);
+};
+
+export const getPriceHistoryAxisLabelIndexes = (points: readonly PriceHistoryChartPoint[], minimumSpacing = 84) => {
+  if (points.length === 0) return new Set<number>();
+  const indexes = new Set<number>([0]);
+  const finalIndex = points.length - 1;
+  let lastLabeledX = points[0].x;
+  for (let index = 1; index < finalIndex; index += 1) {
+    if (points[index].x - lastLabeledX >= minimumSpacing && points[finalIndex].x - points[index].x >= minimumSpacing) {
+      indexes.add(index);
+      lastLabeledX = points[index].x;
+    }
+  }
+  if (points[finalIndex].x - lastLabeledX >= minimumSpacing || finalIndex === 1) indexes.add(finalIndex);
+  return indexes;
 };
 
 export const resolvePriceHistoryDisplayIndex = (defaultIndex: number | null, hoveredIndex: number | null, focusedIndex: number | null) =>
@@ -55,6 +71,11 @@ export const resolvePriceHistoryDisplayIndex = (defaultIndex: number | null, hov
 
 export default function PriceHistoryChart({ productId, history }: { productId: string; history: readonly PriceHistoryPoint[] }) {
   const points = useMemo(() => buildPriceHistoryChartPoints(history), [history]);
+  const pointIdentity = points.map(({ date, lowestPrice }) => `${date}:${lowestPrice}`).join("|");
+  return <InteractivePriceHistoryChart key={`${productId}|${pointIdentity}`} productId={productId} points={points} />;
+}
+
+function InteractivePriceHistoryChart({ productId, points }: { productId: string; points: PriceHistoryChartPoint[] }) {
   const defaultPoint = useMemo(() => getDefaultPriceHistoryPoint(points), [points]);
   const defaultIndex = useMemo(() => {
     if (!defaultPoint) return null;
@@ -64,17 +85,15 @@ export default function PriceHistoryChart({ productId, history }: { productId: s
     });
     return match;
   }, [defaultPoint, points]);
-  const pointIdentity = points.map(({ date, lowestPrice }) => `${date}:${lowestPrice}`).join("|");
+  const axisLabelIndexes = useMemo(() => getPriceHistoryAxisLabelIndexes(points), [points]);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
-  useEffect(() => { setHoveredIndex(null); setFocusedIndex(null); }, [productId, pointIdentity]);
-
   if (points.length === 0) {
     return (
-      <section className="rounded-lg border border-border p-3" data-price-history-card data-product-id={productId}>
+      <section className="h-full rounded-lg border border-border p-3" data-price-history-card data-product-id={productId}>
         <p className="text-[11px] font-black text-primary">역대 최저가 추이</p>
-        <div className="flex min-h-48 items-center justify-center rounded-md bg-muted/20 px-4 text-center text-xs text-muted-foreground">저장된 가격 이력이 없습니다.</div>
+        <div className="flex min-h-64 items-center justify-center rounded-md bg-muted/20 px-4 text-center text-xs text-muted-foreground">저장된 가격 이력이 없습니다.</div>
       </section>
     );
   }
@@ -82,23 +101,24 @@ export default function PriceHistoryChart({ productId, history }: { productId: s
   const transientIndex = hoveredIndex ?? focusedIndex;
   const displayedIndex = resolvePriceHistoryDisplayIndex(defaultIndex, hoveredIndex, focusedIndex);
   const displayed = displayedIndex === null ? null : points[displayedIndex];
-  const labelInterval = Math.max(1, Math.ceil((points.length - 1) / 4));
   const polyline = points.map(({ x, y }) => `${x},${y}`).join(" ");
-  const baseline = HEIGHT - PADDING.bottom;
-  const areaPath = points.length > 1 ? `M ${points[0].x} ${baseline} L ${polyline.replaceAll(",", " ")} L ${points[points.length - 1].x} ${baseline} Z` : null;
+  const plotBaseline = PRICE_HISTORY_CHART_LAYOUT.plotBaselineY;
+  const areaPath = points.length > 1 ? `M ${points[0].x} ${plotBaseline} L ${polyline.replaceAll(",", " ")} L ${points[points.length - 1].x} ${plotBaseline} Z` : null;
 
   return (
-    <section className="rounded-lg border border-border p-3" data-price-history-card data-product-id={productId}>
+    <section className="h-full rounded-lg border border-border p-3" data-price-history-card data-product-id={productId}>
       <p className="text-[11px] font-black text-primary">역대 최저가 추이</p>
-      <div className="relative mt-2 min-h-56 w-full overflow-visible" onMouseLeave={() => setHoveredIndex(null)}>
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-56 w-full overflow-visible" role="img" aria-label={`${productId} 저장 가격 이력 ${points.length}개`}>
-          <line x1={PADDING.left} y1={baseline} x2={WIDTH - PADDING.right} y2={baseline} className="stroke-border" strokeWidth="1" />
-          {areaPath && <path d={areaPath} fill="currentColor" opacity="0.12" className="text-accent" data-price-area />}
+      <div className="relative mt-2 min-h-64 w-full overflow-visible" onMouseLeave={() => setHoveredIndex(null)}>
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-64 w-full overflow-visible" role="img" aria-label={`${productId} 저장 가격 이력 ${points.length}개`}>
+          <line x1={PADDING.left} y1={plotBaseline} x2={WIDTH - PADDING.right} y2={plotBaseline} className="stroke-border/40" strokeWidth="1" data-price-plot-baseline />
+          {areaPath && <path d={areaPath} fill="currentColor" opacity="0.12" className="text-accent" data-price-area data-area-baseline={plotBaseline} />}
           {points.length > 1 && <polyline points={polyline} fill="none" stroke="currentColor" strokeWidth="3" className="text-accent" vectorEffect="non-scaling-stroke" />}
+          <line x1={PADDING.left} y1={PRICE_HISTORY_CHART_LAYOUT.axisY} x2={WIDTH - PADDING.right} y2={PRICE_HISTORY_CHART_LAYOUT.axisY} className="stroke-border" strokeWidth="1" data-price-axis-baseline />
           {points.map((point, index) => {
             const isDisplayed = displayedIndex === index;
+            const isHistoricalLow = defaultIndex === index;
             return (
-              <g key={`${point.date}-${index}`} data-price-point data-date={point.date} data-price={point.lowestPrice}>
+              <g key={`${point.date}-${index}`} data-price-point data-date={point.date} data-price={point.lowestPrice} data-historical-lowest={isHistoricalLow || undefined}>
                 {isDisplayed && <circle cx={point.x} cy={point.y} r="12" fill="currentColor" opacity="0.14" className="pointer-events-none text-accent" data-price-highlight-halo aria-hidden="true" />}
                 <circle
                   cx={point.x}
@@ -114,8 +134,8 @@ export default function PriceHistoryChart({ productId, history }: { productId: s
                   className="cursor-pointer fill-card stroke-accent outline-none transition-all focus:stroke-[5px]"
                   strokeWidth={isDisplayed ? 4 : 3}
                 />
-                {(index === 0 || index === points.length - 1 || index % labelInterval === 0) && (
-                  <text x={point.x} y={PRICE_HISTORY_CHART_LAYOUT.axisLabelY} textAnchor="middle" className="fill-muted-foreground text-xs">{formatPriceHistoryAxisDate(point.date)}</text>
+                {axisLabelIndexes.has(index) && (
+                  <text x={point.x} y={PRICE_HISTORY_CHART_LAYOUT.axisLabelY} textAnchor="middle" className="fill-muted-foreground text-sm">{formatPriceHistoryAxisDate(point.date)}</text>
                 )}
               </g>
             );

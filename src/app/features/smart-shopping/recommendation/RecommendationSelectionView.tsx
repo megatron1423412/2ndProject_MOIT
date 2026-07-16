@@ -123,7 +123,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
 
   const backToList = () => {
     sessionDispatch({ type: "deactivate-interactions" });
-    appendText("user-action", "제품 목록으로 돌아가기");
+    appendText("user-action", "목록 다시 보기");
     appendText("assistant-text", "이전에 확인한 조건으로 상품 목록을 다시 보여드릴게요.");
     const reusableSnapshot = session.recommendationSnapshot ?? createRecommendationSnapshot({ query, recommendations: activeRecommendations, catalogSource, naverItems, naverStatus, naverErrorMessage: errorMessage });
     appendRecommendation(reusableSnapshot);

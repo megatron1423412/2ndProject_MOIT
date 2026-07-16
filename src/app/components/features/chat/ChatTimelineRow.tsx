@@ -7,8 +7,9 @@ export default function ChatTimelineRow({ kind, children }: { kind: ChatTimeline
   const alignment = kind === "user" ? "justify-end" : "justify-start";
   return (
     <div
-      className={kind === "wide" ? "w-full min-w-0" : `flex w-full min-w-0 ${alignment}`}
+      className={kind === "wide" ? "w-full min-w-0 self-stretch" : `flex w-full min-w-0 max-w-none self-stretch ${alignment}`}
       data-chat-timeline-row={kind}
+      data-chat-rail-width="outer"
     >
       {children}
     </div>

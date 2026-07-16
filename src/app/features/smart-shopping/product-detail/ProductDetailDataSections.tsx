@@ -28,20 +28,22 @@ export default function ProductDetailDataSections({
         <p className="text-[11px] font-black text-primary">AI 리뷰 요약</p>
         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{reviewSummary ?? "저장된 AI 리뷰 요약이 없습니다."}</p>
       </section>
-      <div className="mt-3 grid items-start gap-3 md:grid-cols-2" data-detail-strengths-chart-row>
-        <section className="rounded-lg border border-border p-3" data-strengths-card>
+      <div className="mt-3 grid items-stretch gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(16rem,0.85fr)] md:grid-rows-[auto_auto]" data-detail-lower-grid>
+        <div className="min-w-0 md:row-span-2" data-detail-chart-column>
+          <PriceHistoryChart productId={productId} history={priceHistory} />
+        </div>
+        <section className="rounded-lg border border-border p-3" data-strengths-card data-detail-right-top>
           <p className="text-[11px] font-black text-primary">장점</p>
           {strengths.length
             ? strengths.map((item) => <p key={item} className="mt-1 text-xs text-muted-foreground">+ {item}</p>)
             : <p className="mt-2 text-xs text-muted-foreground">등록된 장점 정보가 없습니다.</p>}
         </section>
-        <PriceHistoryChart productId={productId} history={priceHistory} />
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" data-price-summary>
-        <PriceMetric label="현재가" value={Number.isFinite(currentPrice) && currentPrice > 0 ? won(currentPrice) : "이용 불가"} sub={currentPriceLabel} />
-        <PriceMetric label="역대 최저가" value={summary ? won(summary.allTimeLow) : "이용 불가"} />
-        <PriceMetric label="평균가" value={summary ? won(summary.averagePrice) : "이용 불가"} />
-        <PriceMetric label="최저가 대비" value={summary ? `${signedWon(summary.differenceFromLow)} (${summary.percentAboveLow}%)` : "이용 불가"} />
+        <div className="grid grid-cols-2 gap-2" data-price-summary data-detail-right-bottom>
+          <PriceMetric label="현재가" value={Number.isFinite(currentPrice) && currentPrice > 0 ? won(currentPrice) : "이용 불가"} sub={currentPriceLabel} />
+          <PriceMetric label="역대 최저가" value={summary ? won(summary.allTimeLow) : "이용 불가"} />
+          <PriceMetric label="평균가" value={summary ? won(summary.averagePrice) : "이용 불가"} />
+          <PriceMetric label="최저가 대비" value={summary ? `${signedWon(summary.differenceFromLow)} (${summary.percentAboveLow}%)` : "이용 불가"} />
+        </div>
       </div>
     </>
   );
