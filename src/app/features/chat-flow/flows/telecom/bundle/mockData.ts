@@ -21,21 +21,21 @@ export const mockBundlePlans: BundlePlan[] = [
   {
     id: "bundle-sk-all",
     carrier: "SK",
-    name: "SK 온가족할인 결합 패키지 (이동전화+인터넷+IPTV)",
+    name: "[더미] SK 온가족할인 결합 패키지 (이동전화+인터넷+IPTV)",
     price: 55000,
     services: ["phone", "internet", "iptv"],
   },
   {
     id: "bundle-sk-dual",
     carrier: "SK",
-    name: "SK 온가족 프리미엄 실속 결합 (이동전화+인터넷)",
+    name: "[더미] SK 온가족 프리미엄 실속 결합 (이동전화+인터넷)",
     price: 44000,
     services: ["phone", "internet"],
   },
   {
     id: "bundle-sk-full",
     carrier: "SK",
-    name: "SK 온가족 올인원 결합 (이동전화+인터넷+IPTV+집전화)",
+    name: "[더미] SK 온가족 올인원 결합 (이동전화+인터넷+IPTV+집전화)",
     price: 62000,
     services: ["phone", "internet", "iptv", "home-phone"],
   },
@@ -44,21 +44,21 @@ export const mockBundlePlans: BundlePlan[] = [
   {
     id: "bundle-kt-all",
     carrier: "KT",
-    name: "KT 총액 결합할인 패키지 (이동전화+인터넷+IPTV)",
+    name: "[더미] KT 총액 결합할인 패키지 (이동전화+인터넷+IPTV)",
     price: 58000,
     services: ["phone", "internet", "iptv"],
   },
   {
     id: "bundle-kt-dual",
     carrier: "KT",
-    name: "KT 패밀리 안심 결합 (이동전화+인터넷)",
+    name: "[더미] KT 패밀리 안심 결합 (이동전화+인터넷)",
     price: 46200,
     services: ["phone", "internet"],
   },
   {
     id: "bundle-kt-full",
     carrier: "KT",
-    name: "KT 홈 패키지 플러스 (이동전화+인터넷+IPTV+집전화)",
+    name: "[더미] KT 홈 패키지 플러스 (이동전화+인터넷+IPTV+집전화)",
     price: 65000,
     services: ["phone", "internet", "iptv", "home-phone"],
   },
@@ -67,21 +67,21 @@ export const mockBundlePlans: BundlePlan[] = [
   {
     id: "bundle-lgu-all",
     carrier: "LGU",
-    name: "LGU+ 참 쉬운 가족 결합 패키지 (이동전화+인터넷+IPTV)",
+    name: "[더미] LGU+ 참 쉬운 가족 결합 패키지 (이동전화+인터넷+IPTV)",
     price: 54000,
     services: ["phone", "internet", "iptv"],
   },
   {
     id: "bundle-lgu-dual",
     carrier: "LGU",
-    name: "LGU+ 와이파이 결합 (이동전화+인터넷)",
+    name: "[더미] LGU+ 와이파이 결합 (이동전화+인터넷)",
     price: 42900,
     services: ["phone", "internet"],
   },
   {
     id: "bundle-lgu-full",
     carrier: "LGU",
-    name: "LGU+ 홈 투게더 결합 (이동전화+인터넷+IPTV+집전화)",
+    name: "[더미] LGU+ 홈 투게더 결합 (이동전화+인터넷+IPTV+집전화)",
     price: 60500,
     services: ["phone", "internet", "iptv", "home-phone"],
   },
@@ -90,24 +90,46 @@ export const mockBundlePlans: BundlePlan[] = [
   {
     id: "bundle-skylife-all",
     carrier: "SKYLIFE",
-    name: "스카이라이프 홈 결합 패키지 (이동전화+인터넷+IPTV)",
+    name: "[더미] 스카이라이프 홈 결합 패키지 (이동전화+인터넷+IPTV)",
     price: 38500,
     services: ["phone", "internet", "iptv"],
   },
   {
     id: "bundle-skylife-dual",
     carrier: "SKYLIFE",
-    name: "스카이라이프 실속 결합 (이동전화+인터넷)",
+    name: "[더미] 스카이라이프 실속 결합 (이동전화+인터넷)",
     price: 29700,
     services: ["phone", "internet"],
   },
   {
     id: "bundle-skylife-full",
     carrier: "SKYLIFE",
-    name: "스카이라이프 올인원 (이동전화+인터넷+IPTV+집전화)",
+    name: "[더미] 스카이라이프 올인원 (이동전화+인터넷+IPTV+집전화)",
     price: 44000,
     services: ["phone", "internet", "iptv", "home-phone"],
   },
+  // 테스트용 시나리오 플랜 추가
+  {
+    id: "bundle-test-gold",
+    carrier: "알뜰폰+최저가결합",
+    name: "[더미] 모바일 알뜰폰 + 인터넷/TV 최저가 결합",
+    price: 55000,
+    services: ["phone", "internet", "iptv"],
+  },
+  {
+    id: "bundle-test-silver",
+    carrier: "알뜰가족결합",
+    name: "[더미] 알뜰폰 가족 연계 전부 결합",
+    price: 100000,
+    services: ["phone", "internet", "iptv"],
+  },
+  {
+    id: "bundle-test-bronze",
+    carrier: "인터넷+TV저가결합",
+    name: "[더미] 인터넷 + IPTV 저가 알뜰망 결합",
+    price: 62000,
+    services: ["phone", "internet", "iptv"],
+  }
 ];
 
 // 🔄 10번 질문: 결합 조건에 따른 추천 결합 요금제 API 매칭 함수
@@ -119,11 +141,11 @@ export const fetchBundlePlansFromApi = (carrier: string, currentFee: number) => 
 
   const feeLabel = typeof currentFee === "number" ? currentFee.toLocaleString("ko-KR") : "0";
 
-  let planName = `${carrierLabel} 온가족 결합상품`;
+  let planName = `[더미] ${carrierLabel} 온가족 결합상품`;
   if (currentFee >= 60000) {
-    planName = `${carrierLabel} 프리미엄 패밀리 결합`;
+    planName = `[더미] ${carrierLabel} 프리미엄 패밀리 결합`;
   } else if (currentFee < 40000) {
-    planName = `${carrierLabel} 실속 세이브 결합`;
+    planName = `[더미] ${carrierLabel} 실속 세이브 결합`;
   }
 
   return [

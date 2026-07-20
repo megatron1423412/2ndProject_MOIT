@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { naverShoppingProxy } from './server/naverShoppingProxy'
 import { productQuestionRoute } from './server/productQuestionRoute'
+import { telecomOllamaRoute } from './server/telecomOllamaRoute'
 
 
 function figmaAssetResolver() {
@@ -32,6 +33,13 @@ export default defineConfig(({ mode }) => {
       clientSecret: serverEnv.NAVER_CLIENT_SECRET,
     }),
     productQuestionRoute({ apiKey: serverEnv.OPENAI_API_KEY }),
+    telecomOllamaRoute({
+      ollamaUrl: serverEnv.VITE_OLLAMA_API_URL,
+      ollamaModel: serverEnv.VITE_OLLAMA_MODEL,
+      internetApiKey: serverEnv.VITE_INTERNET_API_KEY,
+      smartchoiceApiKey: serverEnv.SMARTCHOICE_API_KEY,
+      smartchoiceUrl: serverEnv.SMARTCHOICE_URL,
+    }),
   ],
   resolve: {
     alias: {

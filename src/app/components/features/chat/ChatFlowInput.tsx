@@ -116,6 +116,142 @@ export default function ChatFlowInput({
   if (!step) return null;
 
   if (step.type === "single-choice") {
+    if (step.id === "Q_P2_2" || step.id === "Q_P2_1") {
+      const hasPenalty = answers && (
+        answers["bundle.allPenalty"] || 
+        answers["bundle.ptaPenalty"] || 
+        answers["bundle.ptbPenalty"] || 
+        answers["bundle.diffPenalty"] ||
+        answers["bundle.ptaComboPenalty"] ||
+        answers["bundle.ptbComboPenalty"] ||
+        answers["bundle.diffInternetPenalty"] ||
+        answers["bundle.diffTvPenalty"] ||
+        answers["bundle.newAPenalty"] ||
+        answers["bundle.newBPenalty"]
+      );
+
+      const cardOptions = [
+        {
+          value: "mvno",
+          label: "고정 비용 최소화 추천",
+          description: "알뜰폰·케이블 최저가 위주로 추천해드려요"
+        },
+        {
+          value: "mno",
+          label: "품질 및 결합 혜택 우선 추천",
+          description: "대기업 3사 결합 위주로 추천해드려요"
+        },
+        {
+          value: "any",
+          label: "위약금 대비 실질 이득 추천",
+          description: "위약금을 내고 갈아타도 진짜 이득인지 비교해드려요",
+          subDescription: hasPenalty 
+            ? undefined 
+            : "- 위약금을 입력하지 않았을 경우, 정확한 진단이 어렵습니다. 제일 저렴한 상품 중심으로 추천됩니다."
+        }
+      ];
+
+      return (
+        <div className="flex flex-col gap-3 w-full max-w-md">
+          {cardOptions.map((opt) => {
+            const userSelectedThis = answers && answers[step.answerKey] === opt.value;
+            let borderClass = "";
+            if (isHistorical) {
+              if (userSelectedThis) {
+                borderClass = "border-indigo-500 bg-indigo-500/10 opacity-90 cursor-not-allowed";
+              } else {
+                borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
+              }
+            } else {
+              borderClass = "border-border bg-card hover:border-indigo-500/50 hover:bg-indigo-500/5 active:scale-[0.99] cursor-pointer";
+            }
+
+            return (
+              <div
+                key={opt.value}
+                onClick={isHistorical ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
+                className={`flex flex-col gap-1 rounded-xl border p-4 text-left shadow-sm transition-all duration-200 ${borderClass}`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-black text-primary">
+                    {opt.label}
+                  </span>
+                  {isHistorical && userSelectedThis && (
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                      선택됨 ✓
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {opt.description}
+                </p>
+                {opt.subDescription && (
+                  <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-500 leading-normal">
+                    {opt.subDescription}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (step.id === "Q_NEW_SELECT") {
+      const cardOptions = [
+        {
+          value: "new_mobile",
+          label: "모바일 요금제도 새로 가입할래요",
+          description: "신규가입/번호이동"
+        },
+        {
+          value: "keep_mobile",
+          label: "모바일 요금제 유지",
+          description: "결합 필요"
+        }
+      ];
+
+      return (
+        <div className="flex flex-col gap-3 w-full max-w-md">
+          {cardOptions.map((opt) => {
+            const userSelectedThis = answers && answers[step.answerKey] === opt.value;
+            let borderClass = "";
+            if (isHistorical) {
+              if (userSelectedThis) {
+                borderClass = "border-indigo-500 bg-indigo-500/10 opacity-90 cursor-not-allowed";
+              } else {
+                borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
+              }
+            } else {
+              borderClass = "border-border bg-card hover:border-indigo-500/50 hover:bg-indigo-500/5 active:scale-[0.99] cursor-pointer";
+            }
+
+            return (
+              <div
+                key={opt.value}
+                onClick={isHistorical ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
+                className={`flex flex-col gap-1 rounded-xl border p-4 text-left shadow-sm transition-all duration-200 ${borderClass}`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-black text-primary">
+                    {opt.label}
+                  </span>
+                  {isHistorical && userSelectedThis && (
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                      선택됨 ✓
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {opt.description}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
     if (
       step.id === "phone-ask-grade" ||
       step.id === "internet-ask-grade" ||
@@ -168,8 +304,70 @@ export default function ChatFlowInput({
         </div>
       );
     }
+    if (
+      step.id === "phone-current-plans-list" ||
+      step.id === "internet-current-plans-list" ||
+      step.id === "iptv-current-plans-list" ||
+      step.id === "bundle-current-plans-list"
+    ) {
+      const planOptions = step.options.filter((o) => o.value !== "none-of-them");
+      const noneOfThemOption = step.options.find((o) => o.value === "none-of-them");
 
-    if (step.id === "phone-current-plan-api" || step.id === "internet-current-plan-api" || step.id === "iptv-current-plan-api") {
+      return (
+        <div className="flex flex-col gap-3 w-full max-w-md">
+          <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+            {planOptions.map((opt) => {
+              const userSelectedThis = answers && answers[step.answerKey] === opt.value;
+              let borderClass = "";
+              if (isHistorical) {
+                if (userSelectedThis) {
+                  borderClass = "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed";
+                } else {
+                  borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
+                }
+              } else {
+                borderClass = "border-border bg-card hover:border-emerald-500/50 hover:bg-emerald-500/5 active:scale-[0.99] cursor-pointer";
+              }
+
+              return (
+                <div
+                  key={opt.value}
+                  onClick={isHistorical ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
+                  className={`flex flex-col gap-1 rounded-xl border p-3.5 text-left shadow-sm transition-all duration-200 ${borderClass}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-primary">
+                      {opt.label.split(" (월 ")[0]}
+                    </span>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      {(opt.label.match(/월\s*([\d,]+원)/)?.[1]) || ""}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {!isHistorical && noneOfThemOption && (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => onSubmit({ value: noneOfThemOption.value, displayValue: noneOfThemOption.label })}
+                className="rounded-full border border-border bg-card px-4 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
+              >
+                {noneOfThemOption.label}
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (
+      step.id === "phone-current-plan-api" ||
+      step.id === "internet-current-plan-api" ||
+      step.id === "iptv-current-plan-api" ||
+      step.id === "bundle-current-plan-api"
+    ) {
       const planOption = step.options.find(
         (o) => o.value !== "direct-select" && o.value !== "direct-input"
       );

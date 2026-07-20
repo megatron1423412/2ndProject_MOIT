@@ -1,6 +1,7 @@
-import React from "react";
-import { CheckCircle2, ShieldAlert, Sparkles, ExternalLink, Activity, Wifi, Laptop, ArrowRightLeft, Users } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { CheckCircle2, ShieldAlert, Sparkles, ExternalLink, Activity, Wifi, Laptop, ArrowRightLeft, Users, Bot, Loader2 } from "lucide-react";
 import type { FlowResult } from "../../../core/types";
+import { generateTelecomComment, buildInternetCommentPrompt } from "../shared/telecomApi";
 
 interface InternetDiagnosisReportProps {
   result: FlowResult;
@@ -23,12 +24,40 @@ const speedMap: Record<string, string> = {
   unknown: "미확인 (기본형)",
 };
 
+import { MOCK_ALL_INTERNET_PLANS } from "./mockData";
+
 export default function InternetDiagnosisReport({ result }: InternetDiagnosisReportProps) {
   const answers = result.metadata?.answers || {};
   
   const carrier = answers["internet.commonCarrier"] || "KT";
-  const currentSpeedKey = answers["internet.currentSpeed"] || "500";
   const currentFee = Number(answers["internet.fee"]) || 0;
+
+  const confirmedPlanId = answers["internet.confirmedPlan"] || answers["internet.confirmedPlanList"] || "";
+  const customPlan = answers["internet.customPlan"] as string;
+
+  let currentSpeedKey = answers["internet.currentSpeed"] || "500";
+  if (confirmedPlanId.includes("plan-internet-1") || confirmedPlanId.includes("100Mbps")) {
+    currentSpeedKey = "100";
+  } else if (confirmedPlanId.includes("plan-internet-2") || confirmedPlanId.includes("500Mbps")) {
+    currentSpeedKey = "500";
+  } else if (confirmedPlanId.includes("plan-internet-3") || confirmedPlanId.includes("1Gbps") || confirmedPlanId.includes("1000")) {
+    currentSpeedKey = "1000";
+  } else if (confirmedPlanId.includes("plan-internet-4") || confirmedPlanId.includes("2.5Gbps")) {
+    currentSpeedKey = "1000";
+  }
+
+  let currentPlanName = "";
+  if (customPlan) {
+    currentPlanName = customPlan;
+  } else {
+    const matchedPlan = MOCK_ALL_INTERNET_PLANS.find(p => p.value === confirmedPlanId);
+    if (matchedPlan) {
+      currentPlanName = matchedPlan.label.split(" (월 ")[0];
+    } else {
+      currentPlanName = speedMap[currentSpeedKey] || currentSpeedKey;
+    }
+  }
+
   const contractPeriod = answers["internet.contractPeriod"] || "unknown";
   const householdSize = Number(answers["internet.householdSize"]) || 1;
   const deviceCount = Number(answers["internet.deviceCount"]) || 1;
@@ -64,6 +93,33 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
   // 약정 만료 여부 혜택 설명
   const isExpired = contractPeriod === "expired";
 
+  // 선택 요금제 정보 (사용자가 internet-recommendation-api 또는 internet-all-plans-select 에서 고른 값)
+  const selectedPlanRaw = (answers["internet.selectedRecommendedPlan"] || answers["internet.manualSelectedPlan"] || "") as string;
+  const selectedSpeedKey = answers["internet.desiredSpeed"] as string || recommendedSpeedKey;
+  const selectedPrice = standardPrices[selectedSpeedKey] ?? recommendedPrice;
+  const selectedPlanName = `인터넷 ${speedMap[selectedSpeedKey] || selectedSpeedKey}`;
+
+  // ── Ollama AI 코멘트 ────────────────────────────────────────
+  const [aiComment, setAiComment] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const prompt = buildInternetCommentPrompt({
+      carrier: (carrierMap[carrier as string] || carrier as string),
+      currentFee,
+      selectedPlanName,
+      selectedFee: selectedPrice,
+      desiredSpeed: selectedSpeedKey,
+      contractPeriod: contractPeriod as string,
+    });
+    generateTelecomComment(prompt, "internet").then((comment) => {
+      if (!cancelled) { setAiComment(comment); setAiLoading(false); }
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="w-full max-w-2xl rounded-2xl border border-border/80 bg-gradient-to-b from-card to-background p-6 shadow-md transition-all hover:shadow-lg">
       
@@ -90,7 +146,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
       {/* 현재 사용중 요약 */}
       <div className="mt-5 rounded-xl bg-muted/20 p-4 border border-border/40 text-xs sm:text-sm">
         <p className="font-black text-primary leading-relaxed text-center">
-          현재 당신의 요금제는 <span className="text-accent font-extrabold">"{speedMap[currentSpeedKey] || currentSpeedKey}"</span> 입니다.
+          현재 당신의 요금제는 <span className="text-accent font-extrabold">"{currentPlanName}"</span> 입니다.
         </p>
       </div>
 
@@ -105,7 +161,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
             </span>
           </div>
           <h4 className="mt-2 text-sm font-black text-primary truncate">
-            {speedMap[currentSpeedKey]}
+            {currentPlanName}
           </h4>
           <div className="mt-4 flex items-baseline gap-1">
             <span className="text-lg font-black text-primary">{fmt(currentFee)}</span>
@@ -226,8 +282,27 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
         )}
       </div>
 
+      {/* AI 맞춤 코멘트 (Ollama) */}
+      <div className="mt-6 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+        <div className="flex items-center gap-2 border-b border-violet-500/10 pb-2">
+          <Bot className="text-violet-500" size={14} />
+          <span className="text-xs font-black text-violet-600 dark:text-violet-400">AI 맞춤 절약 가이드</span>
+          <span className="ml-auto rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-500">Ollama</span>
+        </div>
+        {aiLoading ? (
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 size={13} className="animate-spin text-violet-400" />
+            AI가 맞춤 가이드를 생성 중입니다...
+          </div>
+        ) : aiComment ? (
+          <p className="mt-3 text-xs leading-relaxed text-primary/90 font-medium whitespace-pre-wrap">{aiComment}</p>
+        ) : (
+          <p className="mt-3 text-xs text-muted-foreground/70">AI 가이드를 불러올 수 없습니다. Ollama가 실행 중인지 확인해 주세요.</p>
+        )}
+      </div>
+
       {/* 6. 상세 연동 및 하단 안내 */}
-      <div className="mt-6 flex flex-col gap-2">
+      <div className="mt-4 flex flex-col gap-2">
         <a
           href="https://www.mvnohub.kr"
           target="_blank"
@@ -237,8 +312,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
           통신사별 결합 할인 및 사은품 혜택 확인 <ExternalLink size={13} />
         </a>
         <p className="text-[10px] text-center text-muted-foreground/60 leading-normal">
-          본 리포트는 고객님이 입력하신 정보와 표준 요율을 비교하여 작성되었습니다. 
-          결합된 모바일 개수 및 제휴 카드 사용 조건에 따라 실제 월 납부금은 더 낮아질 수 있습니다.
+          본 리포트는 고객님이 입력하신 정보와 표준 요율을 비교하여 작성되었습니다. 실제 월 납부금은 더 낮아질 수 있습니다.
         </p>
       </div>
 

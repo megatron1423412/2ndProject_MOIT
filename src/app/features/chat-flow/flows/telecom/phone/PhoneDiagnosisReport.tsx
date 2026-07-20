@@ -1,7 +1,16 @@
-import React from "react";
-import { CheckCircle2, ClipboardCheck, ArrowRightLeft, ShieldAlert, Sparkles, ExternalLink, Activity } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { CheckCircle2, ClipboardCheck, ArrowRightLeft, ShieldAlert, Sparkles, ExternalLink, Activity, Bot, Loader2 } from "lucide-react";
 import type { FlowResult } from "../../../core/types";
 import { getPlanSpec } from "./mockData";
+import {
+  generateTelecomComment,
+  buildPhoneCommentPrompt,
+  mapDataVolumeToMB,
+  mapNetworkToType,
+  mapAgeGroupToAge,
+  fetchSmartChoicePhonePlans,
+  mapContractToDis,
+} from "../shared/telecomApi";
 
 interface PhoneDiagnosisReportProps {
   result: FlowResult;
@@ -14,16 +23,95 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
   
   const carrier = answers["phone.carrier"] || "skt";
   const currentFee = Number(answers["phone.currentFee"]) || 0;
-  const confirmedPlanRaw = answers["phone.confirmedPlan"] || "";
-  const confirmedPlan = (confirmedPlanRaw === "direct-input" || confirmedPlanRaw === "direct-select")
-    ? (answers["phone.customPlan"] || "")
-    : (confirmedPlanRaw || answers["phone.customPlan"] || "");
+  const confirmedPlanRaw = answers["phone.confirmedPlan"] || answers["phone.confirmedPlanList"] || "";
+  let confirmedPlan = "";
+  if (confirmedPlanRaw.startsWith("plan-api|")) {
+    confirmedPlan = confirmedPlanRaw.split("|")[1];
+  } else if (confirmedPlanRaw === "direct-input" || confirmedPlanRaw === "direct-select" || confirmedPlanRaw === "none-of-them") {
+    const listRaw = answers["phone.confirmedPlanList"] || "";
+    if (listRaw.startsWith("plan-api|")) {
+      confirmedPlan = listRaw.split("|")[1];
+    } else if (listRaw && listRaw !== "none-of-them") {
+      confirmedPlan = listRaw;
+    } else {
+      confirmedPlan = answers["phone.customPlan"] || "";
+    }
+  } else {
+    confirmedPlan = confirmedPlanRaw || answers["phone.customPlan"] || "";
+  }
   const selectedRecommendedPlan = answers["phone.selectedRecommendedPlan"] || "rec-mock-1";
-  const dataVolume = answers["phone.dataVolume"] || "mid";
+  const dataVolume = (answers["phone.dataVolume"] || "mid") as string;
+  const ageGroup = (answers["phone.ageGroup"] || "normal") as string;
+  const desiredNetwork = (answers["phone.desiredNetwork"] || "5g") as string;
 
-  // 기존 요금제 스펙 & 추천 요금제 스펙 매칭
+  // ── 스마트초이스 실시간 API 요금제 페칭 ───────────────────────
+  const [apiPlan, setApiPlan] = useState<any | null>(null);
+  const [apiLoading, setApiLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const reqData = mapDataVolumeToMB(dataVolume);
+    const reqAge = mapAgeGroupToAge(ageGroup);
+    const reqType = mapNetworkToType(desiredNetwork);
+    const reqDis = mapContractToDis(answers["phone.discountOption"] ? (answers["phone.discountOption"] as string[]).join(",") : undefined);
+
+    fetchSmartChoicePhonePlans({
+      voice: "999999",
+      data: reqData,
+      sms: "999999",
+      age: reqAge,
+      type: reqType,
+      dis: reqDis
+    }).then((res) => {
+      if (cancelled) return;
+      if (res.success && res.plans && res.plans.length > 0) {
+        const p = res.plans[0]; // 가장 조건에 잘 맞는 최저가/추천 요금제
+        
+        let dataValueMB = 10240;
+        const gbMatch = p.data.match(/(\d+)GB/);
+        const mbMatch = p.data.match(/(\d+)MB/);
+        if (gbMatch) dataValueMB = parseInt(gbMatch[1], 10) * 1024;
+        else if (mbMatch) dataValueMB = parseInt(mbMatch[1], 10);
+        else if (p.data.includes("무제한")) dataValueMB = 102400;
+
+        const qosMatch = p.data.match(/(\d+(Mbps|kbps))/);
+        const qosSpeed = qosMatch ? qosMatch[1] : undefined;
+        const hasQos = p.data.includes("속도제어") || p.data.includes("QoS") || !!qosSpeed;
+
+        let voiceMin = 300;
+        const voiceMatch = p.voice.match(/(\d+)분/);
+        if (voiceMatch) voiceMin = parseInt(voiceMatch[1], 10);
+        else if (p.voice.includes("기본") || p.voice.includes("무제한")) voiceMin = 9999;
+
+        let smsCount = 100;
+        if (p.sms.includes("기본") || p.sms.includes("무제한")) smsCount = 9999;
+
+        setApiPlan({
+          carrier: p.telecom,
+          name: p.planName,
+          price: p.monthlyFee,
+          ageLimit: "스마트초이스 추천 기준",
+          signUpMethod: "온라인/오프라인",
+          data: p.data,
+          dataValueMB,
+          hasQos,
+          qosSpeed,
+          voice: p.voice,
+          voiceMin,
+          sms: p.sms,
+          smsCount,
+          link: p.link || "https://www.smartchoice.or.kr",
+        });
+      }
+      setApiLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [dataVolume, ageGroup, desiredNetwork, answers]);
+
+  // 기존 요금제 스펙 & 추천 요금제 스펙 매칭 (API 결과가 있으면 최우선 적용)
   const currentSpec = getPlanSpec(confirmedPlan, carrier, currentFee, dataVolume);
-  const recommendedSpec = getPlanSpec(selectedRecommendedPlan);
+  const recommendedSpec = apiPlan || getPlanSpec(selectedRecommendedPlan);
 
   // 차액 계산
   const priceDiff = currentSpec.price - recommendedSpec.price;
@@ -45,12 +133,35 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
   const capBenefit = Math.round(Math.min(Math.max(0, dataDiffMB) * 22.53, 19800));
 
   // 데이터 구간 분류
-  // 5GB ~ 15GB 미만
   const isMidRange = dataDiffMB >= 5120 && dataDiffMB < 15360;
-  // 15GB ~ 30GB 미만
   const isHighRange = dataDiffMB >= 15360 && dataDiffMB < 30720;
-  // 30GB 이상 / 무제한
   const isUltraRange = dataDiffMB >= 30720;
+
+  // ── Ollama AI 코멘트 ────────────────────────────────────────
+  const [aiComment, setAiComment] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(true);
+
+  useEffect(() => {
+    if (apiLoading) return; // API 요금제 조회가 끝날 때까지 대기
+    
+    let cancelled = false;
+    const prompt = buildPhoneCommentPrompt({
+      carrier: currentSpec.carrier,
+      currentFee,
+      selectedPlanName: recommendedSpec.name,
+      selectedFee: recommendedSpec.price,
+      dataVolume,
+      ageGroup,
+    });
+    generateTelecomComment(prompt, "phone").then((comment) => {
+      if (!cancelled) {
+        setAiComment(comment);
+        setAiLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiLoading]);
 
   return (
     <div className="w-full max-w-2xl rounded-2xl border border-border/80 bg-gradient-to-b from-card to-background p-6 shadow-md transition-all hover:shadow-lg">
@@ -121,42 +232,53 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
         </div>
 
         {/* 추천 요금제 */}
-        <div className="relative rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 shadow-sm">
+        <div className="relative rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 shadow-sm min-h-[180px] flex flex-col justify-between">
           <div className="absolute -top-2.5 right-3 rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-black text-white shadow-sm">
             RECOMMENDED SPEC
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-emerald-600 uppercase">OPTIMAL SPEC</span>
-            <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
-              {recommendedSpec.carrier}
-            </span>
-          </div>
-          <h4 className="mt-2 text-sm font-black text-primary truncate">
-            {recommendedSpec.name}
-          </h4>
-          <div className="mt-4 flex items-baseline gap-1">
-            <span className="text-lg font-black text-emerald-600">{fmt(recommendedSpec.price)}</span>
-            <span className="text-xs text-muted-foreground">원/월</span>
-          </div>
+          {apiLoading ? (
+            <div className="flex flex-col items-center justify-center flex-1 py-8 gap-2">
+              <Loader2 size={20} className="animate-spin text-emerald-500" />
+              <span className="text-xs text-muted-foreground font-black">실시간 요금제 조회 중...</span>
+            </div>
+          ) : (
+            <>
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold text-emerald-600 uppercase">OPTIMAL SPEC</span>
+                  <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
+                    {recommendedSpec.carrier}
+                  </span>
+                </div>
+                <h4 className="mt-2 text-sm font-black text-primary truncate" title={recommendedSpec.name}>
+                  {recommendedSpec.name}
+                </h4>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className="text-lg font-black text-emerald-600">{fmt(recommendedSpec.price)}</span>
+                  <span className="text-xs text-muted-foreground">원/월</span>
+                </div>
+              </div>
 
-          <div className="mt-4 border-t border-emerald-500/20 pt-3 flex flex-col gap-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">사용가능 데이터</span>
-              <span className="font-bold text-primary">{recommendedSpec.data}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">무료 통화 시간</span>
-              <span className="font-bold text-primary">
-                {recommendedSpec.voiceMin === 9999 ? "무제한" : `${recommendedSpec.voiceMin}분`}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">무료 문자 건수</span>
-              <span className="font-bold text-primary">
-                {recommendedSpec.smsCount === 9999 ? "기본제공" : `${recommendedSpec.smsCount}건`}
-              </span>
-            </div>
-          </div>
+              <div className="mt-4 border-t border-emerald-500/20 pt-3 flex flex-col gap-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">사용가능 데이터</span>
+                  <span className="font-bold text-primary">{recommendedSpec.data}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">무료 통화 시간</span>
+                  <span className="font-bold text-primary">
+                    {recommendedSpec.voiceMin === 9999 ? "무제한" : `${recommendedSpec.voiceMin}분`}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">무료 문자 건수</span>
+                  <span className="font-bold text-primary">
+                    {recommendedSpec.smsCount === 9999 ? "기본제공" : `${recommendedSpec.smsCount}건`}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -268,8 +390,27 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
         </div>
       )}
 
-      {/* 7. 부가서비스 링크 버튼 */}
-      <div className="mt-6 flex flex-col gap-2.5">
+      {/* 7. AI 맞춤 코멘트 (Ollama) */}
+      <div className="mt-6 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+        <div className="flex items-center gap-2 border-b border-violet-500/10 pb-2">
+          <Bot className="text-violet-500" size={14} />
+          <span className="text-xs font-black text-violet-600 dark:text-violet-400">AI 맞춤 절약 가이드</span>
+          <span className="ml-auto rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-500">Ollama</span>
+        </div>
+        {aiLoading ? (
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 size={13} className="animate-spin text-violet-400" />
+            AI가 맞춤 가이드를 생성 중입니다...
+          </div>
+        ) : aiComment ? (
+          <p className="mt-3 text-xs leading-relaxed text-primary/90 font-medium whitespace-pre-wrap">{aiComment}</p>
+        ) : (
+          <p className="mt-3 text-xs text-muted-foreground/70">AI 가이드를 불러올 수 없습니다. Ollama가 실행 중인지 확인해 주세요.</p>
+        )}
+      </div>
+
+      {/* 8. 부가서비스 링크 버튼 */}
+      <div className="mt-4 flex flex-col gap-2.5">
         <a
           href={recommendedSpec.link}
           target="_blank"
@@ -279,8 +420,9 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
           {recommendedSpec.carrier} 요금제 상세 정보 및 부가서비스 확인 <ExternalLink size={13} />
         </a>
         <p className="text-[10px] text-center text-muted-foreground/60 leading-normal">
-          본 리포트는 고객님이 입력하신 정보를 바탕으로 모잇(MOIT)에서 계산한 참고용 자료입니다. 
-          실제 가입 시점의 결합 조건 및 프로모션에 따라 다를 수 있습니다.
+          본 리포트는 고객님이 입력하신 정보를 바탕으로 모잇(MOIT)에서 계산한 참고용 자료입니다.
+          실제 가입 시점의 결합 조건 및 프로모션에 따라 다를 수 있습니다.<br />
+          <span className="text-muted-foreground/50">[요금제 데이터 출처: 스마트초이스(https://www.smartchoice.or.kr)]</span>
         </p>
       </div>
 

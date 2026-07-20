@@ -8,6 +8,33 @@ import { buildIptvResult } from "./result";
 
 const namespace = "iptv";
 
+interface CachedPlan {
+  value: string;
+  label: string;
+  price: number;
+}
+
+const planCache: Record<string, CachedPlan[]> = {};
+
+export function prefetchPlans(carrier: string) {
+  if (planCache[carrier]) return;
+
+  let carrierKey = "KT";
+  if (carrier && carrier.startsWith("sk")) carrierKey = "SKT";
+  else if (carrier && carrier.startsWith("lg")) carrierKey = "LGU+";
+
+  let matching = mockIptvPlans.filter((p) => p.carrier === carrierKey);
+  if (matching.length === 0) {
+    matching = mockIptvPlans;
+  }
+
+  planCache[carrier] = matching.map(p => ({
+    value: p.id,
+    label: `[${p.carrier}] ${p.name} (월 ${p.price.toLocaleString("ko-KR")}원)`,
+    price: p.price
+  }));
+}
+
 // providerType 값(value) -> 실제 노출용 라벨 매핑
 const providerTypeLabelMap: Record<string, string> = {
   sk_btv: "B tv(SK브로드밴드)",
@@ -68,43 +95,80 @@ const specific: FlowStep[] = [
     next: "iptv-current-plan-api", // 동적 API 조회 스텝으로 연결
   },
 
-  // [Part 1 - 4번] 🔄 요금조회 API 결과를 매칭하는 동적 스텝 (추천 요금제 카드 형식 노출)
+  // [Part 1 - 4번] 🔄 요금조회 API 결과를 매칭하는 동적 스텝
   {
     id: "iptv-current-plan-api",
     type: "single-choice",
     message: "현재 사용하시는 IPTV 요금제가 맞을까요?",
     answerKey: `${namespace}.confirmedPlan`,
     options: [
-      { value: "direct-select", label: "직접 선택", next: "iptv-choose-current-list" },
-      { value: "direct-input", label: "직접 입력", next: "iptv-manual-name-input" },
+      { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "iptv-current-plans-list" },
+      { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "iptv-manual-name-input" },
     ],
     optionsResolver: (answers) => {
-      const providerType = answers[`${namespace}.providerType`] as string;
-      const currentPrice = answers[`${namespace}.currentPlanPriceInput`] as number;
-      const apiPlans = fetchIptvPlansFromApi(providerType, currentPrice);
+      const providerType = answers[`iptv.providerType`] as string;
+      const currentPrice = answers[`iptv.currentPlanPriceInput`] as number;
+      
+      prefetchPlans(providerType);
+
+      const cached = planCache[providerType] || [];
+      // 1순위 후보 (금액 차이 3,000원 이하 가장 가까운 요금제 하나만 추천)
+      let matched = cached
+        .filter(p => Math.abs(p.price - currentPrice) <= 3000)
+        .slice(0, 1);
+
+      // 캐시에 결과가 아직 없거나 매칭되는 요금제가 없을 때, 입력 가격 기준 임시 요금제 카드를 항상 노출하여 카드 뷰를 유지합니다.
+      if (matched.length === 0) {
+        const apiPlans = fetchIptvPlansFromApi(providerType, currentPrice);
+        matched = apiPlans.map(p => ({
+          value: p.value,
+          label: p.label,
+          price: currentPrice
+        }));
+      }
+
       return [
-        ...apiPlans,
-        { value: "direct-select", label: "직접 선택", next: "iptv-choose-current-list" },
-        { value: "direct-input", label: "직접 입력", next: "iptv-manual-name-input" },
+        ...matched.map(m => ({ value: m.value, label: m.label, next: "iptv-contract-diagnosis" })),
+        { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "iptv-current-plans-list" },
+        { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "iptv-manual-name-input" },
       ];
     },
-    next: "iptv-contract-diagnosis",
+    next: "iptv-contract-diagnosis"
   },
 
-  // [Part 1 - 4-1번] 요금 리스트 직접 고르기
+  // [Part 1 - 4-1번] 🔄 입력 요금 기준 ±15,000원 범위 요금제 리스트 선택 스텝
   {
-    id: "iptv-choose-current-list",
+    id: "iptv-current-plans-list",
     type: "single-choice",
-    message: "현재 이용 중이신 요금제를 선택해주세요.",
-    answerKey: `${namespace}.currentPlanId`,
+    message: "입력하신 요금대와 비슷한 요금제 목록입니다. 현재 요금제를 선택해주세요.",
+    answerKey: `${namespace}.confirmedPlanList`,
     options: [
-      ...mockIptvPlans.map((plan) => ({
-        value: plan.id,
-        label: `[${plan.carrier}] ${plan.name} - 월 ${plan.price.toLocaleString()}원`,
-      })),
-      { value: "manual_fallback", label: "⚠️ 리스트에 내 요금제가 없음 (직접 입력)", next: "iptv-manual-name-input" },
+      { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "iptv-contract-diagnosis" }
     ],
-    next: "iptv-contract-diagnosis",
+    optionsResolver: (answers) => {
+      const providerType = answers[`iptv.providerType`] as string;
+      const currentPrice = answers[`iptv.currentPlanPriceInput`] as number;
+      
+      prefetchPlans(providerType);
+      const cached = planCache[providerType] || [];
+
+      // 유저 입력 요금 기준 ±15,000원 이하 요금제들 필터링
+      const matched = cached
+        .filter(p => Math.abs(p.price - currentPrice) <= 15000)
+        .sort((a, b) => Math.abs(a.price - currentPrice) - Math.abs(b.price - currentPrice));
+
+      if (matched.length > 0) {
+        return [
+          ...matched.map(m => ({ value: m.value, label: m.label, next: "iptv-contract-diagnosis" })),
+          { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "iptv-contract-diagnosis" }
+        ];
+      }
+
+      return [
+        { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "iptv-contract-diagnosis" }
+      ];
+    },
+    next: "iptv-contract-diagnosis"
   },
 
   // [Part 1 - 4-2번] 요금제 직접 입력
@@ -153,8 +217,8 @@ const specific: FlowStep[] = [
     message: "선택하신 약정 조건에 맞는 TV·IPTV 요금제 추천입니다. 변경을 고려 중이거나 관심 있는 요금제를 선택해주세요.\n※셋톱박스 대여, 출동비 별도※",
     answerKey: `${namespace}.selectedNewPlan`,
     options: [
-      { value: "iptv-sk-std", label: "[추천 1순위] Btv 스탠다드 (220개 채널) - 월 15,400원", next: "iptv-result" },
-      { value: "iptv-sk-all", label: "[추천 2순위] Btv All (252개 채널) - 월 19,800원", next: "iptv-result" },
+      { value: "iptv-sk-std", label: "[추천 1순위] [더미] Btv 스탠다드 (220개 채널) - 월 15,400원", next: "iptv-result" },
+      { value: "iptv-sk-all", label: "[추천 2순위] [더미] Btv All (252개 채널) - 월 19,800원", next: "iptv-result" },
       { value: "direct-choose", label: "직접 고를래요 (전체 리스트 보기)", next: "iptv-all-plans-select" },
     ],
     optionsResolver: (answers) => {

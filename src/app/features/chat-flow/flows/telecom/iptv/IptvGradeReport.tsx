@@ -16,13 +16,13 @@ export default function IptvGradeReport({ result, onEndChat }: IptvGradeReportPr
   const savingRate = Number(metadata.savingRate || 0);
   const answers = metadata.answers || {};
 
-  const currentPlanId = answers["iptv.currentPlanId"];
-  const inputMethod = answers["iptv.currentInputMethod"];
+  const confirmedPlanId = answers["iptv.confirmedPlan"] || answers["iptv.confirmedPlanList"] || "";
+  const planNameManual = answers["iptv.currentPlanNameManual"] as string;
 
   let currentChannels = 200; // 수동 입력 시 기본값 가정
 
-  if (inputMethod === "list" && currentPlanId && currentPlanId !== "manual_fallback") {
-    const foundPlan = mockIptvPlans.find((p) => p.id === currentPlanId);
+  if (!planNameManual && confirmedPlanId) {
+    const foundPlan = mockIptvPlans.find((p) => p.id === confirmedPlanId);
     if (foundPlan) {
       currentChannels = foundPlan.channels;
     }

@@ -115,6 +115,7 @@ export default function ChatScreen({
                       completed={isLast ? flow.completed : false}
                       onSubmit={flow.submitAnswer}
                       onReset={flow.reset}
+                      onGoBack={flow.goBack}
                       favorites={favorites}
                       onToggleFavoriteProduct={onToggleFavoriteProduct}
                       subCategoryId={subCategoryId}

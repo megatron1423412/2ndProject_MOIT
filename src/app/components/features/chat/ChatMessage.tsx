@@ -14,6 +14,7 @@ interface ChatMessageProps {
   completed?: boolean;
   onSubmit?: (answer: SubmittedFlowAnswer) => void;
   onReset?: () => void;
+  onGoBack?: () => void;
   favorites?: FavoriteProduct[];
   onToggleFavoriteProduct?: (productId: string, draft: FavoriteDraft) => void;
   subCategoryId?: string;
@@ -32,6 +33,7 @@ export default function ChatMessage({
   completed = false,
   onSubmit,
   onReset,
+  onGoBack,
   favorites,
   onToggleFavoriteProduct,
   subCategoryId,
@@ -41,6 +43,9 @@ export default function ChatMessage({
   onEndSmartShoppingChat,
 }: ChatMessageProps) {
   const isAi = sender === "ai";
+  const hasBackSymbol = text && (text.endsWith("⤴️") || text.endsWith("⤴️ "));
+  const displayText = hasBackSymbol ? text.replace(/⤴️\s*$/, "").trim() : text;
+  const canGoBack = isAi && !isHistorical && onGoBack && answers && Object.keys(answers).length > 0;
 
   return (
     <div className={`flex max-w-[88%] gap-3 ${isAi ? "self-start" : "self-end flex-row-reverse"}`}>
@@ -52,7 +57,7 @@ export default function ChatMessage({
           <Sparkles size={14} />
         </div>
       )}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1 relative">
         <div
           className={`rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-sm ${
             isAi
@@ -60,8 +65,8 @@ export default function ChatMessage({
               : "rounded-tr-sm border-border bg-brand-surface text-brand-surface-foreground"
           }`}
         >
-          {text && <p className="whitespace-pre-wrap">{text}</p>}
-          {children && <div className={text ? "mt-3" : ""}>{children}</div>}
+          {displayText && <p className="whitespace-pre-wrap">{displayText}</p>}
+          {children && <div className={displayText ? "mt-3" : ""}>{children}</div>}
 
           {/* 선택지 컴포넌트 렌더링 (자연스러운 대화형 UI - 단, 입력창은 제외) */}
           {isAi && (step || completed) && (!step || ["single-choice", "multi-choice", "confirmation"].includes(step.type)) && onSubmit && onReset && (
@@ -82,6 +87,17 @@ export default function ChatMessage({
             </div>
           )}
         </div>
+
+        {canGoBack && (
+          <button
+            type="button"
+            onClick={onGoBack}
+            title="이전 단계로 돌아가기"
+            className="absolute bottom-2 -right-11 flex h-8 w-8 items-center justify-center rounded-full border border-border/80 bg-background shadow-sm hover:bg-muted text-muted-foreground hover:text-primary active:scale-95 transition-all duration-200"
+          >
+            <span className="text-sm select-none">⤴️</span>
+          </button>
+        )}
         {timestamp && (
           <span className={`px-1 text-[10px] text-muted-foreground ${!isAi ? "text-right" : ""}`}>
             {timestamp}

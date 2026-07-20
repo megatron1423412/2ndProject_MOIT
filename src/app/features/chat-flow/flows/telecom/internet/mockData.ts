@@ -26,11 +26,11 @@ export const fetchInternetPlansFromApi = (carrier: string, currentFee: number) =
   
   const feeLabel = typeof currentFee === "number" ? currentFee.toLocaleString("ko-KR") : "0";
 
-  let planName = `${carrierLabel} 광랜 (100Mbps)`;
+  let planName = `[더미] ${carrierLabel} 광랜 (100Mbps)`;
   if (currentFee >= 38500) {
-    planName = `${carrierLabel} 기가 (1Gbps)`;
+    planName = `[더미] ${carrierLabel} 기가 (1Gbps)`;
   } else if (currentFee >= 33000) {
-    planName = `${carrierLabel} 베이직 (500Mbps)`;
+    planName = `[더미] ${carrierLabel} 베이직 (500Mbps)`;
   }
 
   return [
@@ -40,14 +40,14 @@ export const fetchInternetPlansFromApi = (carrier: string, currentFee: number) =
 
 // 추천 요금제 리스트 (카드 형식으로 보여질 것)
 export const MOCK_RECOMMENDED_INTERNET_PLANS = [
-  { value: "rec-internet-1", label: "[추천 1순위] 초고속 500Mbps 실속형 홈팩 (월 33,000원)" },
-  { value: "rec-internet-2", label: "[추천 2순위] 1Gbps 기가 와이파이 패키지 (월 38,500원)" },
+  { value: "rec-internet-1", label: "[추천 1순위] [더미] 초고속 500Mbps 실속형 홈팩 (월 33,000원)" },
+  { value: "rec-internet-2", label: "[추천 2순위] [더미] 1Gbps 기가 와이파이 패키지 (월 38,500원)" },
 ];
 
 // 직접 선택 요금제 리스트
 export const MOCK_ALL_INTERNET_PLANS = [
-  { value: "plan-internet-1", label: "광랜 인터넷 100Mbps (월 22,000원)" },
-  { value: "plan-internet-2", label: "베이직 인터넷 500Mbps (월 33,000원)" },
-  { value: "plan-internet-3", label: "기가 인터넷 1Gbps (월 38,500원)" },
-  { value: "plan-internet-4", label: "프리미엄 인터넷 2.5Gbps (월 44,000원)" },
+  { value: "plan-internet-1", label: "[더미] 광랜 인터넷 100Mbps (월 22,000원)" },
+  { value: "plan-internet-2", label: "[더미] 베이직 인터넷 500Mbps (월 33,000원)" },
+  { value: "plan-internet-3", label: "[더미] 기가 인터넷 1Gbps (월 38,500원)" },
+  { value: "plan-internet-4", label: "[더미] 프리미엄 인터넷 2.5Gbps (월 44,000원)" },
 ];

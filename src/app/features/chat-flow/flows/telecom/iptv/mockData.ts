@@ -15,12 +15,12 @@ export interface IptvPlan {
 }
 
 export const mockIptvPlans: IptvPlan[] = [
-  { id: "iptv-sk-std", carrier: "SKT", name: "Btv 스탠다드", price: 15400, channels: 220 },
-  { id: "iptv-sk-all", carrier: "SKT", name: "Btv All", price: 19800, channels: 252 },
-  { id: "iptv-kt-lite", carrier: "KT", name: "지니TV 슬림", price: 12100, channels: 180 },
-  { id: "iptv-kt-std", carrier: "KT", name: "지니TV 베이직", price: 16500, channels: 236 },
-  { id: "iptv-lg-std", carrier: "LGU+", name: "U+tv 프리미엄 Lite", price: 14300, channels: 211 },
-  { id: "iptv-lg-all", carrier: "LGU+", name: "U+tv 프리미엄", price: 18700, channels: 254 },
+  { id: "iptv-sk-std", carrier: "SKT", name: "[더미] Btv 스탠다드", price: 15400, channels: 220 },
+  { id: "iptv-sk-all", carrier: "SKT", name: "[더미] Btv All", price: 19800, channels: 252 },
+  { id: "iptv-kt-lite", carrier: "KT", name: "[더미] 지니TV 슬림", price: 12100, channels: 180 },
+  { id: "iptv-kt-std", carrier: "KT", name: "[더미] 지니TV 베이직", price: 16500, channels: 236 },
+  { id: "iptv-lg-std", carrier: "LGU+", name: "[더미] U+tv 프리미엄 Lite", price: 14300, channels: 211 },
+  { id: "iptv-lg-all", carrier: "LGU+", name: "[더미] U+tv 프리미엄", price: 18700, channels: 254 },
 ];
 
 export const calculateIptvGrade = (

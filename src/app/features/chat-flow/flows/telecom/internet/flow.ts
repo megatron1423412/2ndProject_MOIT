@@ -4,6 +4,35 @@ import { fetchInternetPlansFromApi, MOCK_ALL_INTERNET_PLANS, MOCK_RECOMMENDED_IN
 
 const namespace = "internet";
 
+// ── 인터넷 요금제 백그라운드 캐싱 ────────────────
+interface CachedPlan {
+  value: string;
+  label: string;
+  price: number;
+}
+
+const planCache: Record<string, CachedPlan[]> = {};
+
+export function prefetchPlans(carrier: string) {
+  if (planCache[carrier]) return;
+
+  const carrierLabel = carrier === "SK" ? "SK 브로드밴드" 
+                     : carrier === "KT" ? "KT 올레" 
+                     : carrier === "LGU" ? "LG 유플러스"
+                     : carrier === "HELLOVISION" ? "LG 헬로비전"
+                     : carrier === "KTSKY" ? "KT 스카이라이프"
+                     : carrier === "KTHCN" ? "KT HCN"
+                     : carrier === "SKYLIFE" ? "스카이라이프"
+                     : carrier;
+
+  planCache[carrier] = [
+    { value: "plan-internet-1", label: `[더미] ${carrierLabel} 광랜 인터넷 100Mbps (월 22,000원)`, price: 22000 },
+    { value: "plan-internet-2", label: `[더미] ${carrierLabel} 베이직 인터넷 500Mbps (월 33,000원)`, price: 33000 },
+    { value: "plan-internet-3", label: `[더미] ${carrierLabel} 기가 인터넷 1Gbps (월 38,500원)`, price: 38500 },
+    { value: "plan-internet-4", label: `[더미] ${carrierLabel} 프리미엄 인터넷 2.5Gbps (월 44,000원)`, price: 44000 },
+  ];
+}
+
 // =================================================================
 // [Part 1] 현재 사용자 정보 입력 파트
 // =================================================================
@@ -47,27 +76,80 @@ const opening: FlowStep[] = [
     next: "internet-current-plan-api",
   },
 
-  // [Part 1 - 3번] 🔄 요금조회 API 결과를 매칭하는 동적 스텝 (추천 요금제 카드 형식 노출)
+  // [Part 1 - 3번] 🔄 요금조회 API 결과를 매칭하는 동적 스텝
   {
     id: "internet-current-plan-api",
     type: "single-choice",
     message: "현재 사용하시는 인터넷 요금제가 맞을까요?",
     answerKey: `${namespace}.confirmedPlan`,
     options: [
-      { value: "direct-select", label: "직접 선택", next: "internet-all-plans-select" },
-      { value: "direct-input", label: "직접 입력", next: "internet-custom-plan-input" },
+      { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "internet-current-plans-list" },
+      { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "internet-custom-plan-input" },
     ],
     optionsResolver: (answers) => {
-      const carrier = answers[`${namespace}.commonCarrier`] as string;
-      const currentFee = answers[`${namespace}.fee`] as number;
-      const apiPlans = fetchInternetPlansFromApi(carrier, currentFee);
+      const carrier = answers[`internet.commonCarrier`] as string;
+      const currentFee = answers[`internet.fee`] as number;
+      
+      prefetchPlans(carrier);
+
+      const cached = planCache[carrier] || [];
+      // 1순위 후보 (금액 차이 3,000원 이하 가장 가까운 요금제 하나만 추천)
+      let matched = cached
+        .filter(p => Math.abs(p.price - currentFee) <= 3000)
+        .slice(0, 1);
+
+      // 캐시에 결과가 아직 없거나 매칭되는 요금제가 없을 때, 입력 가격 기준 임시 요금제 카드를 항상 노출하여 카드 뷰를 유지합니다.
+      if (matched.length === 0) {
+        const apiPlans = fetchInternetPlansFromApi(carrier, currentFee);
+        matched = apiPlans.map(p => ({
+          value: p.value,
+          label: p.label,
+          price: currentFee
+        }));
+      }
+
       return [
-        ...apiPlans,
-        { value: "direct-select", label: "직접 선택", next: "internet-all-plans-select" },
-        { value: "direct-input", label: "직접 입력", next: "internet-custom-plan-input" },
+        ...matched.map(m => ({ value: m.value, label: m.label, next: "internet-contract-notice" })),
+        { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "internet-current-plans-list" },
+        { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "internet-custom-plan-input" },
       ];
     },
-    next: "internet-contract-notice",
+    next: "internet-contract-notice"
+  },
+
+  // [Part 1 - 3-1번] 🔄 입력 요금 기준 ±15,000원 범위 요금제 리스트 선택 스텝
+  {
+    id: "internet-current-plans-list",
+    type: "single-choice",
+    message: "입력하신 요금대와 비슷한 요금제 목록입니다. 현재 요금제를 선택해주세요.",
+    answerKey: `${namespace}.confirmedPlanList`,
+    options: [
+      { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "internet-contract-notice" }
+    ],
+    optionsResolver: (answers) => {
+      const carrier = answers[`internet.commonCarrier`] as string;
+      const currentFee = answers[`internet.fee`] as number;
+      
+      prefetchPlans(carrier);
+      const cached = planCache[carrier] || [];
+
+      // 유저 입력 요금 기준 ±15,000원 이하 요금제들 필터링
+      const matched = cached
+        .filter(p => Math.abs(p.price - currentFee) <= 15000)
+        .sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee));
+
+      if (matched.length > 0) {
+        return [
+          ...matched.map(m => ({ value: m.value, label: m.label, next: "internet-contract-notice" })),
+          { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "internet-contract-notice" }
+        ];
+      }
+
+      return [
+        { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "internet-contract-notice" }
+      ];
+    },
+    next: "internet-contract-notice"
   },
 
   // 직접 요금제명을 선택하는 분기 스텝

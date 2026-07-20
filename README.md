@@ -37,4 +37,3 @@ src/ ⭐
     └── shared/
 
 **mockData.ts 각 소분류 카테고리의 더미데이터** 
-

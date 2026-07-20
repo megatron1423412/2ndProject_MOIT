@@ -1,9 +1,70 @@
 import { composeFlow } from "../../../core/composeFlow";
 import type { FlowDefinition, FlowStep } from "../../../core/types";
-// 깔끔하게 데이터만 가져오기
 import { MOCK_CURRENT_PLANS, MOCK_RECOMMENDED_PLANS, fetchPlansFromApi } from "./mockData";
+import { fetchSmartChoicePhonePlans } from "../shared/telecomApi";
 
 const namespace = "phone";
+
+// ── 스마트초이스 실시간 요금제 백그라운드 캐싱 ────────────────
+interface CachedPlan {
+  value: string;
+  label: string;
+  price: number;
+}
+
+const planCache: Record<string, CachedPlan[]> = {};
+const isFetching: Record<string, boolean> = {};
+
+export function prefetchPlans(carrier: string) {
+  if (planCache[carrier] || isFetching[carrier]) return;
+  isFetching[carrier] = true;
+
+  const carrierUpper = carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : "알뜰폰";
+
+  // LTE와 5G 모두 받아와서 합칩니다.
+  Promise.all([
+    fetchSmartChoicePhonePlans({ voice: "999999", data: "20480", sms: "999999", age: "20", type: "6", dis: "24" }),
+    fetchSmartChoicePhonePlans({ voice: "999999", data: "20480", sms: "999999", age: "20", type: "3", dis: "24" }),
+  ]).then(([res5g, resLte]) => {
+    const allPlans = [...(res5g.plans || []), ...(resLte.plans || [])];
+    
+    const filtered = allPlans.filter(p => {
+      if (carrier === "mvno") {
+        return p.telecom !== "SKT" && p.telecom !== "KT" && p.telecom !== "LGU+";
+      }
+      return p.telecom === carrierUpper;
+    });
+
+    // 중복 제거 및 매핑
+    const seenNames = new Set<string>();
+    const mapped: CachedPlan[] = [];
+    filtered.forEach(p => {
+      if (!seenNames.has(p.planName)) {
+        seenNames.add(p.planName);
+        mapped.push({
+          value: `plan-api|${p.planName}`,
+          label: `${p.planName} (월 ${p.monthlyFee.toLocaleString("ko-KR")}원)`,
+          price: p.monthlyFee
+        });
+      }
+    });
+
+    planCache[carrier] = mapped;
+    isFetching[carrier] = false;
+  }).catch(() => {
+    isFetching[carrier] = false;
+  });
+}
+
+// 모듈 로드 시점에 모든 통신사 요금제 백그라운드 선독취 시작
+try {
+  prefetchPlans("skt");
+  prefetchPlans("kt");
+  prefetchPlans("lgu");
+  prefetchPlans("mvno");
+} catch (e) {
+  console.error("Prefetch plans failed", e);
+}
 
 const opening: FlowStep[] = [
   { 
@@ -47,17 +108,68 @@ const opening: FlowStep[] = [
     message: "현재 사용하시는 요금제가 맞을까요?",
     answerKey: `${namespace}.confirmedPlan`,
     options: [
-      { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "phone-desired-network" },
+      { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "phone-current-plans-list" },
       { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "phone-custom-plan-input" },
-    ], // 정적 검증 통과 및 대체 버튼용 기본 옵션
+    ],
     optionsResolver: (answers) => {
       const carrier = answers[`phone.carrier`] as string;
       const currentFee = answers[`phone.currentFee`] as number;
-      const apiPlans = fetchPlansFromApi(carrier, currentFee);
+      
+      prefetchPlans(carrier);
+
+      const cached = planCache[carrier] || [];
+      // 1순위 후보 (금액 차이 3,000원 이하 가장 가까운 요금제 하나만 추천)
+      let matched = cached
+        .filter(p => Math.abs(p.price - currentFee) <= 3000)
+        .slice(0, 1);
+
+      // 캐시에 결과가 아직 없거나 매칭되는 요금제가 없을 때, 입력 가격 기준 임시 요금제 카드를 항상 노출하여 카드 뷰를 유지합니다.
+      if (matched.length === 0) {
+        const apiPlans = fetchPlansFromApi(carrier, currentFee);
+        matched = apiPlans.map(p => ({
+          value: p.value,
+          label: p.label,
+          price: currentFee
+        }));
+      }
+
       return [
-        ...apiPlans,
-        { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "phone-desired-network" },
+        ...matched.map(m => ({ value: m.value, label: m.label, next: "phone-desired-network" })),
+        { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "phone-current-plans-list" },
         { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "phone-custom-plan-input" },
+      ];
+    },
+    next: "phone-desired-network"
+  },
+
+  // [Part 1 - 3-1번] 🔄 입력 요금 기준 ±15,000원 범위 요금제 리스트 선택 스텝
+  {
+    id: "phone-current-plans-list",
+    type: "single-choice",
+    message: "입력하신 요금대와 비슷한 요금제 목록입니다. 현재 요금제를 선택해주세요.",
+    answerKey: `${namespace}.confirmedPlanList`,
+    options: [
+      { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-desired-network" }
+    ],
+    optionsResolver: (answers) => {
+      const carrier = answers[`phone.carrier`] as string;
+      const currentFee = answers[`phone.currentFee`] as number;
+      const cached = planCache[carrier] || [];
+
+      // 유저 입력 요금 기준 ±15,000원 이하 요금제들 필터링
+      const matched = cached
+        .filter(p => Math.abs(p.price - currentFee) <= 15000)
+        .sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee));
+
+      if (matched.length > 0) {
+        return [
+          ...matched.map(m => ({ value: m.value, label: m.label, next: "phone-desired-network" })),
+          { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-desired-network" }
+        ];
+      }
+
+      return [
+        { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-desired-network" }
       ];
     },
     next: "phone-desired-network"
