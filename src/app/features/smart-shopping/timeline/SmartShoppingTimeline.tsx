@@ -8,21 +8,19 @@ import ProductDetailActionBar from "../product-detail/ProductDetailActionBar";
 import ProductQuestionInput from "../product-detail/ProductQuestionInput";
 import OptimizedRecommendationList from "../recommendation/OptimizedRecommendationList";
 import NaverLowestPriceList from "../recommendation/NaverLowestPriceList";
+import { createDummyCatalogRecommendation } from "../recommendation/selectDummyNaverProducts";
 import ProductDetailView from "../recommendation/ProductDetailView";
 import type { NextActionId } from "../next-actions/nextActionOptions";
-import type { NaverShoppingProduct } from "../types/recommendation";
 import type { SmartShoppingTimelineItem } from "../session/smartShoppingSessionTypes";
 import type { ProductRecommendation } from "../../product-catalog/core/types";
 import type { CatalogProduct } from "../../product-catalog/core/types";
 import type { SelectedShoppingProduct } from "../types/recommendation";
-import { matchInternalProduct } from "../naver/matchInternalProduct";
 
 export interface SmartShoppingTimelineBindings {
   questionLoading: boolean;
   questionError: string;
   onSelectRecommendation: (item: ProductRecommendation) => void;
-  onSelectNaverProduct: (item: NaverShoppingProduct) => void;
-  onRetryNaver: () => void;
+  onSelectDummyProduct: (item: CatalogProduct) => void;
   onDetailAction: (action: ProductDetailActionId) => void;
   onBackToList: () => void;
   onNextStep: () => void;
@@ -33,7 +31,6 @@ export interface SmartShoppingTimelineBindings {
   onCancelPurchaseLink: () => void;
   onSavePriceAlert: (targetPrice: number) => void;
   onCancelPriceAlert: () => void;
-  catalogProducts: CatalogProduct[];
   isFavorite: (product: SelectedShoppingProduct) => boolean;
   onToggleFavorite: (product: SelectedShoppingProduct) => void;
 }
@@ -51,8 +48,8 @@ export const isSmartShoppingConversationItem = (item: SmartShoppingTimelineItem)
 export function SmartShoppingWideTimelineContent({ item, ...props }: SmartShoppingTimelineBindings & { item: Exclude<SmartShoppingTimelineItem, { type: "user-action" | "user-text" | "assistant-text" }> }) {
   if (item.type === "recommendation-list") {
     const asInternal = (recommendation: ProductRecommendation): SelectedShoppingProduct => ({ source: "internal", recommendation });
-    const asNaver = (product: NaverShoppingProduct): SelectedShoppingProduct => ({ source: "naver", product, matchedInternalProduct: matchInternalProduct(product, props.catalogProducts) });
-    return <div className="grid items-start gap-4 xl:grid-cols-2" data-chat-content="recommendation-shell"><OptimizedRecommendationList items={item.snapshot.recommendations} catalogSource={item.snapshot.catalogSource} isActive={item.isActive} onSelect={props.onSelectRecommendation} isFavorite={(recommendation) => props.isFavorite(asInternal(recommendation))} onToggleFavorite={(recommendation) => props.onToggleFavorite(asInternal(recommendation))} /><NaverLowestPriceList items={item.snapshot.naverItems} status={item.snapshot.naverStatus} errorMessage={item.snapshot.naverErrorMessage} isActive={item.isActive} onRetry={props.onRetryNaver} onSelect={props.onSelectNaverProduct} isFavorite={(product) => props.isFavorite(asNaver(product))} onToggleFavorite={(product) => props.onToggleFavorite(asNaver(product))} /></div>;
+    const asDummyInternal = (product: CatalogProduct): SelectedShoppingProduct => ({ source: "internal", recommendation: createDummyCatalogRecommendation(product) });
+    return <div className="grid items-start gap-4 xl:grid-cols-2" data-chat-content="recommendation-shell"><OptimizedRecommendationList items={item.snapshot.recommendations} catalogSource={item.snapshot.catalogSource} isActive={item.isActive} onSelect={props.onSelectRecommendation} isFavorite={(recommendation) => props.isFavorite(asInternal(recommendation))} onToggleFavorite={(recommendation) => props.onToggleFavorite(asInternal(recommendation))} /><NaverLowestPriceList items={item.snapshot.dummyProducts} isActive={item.isActive} onSelect={props.onSelectDummyProduct} isFavorite={(product) => props.isFavorite(asDummyInternal(product))} onToggleFavorite={(product) => props.onToggleFavorite(asDummyInternal(product))} /></div>;
   }
   if (item.type === "product-detail") return <ProductDetailView categoryId={item.snapshot.categoryId} selected={item.snapshot.selected} internalRecommendations={item.snapshot.internalRecommendations} interactive={false} isFavorite={props.isFavorite(item.snapshot.selected)} onToggleFavorite={() => props.onToggleFavorite(item.snapshot.selected)} />;
   if (item.type === "action-group" && item.group === "detail") return <div className="rounded-xl border border-border bg-card p-4 shadow-sm" data-chat-content="action-toolbar"><ProductDetailActionBar showAlternative={item.showAlternative ?? false} isQuestionLoading={props.questionLoading} isActive={item.isActive} onAction={props.onDetailAction} onBack={props.onBackToList} onNext={props.onNextStep} /></div>;

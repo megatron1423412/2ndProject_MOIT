@@ -1,15 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import type { FlowAnswers, FlowResult } from "../../chat-flow/core/types";
 import type { ProductCategoryId, ProductRecommendation } from "../../product-catalog/core/types";
-import { catalogSourceByCategory } from "../../product-catalog/data/productCatalog";
+import { catalogProducts, catalogSourceByCategory } from "../../product-catalog/data/productCatalog";
 import { buildPurchaseTipMessage } from "../actions/buildPurchaseTipMessage";
 import { findAlternativeProducts, getSelectedPriceRisePct } from "../actions/findAlternativeProducts";
 import { getProductDetailActionLabel, type ProductDetailActionId } from "../actions/productDetailActions";
 import { calculatePurchaseGrade } from "../grade/calculatePurchaseGrade";
 import { startPurchaseGradeDiagnosis } from "../grade/startPurchaseGradeDiagnosis";
-import { buildNaverSearchQuery } from "../naver/buildSearchQuery";
-import { matchInternalProduct } from "../naver/matchInternalProduct";
-import { fetchNaverShoppingProducts, NaverShoppingClientError } from "../naver/naverShoppingClient";
 import { endSmartShoppingChat } from "../next-actions/endSmartShoppingChat";
 import { getNextActionLabel, type NextActionId } from "../next-actions/nextActionOptions";
 import { resolvePurchaseLink } from "../next-actions/resolvePurchaseLink";
@@ -27,6 +24,7 @@ import { initialRecommendationViewState, recommendationViewReducer } from "../ty
 import type { FavoriteDraft, FavoriteProduct } from "../../favorites/types";
 import { createFavoriteDraft } from "../../favorites/createFavoriteDraft";
 import { getFavoriteProductIdentity } from "../../favorites/favoriteIdentity";
+import { createDummyCatalogRecommendation, selectDummyNaverProducts } from "./selectDummyNaverProducts";
 
 interface Props {
   result: FlowResult;
@@ -46,15 +44,11 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const criteria = metadata?.answers ?? {};
   const [view, dispatch] = useReducer(recommendationViewReducer, initialRecommendationViewState);
   const [session, sessionDispatch] = useReducer(smartShoppingSessionReducer, { categoryId: category, criteria: createCriteriaSnapshot(criteria) }, createSmartShoppingSession);
-  const [naverItems, setNaverItems] = useState<NaverShoppingProduct[]>([]);
-  const [naverStatus, setNaverStatus] = useState<RecommendationSnapshot["naverStatus"]>("loading");
-  const [errorMessage, setErrorMessage] = useState("");
   const [questionLoading, setQuestionLoading] = useState(false);
   const [questionError, setQuestionError] = useState("");
   const [returnActionGroup, setReturnActionGroup] = useState<TimelineActionGroupKind>("next");
   const [showedOverBudget, setShowedOverBudget] = useState(false);
   const [activeRecommendations, setActiveRecommendations] = useState(result.recommendations ?? []);
-  const query = useMemo(() => buildNaverSearchQuery(category, criteria), [category, criteria]);
   const favoriteIdentities = useMemo(() => new Set(favorites.map(getFavoriteProductIdentity)), [favorites]);
 
   useEffect(() => { sessionDispatch({ type: "set-stage", stage: view.stage }); }, [view.stage]);
@@ -70,29 +64,20 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     sessionDispatch({ type: "append-recommendation-list", item: createRecommendationListTimelineItem(session.sessionId, snapshot) });
   }, [session.sessionId]);
 
-  const snapshotRecommendations = useCallback((items: NaverShoppingProduct[], status: RecommendationSnapshot["naverStatus"], message: string) => {
-    appendRecommendation(createRecommendationSnapshot({ query, recommendations: result.recommendations ?? [], catalogSource, naverItems: items, naverStatus: status, naverErrorMessage: message }));
-  }, [appendRecommendation, catalogSource, query, result.recommendations]);
+  const snapshotRecommendations = useCallback((recommendations: ProductRecommendation[]) => {
+    appendRecommendation(createRecommendationSnapshot({
+      categoryId: category,
+      recommendations,
+      catalogSource,
+      dummyProducts: selectDummyNaverProducts(catalogProducts, category, recommendations),
+    }));
+  }, [appendRecommendation, category, catalogSource]);
 
-  const loadNaver = useCallback(async (signal?: AbortSignal) => {
-    dispatch({ type: "start-loading" }); setNaverStatus("loading"); setErrorMessage("");
-    sessionDispatch({ type: "deactivate-interactions" });
-    snapshotRecommendations([], "loading", "");
-    try {
-      const items = await fetchNaverShoppingProducts(query, signal);
-      if (signal?.aborted) return;
-      setNaverItems(items); setNaverStatus("success"); snapshotRecommendations(items, "success", "");
-    } catch (error) {
-      if (signal?.aborted) return;
-      const message = error instanceof Error ? error.message : "네이버 쇼핑 검색에 실패했습니다.";
-      const status = error instanceof NaverShoppingClientError && error.code === "NAVER_CREDENTIALS_MISSING" ? "missing-config" : error instanceof NaverShoppingClientError && ["NAVER_AUTH_FAILED", "NAVER_PERMISSION_DENIED"].includes(error.code) ? "auth-error" : "error";
-      setNaverStatus(status); setErrorMessage(message); snapshotRecommendations([], status, message);
-    } finally {
-      if (!signal?.aborted) dispatch({ type: "recommendations-settled" });
-    }
-  }, [query, snapshotRecommendations]);
-
-  useEffect(() => { const controller = new AbortController(); void loadNaver(controller.signal); return () => controller.abort(); }, [loadNaver]);
+  useEffect(() => {
+    dispatch({ type: "start-loading" });
+    snapshotRecommendations(activeRecommendations);
+    dispatch({ type: "recommendations-settled" });
+  }, [snapshotRecommendations]);
 
   useEffect(() => {
     if (view.stage !== "grading-purchase") return;
@@ -126,7 +111,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     sessionDispatch({ type: "deactivate-interactions" });
     appendText("user-action", "목록 다시 보기");
     appendText("assistant-text", "이전에 확인한 조건으로 상품 목록을 다시 보여드릴게요.");
-    const reusableSnapshot = session.recommendationSnapshot ?? createRecommendationSnapshot({ query, recommendations: activeRecommendations, catalogSource, naverItems, naverStatus, naverErrorMessage: errorMessage });
+    const reusableSnapshot = session.recommendationSnapshot ?? createRecommendationSnapshot({ categoryId: category, recommendations: activeRecommendations, catalogSource, dummyProducts: selectDummyNaverProducts(catalogProducts, category, activeRecommendations) });
     appendRecommendation(reusableSnapshot);
     setQuestionError("");
     dispatch({ type: "back-to-list" });
@@ -190,7 +175,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     appendText("user-action", getNextActionLabel(action));
     if (action === "purchase-grade") return dispatch({ type: "start-purchase-grade", input: startPurchaseGradeDiagnosis({ selected, recommendations: activeRecommendations, userCriteria: criteria }) });
     if (action === "purchase-link") {
-      const purchaseLink = resolvePurchaseLink(selected, naverItems);
+      const purchaseLink = resolvePurchaseLink(selected, []);
       sessionDispatch({ type: "append", item: createPurchaseLinkTimelineItem(session.sessionId, purchaseLink) });
       return dispatch({ type: "confirm-purchase-link", purchaseLink });
     }
@@ -207,7 +192,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     const currentPrice = selected.source === "internal" ? selected.recommendation.product.currentPrice : selected.product.lowestPrice;
     const productId = product?.id ?? `naver:${selected.source === "naver" ? selected.product.productId : "unknown"}`;
     const productName = product?.name ?? (selected.source === "naver" ? selected.product.title : "상품명 없음");
-    onCreatePriceAlert({ userId, productId, productName, modelNumber: product?.modelNumber, source: selected.source, purchaseLink: resolvePurchaseLink(selected, naverItems), currentPrice, targetPrice, active: true });
+    onCreatePriceAlert({ userId, productId, productName, modelNumber: product?.modelNumber, source: selected.source, purchaseLink: resolvePurchaseLink(selected, []), currentPrice, targetPrice, active: true });
     appendText("assistant-text", `${productName}의 목표 가격을 ${targetPrice.toLocaleString("ko-KR")}원으로 저장했어요. 상시 감시는 아직 연결되지 않았으며, 가격을 다시 확인할 때 조건을 평가합니다.`);
     returnToActions();
   };
@@ -215,7 +200,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const cancelPurchaseLink = () => { appendText("user-action", "취소"); appendText("assistant-text", "구매 링크 연결을 취소했어요."); returnToActions(); };
   const cancelPriceAlert = () => { appendText("user-action", "취소"); appendText("assistant-text", "최저가 알람 설정을 취소했어요."); returnToActions(); };
 
-  const favoriteDraftFor = (selectedProduct: SelectedShoppingProduct) => createFavoriteDraft({ userId, categoryId: category, selected: selectedProduct, naverItems });
+  const favoriteDraftFor = (selectedProduct: SelectedShoppingProduct) => createFavoriteDraft({ userId, categoryId: category, selected: selectedProduct, naverItems: [] });
 
   const showClosestOverBudget = () => {
     const alternatives = metadata?.overBudgetRecommendations ?? [];
@@ -223,7 +208,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     sessionDispatch({ type: "deactivate-interactions" });
     appendText("user-action", "예산 초과가 가장 적은 상품 보기");
     appendText("assistant-text", "타입·냉방 면적·인버터·판매 상태는 그대로 유지하고, 제품 가격 예산만 초과한 가까운 상품을 보여드릴게요.");
-    appendRecommendation(createRecommendationSnapshot({ query, recommendations: alternatives, catalogSource, naverItems, naverStatus, naverErrorMessage: errorMessage }));
+    appendRecommendation(createRecommendationSnapshot({ categoryId: category, recommendations: alternatives, catalogSource, dummyProducts: selectDummyNaverProducts(catalogProducts, category, alternatives) }));
     setActiveRecommendations(alternatives);
     setShowedOverBudget(true);
   };
@@ -235,8 +220,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     questionLoading,
     questionError,
     onSelectRecommendation: (recommendation) => selectProduct({ source: "internal", recommendation }),
-    onSelectNaverProduct: (product) => selectProduct({ source: "naver", product, matchedInternalProduct: matchInternalProduct(product, result.catalogProducts ?? []) }),
-    onRetryNaver: () => void loadNaver(),
+    onSelectDummyProduct: (product) => selectProduct({ source: "internal", recommendation: createDummyCatalogRecommendation(product) }),
     onDetailAction: handleDetailAction,
     onBackToList: backToList,
     onNextStep: nextStep,
@@ -247,7 +231,6 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     onCancelPurchaseLink: cancelPurchaseLink,
     onSavePriceAlert: savePriceAlert,
     onCancelPriceAlert: cancelPriceAlert,
-    catalogProducts: result.catalogProducts ?? [],
     isFavorite: (selectedProduct) => favoriteIdentities.has(getFavoriteProductIdentity(favoriteDraftFor(selectedProduct))),
     onToggleFavorite: (selectedProduct) => onToggleFavorite(favoriteDraftFor(selectedProduct)),
   });

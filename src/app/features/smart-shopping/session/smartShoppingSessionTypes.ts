@@ -1,19 +1,17 @@
 import type { FlowAnswers } from "../../chat-flow/core/types";
-import type { ProductCategoryId, ProductRecommendation, ProductSource } from "../../product-catalog/core/types";
+import type { CatalogProduct, ProductCategoryId, ProductRecommendation, ProductSource } from "../../product-catalog/core/types";
 import type { PurchaseGradeResult } from "../grade/calculatePurchaseGrade";
-import type { PurchaseGradeDiagnosisInput, NaverShoppingProduct, SelectedShoppingProduct, SmartShoppingStage } from "../types/recommendation";
+import type { PurchaseGradeDiagnosisInput, SelectedShoppingProduct, SmartShoppingStage } from "../types/recommendation";
 
 export type TimelineTextKind = "user-action" | "user-text" | "assistant-text";
 export type TimelineActionGroupKind = "detail" | "next" | "grade-followup";
 
 export interface RecommendationSnapshot {
   snapshotId: string;
-  query: string;
+  categoryId: ProductCategoryId;
   recommendations: ProductRecommendation[];
   catalogSource: ProductSource;
-  naverItems: NaverShoppingProduct[];
-  naverStatus: "loading" | "success" | "missing-config" | "auth-error" | "error";
-  naverErrorMessage: string;
+  dummyProducts: CatalogProduct[];
 }
 
 export interface ProductDetailSnapshot {

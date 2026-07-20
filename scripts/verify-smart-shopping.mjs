@@ -429,10 +429,22 @@ try {
   await proxyHandler({ url: "/api/naver-shopping?query=TV", method: "GET" }, { setHeader: () => {}, end: (body) => { proxyBody = body; }, set statusCode(value) { proxyStatus = value; } }, () => {});
   assert.equal(proxyStatus, 503); assert.equal(JSON.parse(proxyBody).code, "NAVER_CREDENTIALS_MISSING", "API 키 미설정 상태 정규화");
   const naverClientSource = await readFile("src/app/features/smart-shopping/naver/naverShoppingClient.ts", "utf8");
-  const naverListStateSource = await readFile("src/app/features/smart-shopping/recommendation/NaverLowestPriceList.tsx", "utf8");
+  const recommendationSelectionSource = await readFile("src/app/features/smart-shopping/recommendation/RecommendationSelectionView.tsx", "utf8");
+  const dummyNaverListSource = await readFile("src/app/features/smart-shopping/recommendation/NaverLowestPriceList.tsx", "utf8");
   assert.ok(naverClientSource.includes("/api/naver-shopping?query=") && !naverClientSource.includes("openapi.naver.com"), "브라우저는 같은 출처 네이버 프록시만 호출");
-  assert.ok(naverListStateSource.includes("missing-config") && naverListStateSource.includes("auth-error"), "네이버 UI가 설정·인증/권한 오류를 구분해 표시");
-  assert.ok(airResult.recommendations.length > 0, "네이버 실패와 무관하게 내부 목록 유지");
+  assert.ok(!recommendationSelectionSource.includes("fetchNaverShoppingProducts") && !recommendationSelectionSource.includes("/api/naver-shopping") && !recommendationSelectionSource.includes("/api/shopping/search") && !recommendationSelectionSource.includes("openapi.naver.com"), "추천 화면은 네이버 네트워크 요청을 만들지 않음");
+  assert.ok(dummyNaverListSource.includes("NAVER 검색어 기반 DUMMY 상품 리스트") && dummyNaverListSource.includes("인기 상품순 TOP 5") && dummyNaverListSource.includes("내부 데이터를 활용한 더미 인기 상품 목록이며, 실제 네이버 쇼핑 인기 순위가 아닙니다."), "더미 NAVER 패널의 고지 문구");
+  assert.ok(!dummyNaverListSource.includes("낮은 가격순 TOP 10") && !dummyNaverListSource.includes("다시 시도") && !dummyNaverListSource.includes("auth-error") && !dummyNaverListSource.includes("Scope Status Invalid"), "이전 네이버 가격·인증 오류 UI 제거");
+  const { selectDummyNaverProducts, createDummyCatalogRecommendation } = await load("/src/app/features/smart-shopping/recommendation/selectDummyNaverProducts.ts");
+  const dummyCatalog = Array.from({ length: 7 }, (_, index) => ({ ...TV_PRODUCTS[0], id: `dummy-tv-${index}`, modelNumber: `DUMMY-TV-${index}`, dataStatus: index === 2 ? "discontinued" : "mock" }));
+  const leftDummyRecommendation = { ...tvResult.recommendations[0], product: dummyCatalog[0] };
+  const dummyItems = selectDummyNaverProducts([...dummyCatalog, AIR_CONDITIONER_PRODUCTS[0]], "tv", [leftDummyRecommendation]);
+  assert.deepEqual(dummyItems.map(({ id }) => id), ["dummy-tv-1", "dummy-tv-3", "dummy-tv-4", "dummy-tv-5", "dummy-tv-6"], "더미 목록은 활성 카테고리의 카탈로그 순서를 유지하며 왼쪽·판매중단 상품을 제외한 TOP 5");
+  assert.ok(dummyItems.every((item) => item.categoryId === "tv" && item.dataStatus !== "discontinued" && item.id !== leftDummyRecommendation.product.id), "더미 목록은 다른 카테고리·왼쪽 목록·판매중단 상품을 포함하지 않음");
+  assert.deepEqual(selectDummyNaverProducts([...dummyCatalog, AIR_CONDITIONER_PRODUCTS[0]], "tv", [leftDummyRecommendation]).map(({ id }) => id), dummyItems.map(({ id }) => id), "더미 목록은 재렌더링에도 결정적");
+  assert.deepEqual(selectDummyNaverProducts(dummyCatalog.slice(0, 3), "tv", [leftDummyRecommendation]).map(({ id }) => id), ["dummy-tv-1"], "다섯 개 미만은 중복 없이 모두 표시");
+  assert.deepEqual(selectDummyNaverProducts(dummyCatalog, "tv", dummyCatalog.filter((product) => product.dataStatus !== "discontinued").map((product) => ({ ...leftDummyRecommendation, product }))), [], "남은 상품이 없으면 자연스러운 빈 목록");
+  assert.equal(createDummyCatalogRecommendation(dummyItems[0]).product.id, "dummy-tv-1", "더미 카드 선택은 같은 내부 상품 identity를 사용");
 
   const { getRecommendedCapacityRange } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/criteria.ts");
   assert.equal(getRecommendedCapacityRange(2).label, "500~600L", "2인 기본 용량 추천");
@@ -646,7 +658,7 @@ try {
     { id: "wide-action-alternative", type: "action-group", group: "detail", isActive: false },
     { id: "user-return", type: "user-action", text: "목록 다시 보기", timestamp: "오전 10:08" },
     { id: "assistant-return", type: "assistant-text", text: "목록 복원 답변", timestamp: "오전 10:09" },
-    { id: "recommendation-list", type: "recommendation-list", isActive: false, snapshot: { snapshotId: "restored-list", query: "TV", recommendations: tvResult.recommendations, catalogSource: "mock", naverItems: [], naverStatus: "success", naverErrorMessage: "" } },
+    { id: "recommendation-list", type: "recommendation-list", isActive: false, snapshot: { snapshotId: "restored-list", categoryId: "tv", recommendations: tvResult.recommendations, catalogSource: "mock", dummyProducts: [] } },
     { id: "user-question", type: "user-text", text: "직접 질문", timestamp: "오전 10:10" },
     { id: "assistant-question", type: "assistant-text", text: "직접 질문 답변", timestamp: "오전 10:11" },
     { id: "wide-action-question", type: "action-group", group: "detail", isActive: false },
@@ -654,7 +666,7 @@ try {
     { id: "assistant-next", type: "assistant-text", text: "구매 단계 답변", timestamp: "오전 10:13" },
     { id: "wide-next-action", type: "action-group", group: "next", isActive: false },
   ];
-  const timelineRailModel = { timeline: alignmentTimeline, showClosestOverBudget: false, onShowClosestOverBudget: () => {}, questionLoading: false, questionError: "", onSelectRecommendation: () => {}, onSelectNaverProduct: () => {}, onRetryNaver: () => {}, onDetailAction: () => {}, onBackToList: () => {}, onNextStep: () => {}, onQuestionSubmit: () => {}, onQuestionRetry: () => {}, onQuestionCancel: () => {}, onNextAction: () => {}, onCancelPurchaseLink: () => {}, onSavePriceAlert: () => {}, onCancelPriceAlert: () => {}, catalogProducts: [], isFavorite: () => false, onToggleFavorite: () => {} };
+  const timelineRailModel = { timeline: alignmentTimeline, showClosestOverBudget: false, onShowClosestOverBudget: () => {}, questionLoading: false, questionError: "", onSelectRecommendation: () => {}, onSelectDummyProduct: () => {}, onDetailAction: () => {}, onBackToList: () => {}, onNextStep: () => {}, onQuestionSubmit: () => {}, onQuestionRetry: () => {}, onQuestionCancel: () => {}, onNextAction: () => {}, onCancelPurchaseLink: () => {}, onSavePriceAlert: () => {}, onCancelPriceAlert: () => {}, isFavorite: () => false, onToggleFavorite: () => {} };
   const alignedTimelineMarkup = renderToStaticMarkup(React.createElement("div", { "data-chat-timeline-root": true }, React.createElement(ChatConversationTurn, { sender: "ai", text: "초기 조건 질문" }), React.createElement(ChatScreenSmartShoppingTimeline, { model: timelineRailModel })));
   assert.ok(!diagnosisResultSource.includes("RecommendationSelectionView") && !diagnosisResultSource.includes("result.recommendations"), "스마트쇼핑 렌더 경로를 생활비 결과 컴포넌트에서 제거");
   assert.ok(diagnosisResultSource.includes("PhoneDiagnosisReport") && diagnosisResultSource.includes("InternetDiagnosisReport") && diagnosisResultSource.includes("IptvDiagnosisReport"), "생활비 전용 결과 화면 보존");
@@ -662,7 +674,7 @@ try {
   assert.ok(chatScreenSource.includes("smartShoppingResult && (") && chatScreenSource.includes("<RecommendationSelectionView") && chatScreenSource.includes("renderTimeline={(model) => <ChatScreenSmartShoppingTimeline model={model} />}") && chatScreenSource.includes("renderedResult && !isSmartShoppingResult") && chatScreenSource.includes('className="w-full self-start pl-11"'), "ChatScreen이 스마트쇼핑 컨트롤러와 outer 타임라인 렌더러를 직접 소유하고 생활비 결과 들여쓰기는 보존");
   assert.ok(chatScreenSource.includes("grid-cols-[minmax(0,1fr)]") && assistantRailMarkup.includes('data-chat-rail-track="shared"') && wideRailMarkup.includes('data-chat-rail-track="shared"'), "대화와 wide 행이 하나의 명시적 minmax(0,1fr) 최상위 트랙을 공유");
   assert.ok(chatScreenSource.includes("data-chat-timeline-root") && assistantRailMarkup.includes('data-chat-rail-width="outer"') && userRailMarkup.includes('data-chat-rail-width="outer"'), "초기·후속 대화가 동일한 최상위 폭 계약 사용");
-  assert.ok(chatScreenSource.includes('<ChatConversationTurn sender="ai"') && chatScreenSource.includes("<ChatConversationTurn\n                      sender={message.sender}") && chatScreenSource.includes('<ChatConversationTurn sender={isAssistant ? "ai" : "user"}'), "초기·조건·post-detail 대화가 정확히 같은 ChatConversationTurn 렌더러 사용");
+  assert.ok(chatScreenSource.includes('<ChatConversationTurn sender="ai"') && /<ChatConversationTurn\r?\n\s+sender=\{message\.sender\}/.test(chatScreenSource) && chatScreenSource.includes('<ChatConversationTurn sender={isAssistant ? "ai" : "user"}'), "초기·조건·post-detail 대화가 정확히 같은 ChatConversationTurn 렌더러 사용");
   assert.ok(chatConversationTurnSource.includes("<ChatTimelineRow") && chatConversationTurnSource.includes("<ChatMessage {...props}") && !chatConversationTurnSource.includes('kind="wide"'), "공용 대화 턴은 assistant/user 행과 ChatMessage만 생성");
   assert.ok(assistantRailMarkup.includes('data-chat-timeline-row="assistant"') && assistantRailMarkup.includes("justify-start"), "모든 assistant 턴은 공용 왼쪽 레일");
   assert.ok(userRailMarkup.includes('data-chat-timeline-row="user"') && userRailMarkup.includes("justify-end"), "모든 user 턴은 공용 오른쪽 레일");
@@ -805,8 +817,8 @@ try {
   const timelineSource = await readFile("src/app/features/smart-shopping/timeline/SmartShoppingTimeline.tsx", "utf8");
   const productActionBarSource = await readFile("src/app/features/smart-shopping/product-detail/ProductDetailActionBar.tsx", "utf8");
   assert.ok(favoriteButtonSource.includes('aria-pressed={isFavorite}') && favoriteButtonSource.includes("즐겨찾기에 추가") && favoriteButtonSource.includes("즐겨찾기에서 삭제"), "별 버튼 접근성 상태·안내");
-  assert.ok(favoriteButtonSource.includes("event.stopPropagation()") && optimizedListSource.includes("FavoriteToggleButton") && naverListSource.includes("FavoriteToggleButton") && productDetailViewSource.includes("FavoriteToggleButton"), "별 클릭과 내부·네이버 상품 선택 이벤트 분리");
-  assert.ok(optimizedListSource.includes("onClick={() => onSelect(item)}") && naverListSource.includes("onClick={() => onSelect(item)}"), "남은 내부·네이버 상품 카드 상세 선택 연결 유지");
+  assert.ok(favoriteButtonSource.includes("event.stopPropagation()") && optimizedListSource.includes("FavoriteToggleButton") && naverListSource.includes("FavoriteToggleButton") && productDetailViewSource.includes("FavoriteToggleButton"), "별 클릭과 내부·더미 상품 선택 이벤트 분리");
+  assert.ok(optimizedListSource.includes("onClick={() => onSelect(item)}") && naverListSource.includes("onClick={() => onSelect(item)}"), "내부·더미 상품 카드 상세 선택 연결 유지");
   assert.ok(optimizedListSource.includes("disabled={!isActive}") && !optimizedListSource.includes("<FavoriteToggleButton isFavorite={isFavorite(item)} disabled={!isActive}"), "AI 목록의 과거 읽기 전용 상품 선택과 전역 즐겨찾기 토글을 분리");
   assert.ok(productRecommendationCardSource.includes("recommendation.score") && productRecommendationCardSource.includes("FavoriteToggleButton") && productDetailViewSource.includes("<NaverProductDetail") && productDetailViewSource.includes("onToggleFavorite={props.onToggleFavorite}"), "상세 카드의 점수 배지를 보존하고 내부·네이버 별 버튼 연결");
   assert.ok(productRecommendationCardSource.includes("RecommendationReasonList") && !productRecommendationCardSource.includes('recommendationReasons.join(" · ")'), "상품 상세는 공용 구조화 추천 이유 컴포넌트만 사용");
@@ -824,17 +836,13 @@ try {
   const sessionModule = await load("/src/app/features/smart-shopping/session/smartShoppingSessionReducer.ts");
   const timelineSnapshots = await load("/src/app/features/smart-shopping/timeline/createTimelineSnapshot.ts");
   let shoppingSession = sessionModule.createSmartShoppingSession({ categoryId: "tv", criteria: tvAnswers });
-  const loadingTimelineSnapshot = timelineSnapshots.createRecommendationSnapshot({ query: "TV 55", recommendations: tvResult.recommendations, catalogSource: "mock", naverItems: [], naverStatus: "loading", naverErrorMessage: "" });
+  const loadingTimelineSnapshot = timelineSnapshots.createRecommendationSnapshot({ categoryId: "tv", recommendations: tvResult.recommendations, catalogSource: "mock", dummyProducts: dummyItems });
   shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append-recommendation-list", item: timelineSnapshots.createRecommendationListTimelineItem(shoppingSession.sessionId, loadingTimelineSnapshot) });
-  const timelineSnapshot = timelineSnapshots.createRecommendationSnapshot({ query: "TV 55", recommendations: tvResult.recommendations, catalogSource: "mock", naverItems, naverStatus: "success", naverErrorMessage: "" });
-  assert.equal(loadingTimelineSnapshot.snapshotId, timelineSnapshot.snapshotId, "동일 추천 결과의 안정적 snapshotId");
+  const timelineSnapshot = timelineSnapshots.createRecommendationSnapshot({ categoryId: "tv", recommendations: tvResult.recommendations, catalogSource: "mock", dummyProducts: dummyItems });
+  assert.equal(loadingTimelineSnapshot.snapshotId, timelineSnapshot.snapshotId, "동일 추천 결과와 더미 목록의 안정적 snapshotId");
   shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append-recommendation-list", item: timelineSnapshots.createRecommendationListTimelineItem(shoppingSession.sessionId, timelineSnapshot) });
-  assert.equal(shoppingSession.timeline.filter((item) => item.type === "recommendation-list").length, 1, "loading과 완료 snapshot을 단일 목록 item으로 교체");
-  assert.equal(shoppingSession.timeline.find((item) => item.type === "recommendation-list").snapshot.naverStatus, "success", "단일 목록에 최신 네이버 상태 반영");
-  const naverErrorSnapshot = timelineSnapshots.createRecommendationSnapshot({ query: "TV 55", recommendations: tvResult.recommendations, catalogSource: "mock", naverItems: [], naverStatus: "error", naverErrorMessage: "인증 실패" });
-  const naverErrorSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append-recommendation-list", item: timelineSnapshots.createRecommendationListTimelineItem(shoppingSession.sessionId, naverErrorSnapshot) });
-  assert.equal(naverErrorSession.timeline.filter((item) => item.type === "recommendation-list").length, 1, "네이버 오류 snapshot도 목록 중복 없이 교체");
-  assert.equal(naverErrorSession.timeline.find((item) => item.type === "recommendation-list").snapshot.recommendations.length, tvResult.recommendations.length, "네이버 오류에도 내부 추천 목록 유지");
+  assert.equal(shoppingSession.timeline.filter((item) => item.type === "recommendation-list").length, 1, "동일 목록 snapshot은 중복 없이 교체");
+  assert.deepEqual(shoppingSession.timeline.find((item) => item.type === "recommendation-list").snapshot.dummyProducts.map(({ id }) => id), dummyItems.map(({ id }) => id), "단일 목록에 결정적 내부 더미 목록 보존");
   const timelineSelected = { source: "internal", recommendation: JSON.parse(JSON.stringify(tvResult.recommendations[0])) };
   const productTimelineSnapshot = timelineSnapshots.createProductDetailSnapshot({ categoryId: "tv", selected: timelineSelected, internalRecommendations: tvResult.recommendations, showAlternative: false });
   const snapshottedHistory = JSON.parse(JSON.stringify(productTimelineSnapshot.selected.recommendation.product.priceHistory));

@@ -1,7 +1,7 @@
 import type { FlowAnswers } from "../../chat-flow/core/types";
-import type { ProductCategoryId, ProductRecommendation, ProductSource } from "../../product-catalog/core/types";
+import type { CatalogProduct, ProductCategoryId, ProductRecommendation, ProductSource } from "../../product-catalog/core/types";
 import type { PurchaseGradeResult } from "../grade/calculatePurchaseGrade";
-import type { NaverShoppingProduct, PurchaseGradeDiagnosisInput, SelectedShoppingProduct } from "../types/recommendation";
+import type { PurchaseGradeDiagnosisInput, SelectedShoppingProduct } from "../types/recommendation";
 import type { ProductDetailSnapshot, RecommendationSnapshot, SmartShoppingTimelineItem, TimelineActionGroupKind, TimelineTextKind } from "../session/smartShoppingSessionTypes";
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -15,10 +15,10 @@ const stableHash = (value: string) => {
   return (hash >>> 0).toString(36);
 };
 
-export const createRecommendationSnapshotId = (query: string, recommendations: ProductRecommendation[]) =>
-  `recommendation-${stableHash(`${query.trim().toLowerCase()}|${recommendations.map(({ product, score }) => `${product.id}:${score}`).join(",")}`)}`;
+export const createRecommendationSnapshotId = (categoryId: ProductCategoryId, recommendations: ProductRecommendation[], dummyProducts: CatalogProduct[]) =>
+  `recommendation-${stableHash(`${categoryId}|${recommendations.map(({ product, score }) => `${product.id}:${score}`).join(",")}|${dummyProducts.map(({ id }) => id).join(",")}`)}`;
 
-export const createRecommendationSnapshot = ({ query, recommendations, catalogSource, naverItems, naverStatus, naverErrorMessage }: { query: string; recommendations: ProductRecommendation[]; catalogSource: ProductSource; naverItems: NaverShoppingProduct[]; naverStatus: RecommendationSnapshot["naverStatus"]; naverErrorMessage: string }): RecommendationSnapshot => clone({ snapshotId: createRecommendationSnapshotId(query, recommendations), query, recommendations, catalogSource, naverItems, naverStatus, naverErrorMessage });
+export const createRecommendationSnapshot = ({ categoryId, recommendations, catalogSource, dummyProducts }: { categoryId: ProductCategoryId; recommendations: ProductRecommendation[]; catalogSource: ProductSource; dummyProducts: CatalogProduct[] }): RecommendationSnapshot => clone({ snapshotId: createRecommendationSnapshotId(categoryId, recommendations, dummyProducts), categoryId, recommendations, catalogSource, dummyProducts });
 
 export const createProductDetailSnapshot = ({ categoryId, selected, internalRecommendations, showAlternative }: { categoryId: ProductCategoryId; selected: SelectedShoppingProduct; internalRecommendations: ProductRecommendation[]; showAlternative: boolean }): ProductDetailSnapshot => clone({ categoryId, selected, internalRecommendations, showAlternative });
 
