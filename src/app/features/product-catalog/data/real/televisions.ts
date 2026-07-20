@@ -541,7 +541,7 @@ export const REAL_TV_PRODUCTS: TvProduct[] = [
     brand: "LG전자",
     modelNumber: "65UT9300KNA",
     name: "LG전자 울트라HD 65UT9300KNA 65인치",
-    imagePath: "/assets/products/real/televisions/65UT9300KNA.png",
+    imagePath: "/assets/products/real/televisions/65UT9300KNA.jpg",
     shortInfo: "2024년형 65인치 4K UHD, HDR10과 AI 화질·음향 최적화를 지원하는 대화면 실속형",
     aiReviewSummary: "설치 공간 펑수-30평대(52%),사이즈 만족도-아주 만족해요(91%),화질 만족도-아주 선명해요(68%),스마트 TV 기능-아주 뛰어나요(62%),가성비-성능에 비해 저렴해요(59%)",
     currentPrice: 1_117_780,

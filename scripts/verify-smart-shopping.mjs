@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { existsSync, readdirSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { extname, join } from "node:path";
 import { createServer } from "vite";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -869,8 +871,49 @@ try {
   assert.equal(mockProducts.length, 20, "기존 더미 상품 20개를 mockProducts로 보존");
   assert.deepEqual(realProducts, [...REAL_AIR_CONDITIONER_PRODUCTS, ...REAL_TV_PRODUCTS, ...REAL_REFRIGERATOR_PRODUCTS, ...REAL_VACUUM_PRODUCTS], "realProducts는 네 상품군 실제 배열을 집계");
   assert.ok(REAL_AIR_CONDITIONER_PRODUCTS.every((product) => product.categoryId === "air-conditioner") && REAL_TV_PRODUCTS.every((product) => product.categoryId === "tv") && REAL_REFRIGERATOR_PRODUCTS.every((product) => product.categoryId === "refrigerator") && REAL_VACUUM_PRODUCTS.every((product) => product.categoryId === "vacuum"), "상품군별 실제 배열의 categoryId 정확성");
-  assert.deepEqual(Object.fromEntries(["air-conditioner", "tv", "refrigerator", "vacuum"].map((categoryId) => [categoryId, realProducts.filter((product) => product.categoryId === categoryId).length])), { "air-conditioner": 17, tv: 17, refrigerator: 25, vacuum: 15 }, "네 실제 상품군 파일의 집계 수");
+  assert.deepEqual(Object.fromEntries(["air-conditioner", "tv", "refrigerator", "vacuum"].map((categoryId) => [categoryId, realProducts.filter((product) => product.categoryId === categoryId).length])), { "air-conditioner": 28, tv: 25, refrigerator: 25, vacuum: 22 }, "네 실제 상품군 파일의 집계 수");
   assert.ok(realProducts.every((product) => product.source === "real" && product.categoryId && product.dataStatus !== "mock"), "실제 상품의 출처·카테고리 상태");
+  const imageIntegrityFailures = [];
+  for (const product of realProducts) {
+    const imagePath = product.imagePath;
+    const expectedFilesystemPath = join(process.cwd(), "public", imagePath.replace(/^\//, ""));
+    const reportFailure = (reason) => imageIntegrityFailures.push({
+      category: product.categoryId,
+      modelNumber: product.modelNumber,
+      imagePath,
+      expectedFilesystemPath,
+      reason,
+    });
+
+    if (imagePath.startsWith("/public/")) { reportFailure("public directory prefix is not a browser path"); continue; }
+    if (!imagePath.startsWith("/assets/")) { reportFailure("unresolved local asset path"); continue; }
+    if (/\/(?:draft|mock)\//i.test(imagePath)) { reportFailure("unresolved draft asset path"); continue; }
+
+    let directory = join(process.cwd(), "public");
+    let exactFileName = "";
+    let missing = false;
+    for (const segment of imagePath.slice(1).split("/")) {
+      if (!existsSync(directory)) { reportFailure("parent directory does not exist"); missing = true; break; }
+      const entries = readdirSync(directory);
+      if (!entries.includes(segment)) {
+        const caseInsensitiveMatch = entries.find((entry) => entry.toLowerCase() === segment.toLowerCase());
+        reportFailure(caseInsensitiveMatch ? `path casing mismatch (found ${caseInsensitiveMatch})` : "asset file does not exist");
+        missing = true;
+        break;
+      }
+      directory = join(directory, segment);
+      exactFileName = segment;
+    }
+    if (missing) continue;
+    const stat = statSync(directory);
+    if (!stat.isFile()) { reportFailure("asset path is not a file"); continue; }
+    if (stat.size === 0) { reportFailure("asset file is empty"); continue; }
+    if (extname(exactFileName) !== extname(imagePath)) reportFailure(`extension mismatch (found ${extname(exactFileName) || "none"})`);
+  }
+  for (const failure of imageIntegrityFailures) {
+    console.error(`real product image integrity failure: category=${failure.category} model=${failure.modelNumber} imagePath=${failure.imagePath} expected=${failure.expectedFilesystemPath} reason=${failure.reason}`);
+  }
+  assert.equal(imageIntegrityFailures.length, 0, "모든 실제 상품의 로컬 이미지 경로가 public 자산과 정확히 일치");
   assert.ok([...mockProducts, ...realProducts].every((product) => !("weaknesses" in product)), "모든 real/mock 상품에서 weaknesses 제거");
   assert.ok([...mockProducts, ...realProducts].filter((product) => product.categoryId === "air-conditioner").every((product) => ["basicInstallationIncluded", "officialInstallation", "rebateEligible"].every((field) => !(field in product.specs))), "모든 에어컨 real/mock specs에서 설치·환급 필드 제거");
   assert.ok([...mockProducts, ...realProducts].filter((product) => product.categoryId === "tv").every((product) => !("rebateEligible" in product.specs)), "모든 TV real/mock specs에서 rebateEligible 제거");
@@ -882,8 +925,8 @@ try {
   assert.ok(!tvSpecsTypeSource.includes("rebateEligible"), "TV 타입 스키마에서 rebateEligible 제거");
   assert.deepEqual(catalogSourceByCategory, { "air-conditioner": "real", tv: "real", refrigerator: "real", vacuum: "real" }, "실제 데이터가 있는 카테고리는 real 선택");
   const repository = productRepository;
-  assert.equal(repository.getProducts("air-conditioner").length, 17); assert.equal(repository.getProducts("tv").length, 17);
-  assert.equal(repository.getProducts("refrigerator").length, 25); assert.equal(repository.getProducts("vacuum").length, 15);
+  assert.equal(repository.getProducts("air-conditioner").length, 28); assert.equal(repository.getProducts("tv").length, 25);
+  assert.equal(repository.getProducts("refrigerator").length, 25); assert.equal(repository.getProducts("vacuum").length, 22);
   assert.ok(repository.getProducts("tv").every((product) => product.categoryId === "tv"), "Repository 상품군 격리");
   assert.ok(catalogProducts.every((product) => product.source === "real"), "활성 카탈로그는 real·mock을 섞지 않음");
   const realTv = repository.getProducts("tv")[0];

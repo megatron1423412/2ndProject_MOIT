@@ -618,7 +618,7 @@ export const REAL_AIR_CONDITIONER_PRODUCTS: AirConditionerProduct[] = [
     brand: "캐리어",
     modelNumber: "DASB-0161XAWMD",
     name: "캐리어 에어로 18단 스탠드 에어컨 16평 DASB-0161XAWMD",
-    imagePath: "/assets/products/real/air-conditioner/DASB-0161XAWMD.webp",
+    imagePath: "/assets/products/real/air-conditioner/DASB-0161XAWMD.jpg",
     shortInfo: "2025년형, 냉방면적 52.8㎡(16평), 스탠드형, 냉방능력 6.5kW, 에너지소비효율 3등급",
     aiReviewSummary: "고객응대가 좋아요, 만족스러워요, 설명을 자세히 해줜요, 기사님이 친절해요, 디자인이 예뻐요, 시원해요",
     currentPrice: 1_298_990,
