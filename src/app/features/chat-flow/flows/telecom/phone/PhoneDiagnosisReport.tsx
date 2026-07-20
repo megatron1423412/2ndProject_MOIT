@@ -45,6 +45,9 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
   const desiredNetwork = (answers["phone.desiredNetwork"] || "5g") as string;
   const contractPeriod = (answers["phone.contractPeriod"] || "") as string;
   const isContractRemaining = contractPeriod === "remaining" || contractPeriod === "unknown";
+  const discountOptionValue = Array.isArray(answers["phone.discountOption"])
+    ? (answers["phone.discountOption"] as string[]).join(",")
+    : String(answers["phone.discountOption"] || "");
 
   // ── 스마트초이스 실시간 API 요금제 페칭 ───────────────────────
   const [apiPlan, setApiPlan] = useState<any | null>(null);
@@ -55,7 +58,10 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
     const reqData = mapDataVolumeToMB(dataVolume);
     const reqAge = mapAgeGroupToAge(ageGroup);
     const reqType = mapNetworkToType(desiredNetwork);
-    const reqDis = mapContractToDis(answers["phone.discountOption"] ? (answers["phone.discountOption"] as string[]).join(",") : undefined);
+    const reqDis = mapContractToDis(discountOptionValue || undefined);
+
+    setApiLoading(true);
+    setApiPlan(null);
 
     fetchSmartChoicePhonePlans({
       voice: "999999",
@@ -121,7 +127,7 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
     });
 
     return () => { cancelled = true; };
-  }, [dataVolume, ageGroup, desiredNetwork, answers]);
+  }, [dataVolume, ageGroup, desiredNetwork, discountOptionValue]);
 
   // 기존 요금제 스펙 & 추천 요금제 스펙 매칭 (API 결과가 있으면 최우선 적용)
   const currentSpec = getPlanSpec(confirmedPlan, carrier, currentFee, dataVolume);

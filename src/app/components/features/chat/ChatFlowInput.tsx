@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Send, Star } from "lucide-react";
-import type { AnswerInputStep, SubmittedFlowAnswer } from "../../../features/chat-flow/core/types";
+import type { AnswerInputStep, FlowChoiceOption, SubmittedFlowAnswer } from "../../../features/chat-flow/core/types";
 import QuickReplyChips from "./QuickReplyChips";
 import type { FavoriteProduct, FavoriteDraft } from "../../../features/favorites/types";
+import { prefetchPlans, resolvePhoneCurrentPlanOptions } from "../../../features/chat-flow/flows/telecom/phone/flow";
 
 const getPlanDetails = (value: string, label: string, subCategoryId: string) => {
   let name = label;
@@ -104,11 +105,31 @@ export default function ChatFlowInput({
 }: ChatFlowInputProps) {
   const [inputValue, setInputValue] = useState("");
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
+  const [phonePlanOptions, setPhonePlanOptions] = useState<FlowChoiceOption[] | null>(null);
+  const phoneCarrier = String(answers?.["phone.carrier"] || "");
+  const phoneCurrentFee = Number(answers?.["phone.currentFee"] || 0);
+  const isCurrentPhonePlanLookup = step?.id === "phone-current-plan-api";
 
   useEffect(() => {
     setInputValue("");
     setSelectedValues([]);
   }, [step?.id]);
+
+  useEffect(() => {
+    setPhonePlanOptions(null);
+    if (!isCurrentPhonePlanLookup || isHistorical || !phoneCarrier) return;
+
+    let active = true;
+    void prefetchPlans(phoneCarrier).then(() => {
+      if (!active) return;
+      setPhonePlanOptions(resolvePhoneCurrentPlanOptions({
+        "phone.carrier": phoneCarrier,
+        "phone.currentFee": phoneCurrentFee,
+      }));
+    });
+
+    return () => { active = false; };
+  }, [isCurrentPhonePlanLookup, isHistorical, phoneCarrier, phoneCurrentFee]);
 
   if (completed) {
     return <QuickReplyChips replies={["처음부터 다시 진단하기"]} onSelect={onReset} />;
@@ -413,12 +434,15 @@ export default function ChatFlowInput({
       step.id === "iptv-current-plan-api" ||
       step.id === "bundle-current-plan-api"
     ) {
-      const planOption = step.options.find(
+      const options = step.id === "phone-current-plan-api" && phonePlanOptions
+        ? phonePlanOptions
+        : step.options;
+      const planOption = options.find(
         (o) => o.value !== "direct-select" && o.value !== "direct-input"
       );
       
-      const directSelectOption = step.options.find((o) => o.value === "direct-select");
-      const directInputOption = step.options.find((o) => o.value === "direct-input");
+      const directSelectOption = options.find((o) => o.value === "direct-select");
+      const directInputOption = options.find((o) => o.value === "direct-input");
 
       const userSelectedThis = planOption && answers && answers[step.answerKey] === planOption.value;
 

@@ -45,6 +45,8 @@ export interface PhonePlanParams {
   dis: string;
 }
 
+const phonePlanRequestsInFlight = new Map<string, Promise<SmartChoiceResponse>>();
+
 // ──────────────────────────────────────────────
 // 사용자 답변 → SmartChoice 파라미터 변환 헬퍼
 // ──────────────────────────────────────────────
@@ -104,22 +106,33 @@ export async function fetchSmartChoicePhonePlans(
     dis:   params.dis,
   });
 
-  try {
-    const res = await fetch(`/api/telecom/phone-plans?${qs}`, {
-      signal: AbortSignal.timeout(12_000),
-    });
-    const json = await res.json() as SmartChoiceResponse;
-    return json;
-  } catch (err) {
-    return {
-      success: false,
-      count: 0,
-      plans: [],
-      source: "error",
-      error: err instanceof Error ? err.message : String(err),
-      message: "스마트초이스 API 요청 중 오류가 발생했습니다.",
-    };
-  }
+  const requestUrl = `/api/telecom/phone-plans?${qs}`;
+  const existingRequest = phonePlanRequestsInFlight.get(requestUrl);
+  if (existingRequest) return existingRequest;
+
+  const request = (async (): Promise<SmartChoiceResponse> => {
+    try {
+      const res = await fetch(requestUrl, {
+        signal: AbortSignal.timeout(12_000),
+      });
+      const json = await res.json() as SmartChoiceResponse;
+      return json;
+    } catch (err) {
+      return {
+        success: false,
+        count: 0,
+        plans: [],
+        source: "error",
+        error: err instanceof Error ? err.message : String(err),
+        message: "스마트초이스 API 요청 중 오류가 발생했습니다.",
+      };
+    } finally {
+      phonePlanRequestsInFlight.delete(requestUrl);
+    }
+  })();
+
+  phonePlanRequestsInFlight.set(requestUrl, request);
+  return request;
 }
 
 /**
