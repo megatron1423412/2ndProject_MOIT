@@ -8,11 +8,15 @@
     "dev": "vite",
     "preview": "vite preview",
     "verify:naver-shopping": "node scripts/verify-naver-shopping.mjs",
+    "verify:openai-product-question": "node scripts/verify-openai-product-question.mjs",
+    "test:openai-product-question": "node scripts/test-openai-product-question.mjs",
     "test:smart-shopping": "node scripts/verify-smart-shopping.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
+    "@langchain/core": "^1.2.3",
+    "@langchain/openai": "^1.5.5",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
     "@popperjs/core": "2.11.8",

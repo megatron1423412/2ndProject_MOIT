@@ -363,10 +363,10 @@ try {
   assert.equal(tvCriteria.getTvPlatformDisplayLabel({ brand: "삼성전자", specs: { os: "other" } }), "Tizen");
   assert.equal(tvCriteria.getTvPlatformDisplayLabel({ brand: "LG전자", specs: { os: "other" } }), "webOS");
   assert.ok(!["Tizen", "webOS", tvCriteria.getTvPlatformDisplayLabel({ brand: "기타", specs: { os: "other" } })].includes("other"), "TV 사용자 플랫폼 라벨에 내부 other 미노출");
-  const { buildProductQuestionPrompt } = await load("/src/app/features/smart-shopping/product-detail/productQuestionContext.ts");
-  const safeQuestionPrompt = buildProductQuestionPrompt({ question: "이 제품 어때요?", selectedProduct: { name: "테스트 에어컨", brand: "MOIT", categoryId: "air-conditioner", source: "internal" }, userCriteria: { "airConditioner.type": "two-in-one", "airConditioner.dailyUsage": "4to8", "airConditioner.valuePriority": "balanced" }, fit: { matchedCriteria: ["타입 일치"], unmatchedCriteria: [] }, priceSummary: { currentPrice: 1_000_000, history: [] }, sourceAndConfidence: { dataStatus: "verified", verifiedInformation: [], unknownInformation: [] } });
-  assert.ok(safeQuestionPrompt.includes("에어컨 타입: 2in1") && safeQuestionPrompt.includes("하루 4~8시간") && safeQuestionPrompt.includes("가격·효율 균형 추천"), "직접 Q&A 문맥도 사용자 표시 라벨 사용");
-  assert.ok(!/airConditioner\.|air-conditioner|two-in-one|4to8|balanced|ratedCoolingAreaPyeong/.test(safeQuestionPrompt), "직접 Q&A 문맥에 raw category·criteria key·enum 미노출");
+  const { buildProductQuestionRequest } = await load("/src/app/features/smart-shopping/product-detail/productQuestionContext.ts");
+  const productQuestionPayload = buildProductQuestionRequest({ selected: { source: "internal", recommendation: tvResult.recommendations[0] }, userCriteria: tvAnswers, timeline: [] });
+  assert.equal(productQuestionPayload.productId, tvResult.recommendations[0].product.id, "직접 Q&A는 전체 상품이 아닌 선택 product id만 서버에 전달");
+  assert.ok(!("selectedProduct" in productQuestionPayload) && !("priceSummary" in productQuestionPayload), "브라우저 Q&A payload는 상품 객체와 가격 이력을 보내지 않음");
 
   const phoneModule = getFlowModule("phone");
   let phoneFlowState = runtime.createInitialFlowState(phoneModule);
@@ -871,7 +871,7 @@ try {
   assert.notEqual(shoppingSession.sessionId, refrigeratorSession.sessionId, "다른 소분류 세션 격리");
   const recommendationViewSource = await readFile("src/app/features/smart-shopping/recommendation/RecommendationSelectionView.tsx", "utf8");
   assert.ok(recommendationViewSource.includes("SmartShoppingTimelineRenderModel") && recommendationViewSource.includes("session.recommendationSnapshot"), "컨트롤러가 타임라인 모델과 목록 스냅샷을 보존");
-  assert.ok(recommendationViewSource.includes("return renderTimeline({") && !recommendationViewSource.includes("ChatTimelineRow") && !recommendationViewSource.includes("ChatMessage") && !recommendationViewSource.includes("SmartShoppingWideTimelineContent") && recommendationViewSource.includes('appendText("assistant-text", getUpcomingPromotionMessage') && recommendationViewSource.includes('appendText("assistant-text", buildPurchaseTipMessage') && recommendationViewSource.includes('appendText("assistant-text", alternatives.length') && recommendationViewSource.includes('appendText("assistant-text", [response.answer') && recommendationViewSource.includes('appendText("assistant-text", "이전에 확인한 조건으로 상품 목록을 다시 보여드릴게요."') && recommendationViewSource.includes('appendText("assistant-text", "이 상품으로 무엇을 해볼까요?'), "컨트롤러는 모든 응답을 데이터로만 만들고 assistant/user DOM을 렌더링하지 않음");
+  assert.ok(recommendationViewSource.includes("return renderTimeline({") && !recommendationViewSource.includes("ChatTimelineRow") && !recommendationViewSource.includes("ChatMessage") && !recommendationViewSource.includes("SmartShoppingWideTimelineContent") && recommendationViewSource.includes('appendText("assistant-text", getUpcomingPromotionMessage') && recommendationViewSource.includes('appendText("assistant-text", buildPurchaseTipMessage') && recommendationViewSource.includes('appendText("assistant-text", alternatives.length') && recommendationViewSource.includes('appendText("assistant-text", response.answer)') && recommendationViewSource.includes('appendText("assistant-text", "이전에 확인한 조건으로 상품 목록을 다시 보여드릴게요."') && recommendationViewSource.includes('appendText("assistant-text", "이 상품으로 무엇을 해볼까요?'), "컨트롤러는 모든 응답을 데이터로만 만들고 assistant/user DOM을 렌더링하지 않음");
   assert.ok(![recommendationViewSource, productActionBarSource, await readFile("src/app/features/smart-shopping/actions/productDetailActions.ts", "utf8"), await readFile("src/app/features/smart-shopping/next-actions/nextActionOptions.ts", "utf8")].join("\n").includes("목록으로 돌아가기"), "모든 스마트쇼핑 액션 경로에서 이전 목록 문구 제거");
   assert.ok(!recommendationViewSource.includes("onClearSupplementalMessages"), "단계 전환 시 보조 대화 초기화 제거");
 
@@ -880,7 +880,7 @@ try {
   productQuestionRoute({}).configureServer({ middlewares: { use: (handler) => { productQuestionHandler = handler; } } });
   let questionStatus = 0; let questionBody = "";
   await productQuestionHandler({ url: "/api/ai/product-question", method: "POST" }, { setHeader: () => {}, end: (body) => { questionBody = body; }, set statusCode(value) { questionStatus = value; } }, () => {});
-  assert.equal(questionStatus, 503); assert.equal(JSON.parse(questionBody).code, "OPENAI_API_NOT_CONFIGURED", "OpenAI 키 미설정 안내");
+  assert.equal(questionStatus, 503); assert.equal(JSON.parse(questionBody).code, "OPENAI_CONFIG_MISSING", "OpenAI 키 미설정 안내");
 
   const airState = runtime.createInitialFlowState(airModule);
   const freshVacuumState = runtime.createInitialFlowState(vacuumFlowModule);

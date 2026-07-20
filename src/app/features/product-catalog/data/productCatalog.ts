@@ -19,4 +19,4 @@ export const catalogProducts = buildCatalogProducts(mockProducts, realProducts);
 export const catalogSourceByCategory = getCatalogSourceByCategory(realProducts);
 export const productRepository = new StaticProductRepository(catalogProducts);
 
-if (import.meta.env.DEV) assertValidProductData(mockProducts, realProducts);
+if (import.meta.env?.DEV) assertValidProductData(mockProducts, realProducts);

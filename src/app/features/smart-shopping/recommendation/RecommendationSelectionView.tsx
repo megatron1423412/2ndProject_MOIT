@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { FlowAnswers, FlowResult } from "../../chat-flow/core/types";
 import type { ProductCategoryId, ProductRecommendation } from "../../product-catalog/core/types";
 import { catalogProducts, catalogSourceByCategory } from "../../product-catalog/data/productCatalog";
@@ -13,7 +13,7 @@ import { resolvePurchaseLink } from "../next-actions/resolvePurchaseLink";
 import type { PriceAlertDraft } from "../price-alerts/types";
 import { getUpcomingPromotionMessage } from "../promotions/getUpcomingPromotionMessage";
 import { buildProductQuestionRequest } from "../product-detail/productQuestionContext";
-import { askProductQuestion } from "../product-detail/productQuestionClient";
+import { askProductQuestion, productQuestionErrorMessage } from "../product-detail/productQuestionClient";
 import { PRODUCT_DETAIL_SETTINGS } from "../product-detail/productDetailSettings";
 import { createSmartShoppingSession, smartShoppingSessionReducer } from "../session/smartShoppingSessionReducer";
 import type { RecommendationSnapshot, TimelineActionGroupKind } from "../session/smartShoppingSessionTypes";
@@ -45,6 +45,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const [view, dispatch] = useReducer(recommendationViewReducer, initialRecommendationViewState);
   const [session, sessionDispatch] = useReducer(smartShoppingSessionReducer, { categoryId: category, criteria: createCriteriaSnapshot(criteria) }, createSmartShoppingSession);
   const [questionLoading, setQuestionLoading] = useState(false);
+  const questionRequestInFlight = useRef(false);
   const [questionError, setQuestionError] = useState("");
   const [returnActionGroup, setReturnActionGroup] = useState<TimelineActionGroupKind>("next");
   const [showedOverBudget, setShowedOverBudget] = useState(false);
@@ -138,17 +139,20 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   };
 
   const handleQuestionSubmit = async (question: string, addUserMessage = true) => {
-    if (!selected || questionLoading) return;
-    if (addUserMessage) appendText("user-text", question);
+    const trimmedQuestion = question.trim();
+    if (!selected || !trimmedQuestion || questionLoading || questionRequestInFlight.current) return;
+    questionRequestInFlight.current = true;
+    if (addUserMessage) appendText("user-text", trimmedQuestion);
     setQuestionLoading(true); setQuestionError("");
     try {
-      const request = buildProductQuestionRequest({ selected, recommendations: activeRecommendations, userCriteria: criteria });
-      const response = await askProductQuestion({ ...request, question });
-      appendText("assistant-text", [response.answer, ...response.optionalWarnings].join("\n"));
+      const request = buildProductQuestionRequest({ selected, userCriteria: criteria, timeline: session.timeline });
+      const response = await askProductQuestion({ ...request, question: trimmedQuestion });
+      appendText("assistant-text", response.answer);
       appendActionGroup("detail", showAlternative);
     } catch (error) {
-      setQuestionError(error instanceof Error ? error.message : "AI 답변 요청에 실패했습니다.");
-    } finally { setQuestionLoading(false); }
+      setQuestionError(productQuestionErrorMessage(error instanceof Error ? error.message : "OPENAI_REQUEST_FAILED"));
+      appendActionGroup("detail", showAlternative);
+    } finally { questionRequestInFlight.current = false; setQuestionLoading(false); }
   };
 
   const nextStep = () => {

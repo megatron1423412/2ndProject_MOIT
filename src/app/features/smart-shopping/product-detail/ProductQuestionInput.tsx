@@ -1,8 +1,13 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Send } from "lucide-react";
 
 export default function ProductQuestionInput({ isLoading, errorMessage, onSubmit, onRetry, onCancel }: { isLoading: boolean; errorMessage: string; onSubmit: (question: string) => void; onRetry: (question: string) => void; onCancel: () => void }) {
   const [question, setQuestion] = useState("");
+  const wasLoading = useRef(false);
+  useEffect(() => {
+    if (wasLoading.current && !isLoading && !errorMessage) setQuestion("");
+    wasLoading.current = isLoading;
+  }, [errorMessage, isLoading]);
   const canSubmit = Boolean(question.trim()) && !isLoading;
   const submit = () => { if (canSubmit) onSubmit(question.trim()); };
   return (
