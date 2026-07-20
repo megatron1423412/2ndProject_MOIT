@@ -375,7 +375,7 @@ export const REAL_VACUUM_PRODUCTS: VacuumProduct[] = [
     shortInfo: "대기업 유선 사이클론 청소기 후보로, 지속 흡입력과 관리 편의 비교용",
     aiReviewSummary: "소음이 적어요,성능이 좋아요",
     currentPrice: 339_400,
-    priceHistory: [],
+    priceHistory: [{date: "2026-01-15",lowestPrice: 342_420,},{date: "2026-01-30",lowestPrice: 342_420,},{date: "2026-02-14",lowestPrice: 342_420,},{date: "2026-03-01",lowestPrice: 344_890,},{date: "2026-03-16",lowestPrice: 344_890,},{date: "2026-03-31",lowestPrice: 344_890,},{date: "2026-04-15",lowestPrice: 344_890,},{date: "2026-04-30",lowestPrice: 344_890,},{date: "2026-05-14",lowestPrice: 342_340,},{date: "2026-05-29",lowestPrice: 344_890,},{date: "2026-06-13",lowestPrice: 344_900,},{date: "2026-06-28",lowestPrice: 344_900,},{date: "2026-07-13",lowestPrice: 344_900,}],
     strengths: ["배터리 충전 없이 지속 사용", "대기업 유선 후보", "사이클론 방식"],
     dataStatus: "unverified",
     source: "real",
