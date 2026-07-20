@@ -502,48 +502,33 @@ const specific: FlowStep[] = [
 
       const availablePlans = mockIptvPlans
         .filter((plan) => isPlanAvailableInRegion(plan, answers))
-        .map((plan) => ({ plan, price: getContractPrice(plan, desiredContract) }))
+        .map((plan) => {
+          const priceMap = plan.prices?.single as Record<string, number | undefined>;
+          const price = priceMap ? (priceMap[desiredContract] || priceMap["3years"] || priceMap["none"] || 0) : 0;
+          return { plan, price };
+        })
         .filter((item) => item.price > 0);
 
-      // 통신사별로 그룹화
-      const groups: Record<string, typeof availablePlans> = {};
-      availablePlans.forEach((item) => {
-        const carrier = item.plan.carrier;
-        if (!groups[carrier]) {
-          groups[carrier] = [];
-        }
-        groups[carrier].push(item);
-      });
-
-      const selectedPlans: typeof availablePlans = [];
-
-      // 각 통신사별로 1~2개 랜덤 추출
-      Object.keys(groups).forEach((carrier) => {
-        const groupPlans = groups[carrier];
-        const shuffled = [...groupPlans].sort(() => Math.random() - 0.5);
-        let count = Math.random() < 0.5 ? 1 : 2;
-
-        // 지니 TV 스카이라이프(genie_skylife)는 30% 확률로 1개만 추출 (그 외에는 0개 추출)
-        if (carrier === "genie_skylife") {
-          count = Math.random() < 0.3 ? 1 : 0;
-        }
-
-        const selected = shuffled.slice(0, Math.min(groupPlans.length, count));
-        selectedPlans.push(...selected);
-      });
-
-      // 기존과 같이 정렬 (통신사 순, 그 안에서 가격 오름차순)
-      selectedPlans.sort((a, b) => {
+      // 통신사 순 & 가격 오름차순 정렬
+      availablePlans.sort((a, b) => {
         if (a.plan.carrier !== b.plan.carrier) {
           return a.plan.carrier.localeCompare(b.plan.carrier);
         }
         return a.price - b.price;
       });
 
-      const resolvedOptions = selectedPlans.map(({ plan, price }) => ({
-        value: plan.id,
-        label: `[${carrierDisplayMap[plan.carrier] ?? plan.carrier}] ${plan.name} (${plan.channels}개 채널) (월 ${price.toLocaleString("ko-KR")}원)`,
-      }));
+      const resolvedOptions = [
+        ...availablePlans.map(({ plan, price }) => ({
+          value: plan.id,
+          label: `[${carrierDisplayMap[plan.carrier] ?? plan.carrier}] ${plan.name} (${plan.channels}개 채널) (월 ${price.toLocaleString("ko-KR")}원)`,
+          next: "iptv-result",
+        })),
+        {
+          value: "none-of-them",
+          label: "목록에 없음 (금액 기준으로만 진단)",
+          next: "iptv-result",
+        },
+      ];
 
       answers[cacheKey] = resolvedOptions;
       return resolvedOptions;

@@ -1,10 +1,56 @@
 // src/app/features/chat-flow/flows/telecom/bundle/flow.ts
 
 import { composeFlow } from "../../../core/composeFlow";
-import type { FlowDefinition, FlowStep } from "../../../core/types";
+import type { FlowAnswers, FlowDefinition, FlowStep } from "../../../core/types";
 import { buildBundleResult } from "./result";
+import { mockBundlePlans, type BundlePlan } from "./mockData";
 
 const namespace = "bundle";
+
+function resolveRecommendedBundlePlans(
+  answers: FlowAnswers,
+  answerPrefix: string
+): BundlePlan[] {
+  const carrierVal =
+    (answers[`${namespace}.${answerPrefix}Carrier`] as string) ||
+    (answers[`${namespace}.commonCarrier`] as string) ||
+    "";
+
+  const feeVal =
+    answers[`${namespace}.${answerPrefix}Fee`] ??
+    answers[`${namespace}.${answerPrefix}MobileFee`] ??
+    answers[`${namespace}.${answerPrefix}TvFee`] ??
+    0;
+
+  const currentFee = Number(feeVal) || 0;
+
+  let targetCarrier = "";
+  if (carrierVal.includes("SK")) {
+    targetCarrier = "SK";
+  } else if (carrierVal.includes("KT")) {
+    targetCarrier = "KT";
+  } else if (carrierVal.includes("LG") || carrierVal.includes("U+")) {
+    targetCarrier = "LGU";
+  } else if (carrierVal.includes("알뜰") || carrierVal.includes("스카이")) {
+    targetCarrier = "SKYLIFE";
+  }
+
+  let plans = mockBundlePlans;
+  if (targetCarrier) {
+    const filtered = mockBundlePlans.filter((p) => p.carrier === targetCarrier);
+    if (filtered.length > 0) {
+      plans = filtered;
+    }
+  }
+
+  if (currentFee > 0) {
+    plans = [...plans].sort(
+      (a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee)
+    );
+  }
+
+  return plans;
+}
 
 // ──────────────────────────────────────────────
 // 공통 컴포넌트 빌더 함수 (Common Component Builders)
@@ -56,20 +102,76 @@ function PlanCheckMethod(args: {
   id: string;
   message: string;
   answerKey: string;
+  answerPrefix: string;
   next: string;
-}): FlowStep {
-  return {
+}): FlowStep[] {
+  const listStepId = `${args.id}_list`;
+
+  const cardStep: FlowStep = {
     id: args.id,
     type: "single-choice",
     message: args.message,
     answerKey: args.answerKey,
-    options: [
-      { value: "불러오기", label: "요금제 불러오기" },
-      { value: "직접 선택", label: "직접 선택" },
-      { value: "직접 입력", label: "직접 입력" },
-    ],
+    options: [],
+    optionsResolver: (answers) => {
+      const plans = resolveRecommendedBundlePlans(answers, args.answerPrefix);
+      const topPlans = plans.slice(0, 4);
+
+      const cards = topPlans.map((plan, idx) => ({
+        value: plan.id,
+        label: `[추천 ${idx + 1}순위] ${plan.name} (월 ${plan.price.toLocaleString("ko-KR")}원)`,
+        next: args.next,
+      }));
+
+      return [
+        ...cards,
+        {
+          value: "direct-choose",
+          label: "직접 고를래요(리스트 보기)",
+          next: listStepId,
+        },
+      ];
+    },
     next: args.next,
   };
+
+  const listStep: FlowStep = {
+    id: listStepId,
+    type: "single-choice",
+    message: "추천 요금제 리스트입니다. 원하시는 요금제를 선택해 주세요.",
+    answerKey: `${args.answerKey}List`,
+    options: [],
+    optionsResolver: (answers) => {
+      const plans = resolveRecommendedBundlePlans(answers, args.answerPrefix);
+      const remainingPlans = plans.slice(4);
+
+      if (remainingPlans.length === 0) {
+        return [
+          {
+            value: "no_more_plans",
+            label: "추천하는 요금제가 없습니다",
+            next: args.next,
+          },
+        ];
+      }
+
+      return [
+        ...remainingPlans.map((plan) => ({
+          value: plan.id,
+          label: `${plan.name} (월 ${plan.price.toLocaleString("ko-KR")}원)`,
+          next: args.next,
+        })),
+        {
+          value: "none-of-them",
+          label: "목록에 없음 (금액 기준으로만 진단)",
+          next: args.next,
+        },
+      ];
+    },
+    next: args.next,
+  };
+
+  return [cardStep, listStep];
 }
 
 function ContractStatus(args: {
@@ -88,7 +190,7 @@ function ContractStatus(args: {
     options: [
       {
         value: "만료",
-        label: args.isMobile ? "가입한 지 3년 넘음 (또는 만료됨)" : "가입한 지 3년 넘음",
+        label: args.isMobile ? "약정이 만료됨" : " ",
         next: args.expiryNext,
       },
       { value: "남음", label: "아직 약정 기간 남음" },
@@ -193,10 +295,11 @@ function buildMobileFlow(args: {
       placeholder: "예: 55000",
       next: `${prefix}3`,
     }),
-    PlanCheckMethod({
+    ...PlanCheckMethod({
       id: `${prefix}3`,
       message: "현재 이용 중인 요금제 확인 방식을 선택해 주세요.",
       answerKey: `${namespace}.${answerPrefix}PlanCheck`,
+      answerPrefix,
       next: `${prefix}4`,
     }),
     {
@@ -300,10 +403,11 @@ function buildInternetFlow(args: {
       placeholder: isCombo ? "예: 35000" : "예: 25000",
       next: `${prefix}3`,
     }),
-    PlanCheckMethod({
+    ...PlanCheckMethod({
       id: `${prefix}3`,
       message: planCheckMessage,
       answerKey: `${namespace}.${answerPrefix}PlanCheck`,
+      answerPrefix,
       next: `${prefix}4`,
     }),
     ContractStatus({
@@ -359,10 +463,11 @@ function buildTvFlow(args: {
       placeholder: "예: 15000",
       next: `${prefix}3`,
     }),
-    PlanCheckMethod({
+    ...PlanCheckMethod({
       id: `${prefix}3`,
       message: "TV 상품 요금제 확인 방식을 선택해 주세요.",
       answerKey: `${namespace}.${answerPrefix}PlanCheck`,
+      answerPrefix,
       next: `${prefix}4`,
     }),
     ContractStatus({
@@ -678,6 +783,68 @@ const steps: FlowStep[] = [
     id: "Q_P2_4",
     type: "assistant-message",
     message: "원하는 정보 입력 완료",
+    next: "bundle-recommendation-api",
+  },
+
+  {
+    id: "bundle-recommendation-api",
+    type: "single-choice",
+    message: "고객님의 조건을 분석하여 선정한 최적의 추천 요금제 리스트입니다.",
+    answerKey: `${namespace}.selectedRecommendedPlan`,
+    options: [],
+    optionsResolver: (answers) => {
+      const companyType = answers[`${namespace}.desiredCompanyType`] || "any";
+
+      let filtered = mockBundlePlans;
+      if (companyType === "mvno") {
+        filtered = mockBundlePlans.filter(
+          (p) => p.carrier === "SKYLIFE" || p.name.includes("알뜰") || p.price <= 50000
+        );
+      } else if (companyType === "mno") {
+        filtered = mockBundlePlans.filter(
+          (p) => p.carrier === "SK" || p.carrier === "KT" || p.carrier === "LGU"
+        );
+      }
+
+      if (filtered.length === 0) {
+        filtered = mockBundlePlans;
+      }
+
+      const topPlans = filtered.slice(0, 4);
+
+      return [
+        ...topPlans.map((plan, idx) => ({
+          value: plan.id,
+          label: `[추천 ${idx + 1}순위] ${plan.name} (월 ${plan.price.toLocaleString("ko-KR")}원)`,
+          next: "bundle-result",
+        })),
+        {
+          value: "direct-choose",
+          label: "직접 고를래요 (전체 리스트 보기)",
+          next: "bundle-all-plans-select",
+        },
+      ];
+    },
+    next: "bundle-result",
+  },
+
+  {
+    id: "bundle-all-plans-select",
+    type: "single-choice",
+    message: "추천 요금제 외에 선택 가능한 전체 요금제 리스트입니다. 원하시는 요금제를 선택해 주세요.",
+    answerKey: `${namespace}.manualSelectedPlan`,
+    options: [
+      ...mockBundlePlans.map((plan) => ({
+        value: plan.id,
+        label: `${plan.name} (월 ${plan.price.toLocaleString("ko-KR")}원)`,
+        next: "bundle-result",
+      })),
+      {
+        value: "none-of-them",
+        label: "목록에 없음 (금액 기준으로만 진단)",
+        next: "bundle-result",
+      },
+    ],
     next: "bundle-result",
   },
 

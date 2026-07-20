@@ -370,7 +370,11 @@ export default function ChatFlowInput({
       step.id === "iptv-current-plans-list" ||
       step.id === "bundle-current-plans-list" ||
       step.id === "iptv-choose-current-list" ||
-      step.id === "iptv-all-plans-select"
+      step.id === "iptv-all-plans-select" ||
+      step.id === "bundle-all-plans-select" ||
+      step.id.endsWith("_list") ||
+      step.id.endsWith("-plans-list") ||
+      step.answerKey?.endsWith("PlanCheckList")
     ) {
       const planOptions = step.options.filter(
         (o) => o.value !== "none-of-them" && o.value !== "manual_fallback" && o.value !== "direct-choose"
@@ -384,8 +388,12 @@ export default function ChatFlowInput({
           <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
             {planOptions.map((opt) => {
               const userSelectedThis = answers && answers[step.answerKey] === opt.value;
+              const isUnselectable = opt.value === "no_more_plans" || opt.value === "disabled";
+
               let borderClass = "";
-              if (isHistorical) {
+              if (isUnselectable) {
+                borderClass = "border-border/60 bg-muted/40 text-muted-foreground opacity-60 cursor-not-allowed select-none pointer-events-none";
+              } else if (isHistorical) {
                 if (userSelectedThis) {
                   borderClass = "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed";
                 } else {
@@ -395,19 +403,23 @@ export default function ChatFlowInput({
                 borderClass = "border-border bg-card hover:border-emerald-500/50 hover:bg-emerald-500/5 active:scale-[0.99] cursor-pointer";
               }
 
+              const priceMatch = opt.label.match(/월\s*([\d,]+원)/);
+
               return (
                 <div
                   key={opt.value}
-                  onClick={isHistorical ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
+                  onClick={isHistorical || isUnselectable ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
                   className={`flex flex-col gap-1 rounded-xl border p-3.5 text-left shadow-sm transition-all duration-200 ${borderClass}`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-primary truncate pr-2">
                       {opt.label.split(" (월 ")[0]}
                     </span>
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
-                      {(opt.label.match(/월\s*([\d,]+원)/)?.[1]) || ""}
-                    </span>
+                    {priceMatch && (
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                        {priceMatch[1]}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -511,7 +523,8 @@ export default function ChatFlowInput({
       step.id === "internet-recommendation-api" ||
       step.id === "iptv-select-new-plan" ||
       step.id === "bundle-recommendation-api" ||
-      step.id === "bundle-all-plans-select"
+      step.answerKey?.endsWith("PlanCheck") ||
+      step.id.includes("PlanCheck")
     ) {
       const cardOptions = step.options.filter(
         (o) => !["direct-choose", "direct-select", "direct-input"].includes(o.value)

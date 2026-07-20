@@ -11,9 +11,14 @@ export const buildIptvResult = (answers: Record<string, any>): FlowResult => {
   const selectedNewPlan = answers["iptv.selectedNewPlan"];
   const selectedPlanId = (selectedNewPlan && selectedNewPlan !== "direct-choose")
     ? selectedNewPlan
-    : answers["iptv.selectedNewPlanDirect"];
+    : (answers["iptv.selectedNewPlanDirect"] || answers["iptv.manualSelectedPlan"]);
   const selectedPlan = mockIptvPlans.find((p) => p.id === selectedPlanId);
-  const selectedPrice = selectedPlan ? selectedPlan.price : 0;
+
+  const desiredContract = (answers["iptv.desiredContract"] as string) || "3years";
+  const priceMap = selectedPlan?.prices?.single as Record<string, number | undefined> | undefined;
+  const selectedPrice = priceMap
+    ? (priceMap[desiredContract] || priceMap["3years"] || priceMap["none"] || 0)
+    : 0;
 
   const saving = currentPriceInput - selectedPrice;
   const savingRate = currentPriceInput > 0 ? (saving / currentPriceInput) : 0;

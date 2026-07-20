@@ -54,16 +54,18 @@ export default function IptvDiagnosisReport({ result }: IptvDiagnosisReportProps
   const selectedNewPlan = answers["iptv.selectedNewPlan"];
   const selectedPlanId = (selectedNewPlan && selectedNewPlan !== "direct-choose")
     ? selectedNewPlan
-    : answers["iptv.selectedNewPlanDirect"];
+    : (answers["iptv.selectedNewPlanDirect"] || answers["iptv.manualSelectedPlan"]);
   const selectedPlan = mockIptvPlans.find((p) => p.id === selectedPlanId);
   const selectedPlanString = selectedPlan
     ? `[${providerTypeLabelMap[selectedPlan.carrier] ?? selectedPlan.carrier}] ${selectedPlan.name}`
     : "선택 요금제 정보 없음";
 
-  // 가격 구조에 따른 3년 약정 요금 안전하게 추출
-  const selectedPrice = selectedPlan
-    ? (selectedPlan.prices?.single?.["3years"] || selectedPlan.prices?.single?.none || 0)
-    : 0;
+  // 약정 조건에 따른 선택 요금 추출
+  const desiredContract = (answers["iptv.desiredContract"] as string) || "3years";
+  const priceMap = selectedPlan?.prices?.single as Record<string, number | undefined> | undefined;
+  const selectedPrice = priceMap
+    ? (priceMap[desiredContract] || priceMap["3years"] || priceMap["none"] || 0)
+    : (result.metadata?.selectedPrice || 0);
   const selectedChannels = selectedPlan ? selectedPlan.channels : 0;
 
   // ① 절약형 공식: 기존 요금 - 선택 요금
