@@ -3,6 +3,7 @@
 import type { FlowResult } from "../../../core/types";
 import { createTelecomMockResult } from "../../../shared/telecom/resultHelpers";
 import { BUNDLE_MOCK_RESULT, mockBundlePlans } from "./mockData";
+import { apiPlansCache } from "./flow";
 
 export const buildBundleResult = (answers: Record<string, any>): FlowResult => {
   const finalAnswers = answers;
@@ -150,7 +151,8 @@ export const buildBundleResult = (answers: Record<string, any>): FlowResult => {
 
   const chosenPlanId = finalAnswers["bundle.selectedRecommendedPlan"] || finalAnswers["bundle.manualSelectedPlan"];
   if (chosenPlanId) {
-    const found = mockBundlePlans.find((p) => p.id === chosenPlanId);
+    const allAvailable = apiPlansCache && apiPlansCache.length > 0 ? apiPlansCache : mockBundlePlans;
+    const found = allAvailable.find((p) => p.id === chosenPlanId) || mockBundlePlans.find((p) => p.id === chosenPlanId);
     if (found) {
       selectedPlan = found;
       if (found.carrier) {
