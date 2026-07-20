@@ -134,45 +134,46 @@ const opening: FlowStep[] = [
       }
 
       return [
-        ...matched.map(m => ({ value: m.value, label: m.label, next: "phone-desired-network" })),
+        ...matched.map(m => ({ value: m.value, label: m.label, next: "phone-contract-period" })),
         { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "phone-current-plans-list" },
         { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "phone-custom-plan-input" },
       ];
     },
-    next: "phone-desired-network"
+    next: "phone-contract-period"
   },
 
-  // [Part 1 - 3-1번] 🔄 입력 요금 기준 ±15,000원 범위 요금제 리스트 선택 스텝
+  // [Part 1 - 3-1번] 🔄 입력 요금 기준 ±25,000원 범위 요금제 리스트 선택 스텝
   {
     id: "phone-current-plans-list",
     type: "single-choice",
     message: "입력하신 요금대와 비슷한 요금제 목록입니다. 현재 요금제를 선택해주세요.",
     answerKey: `${namespace}.confirmedPlanList`,
     options: [
-      { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-desired-network" }
+      { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-contract-period" }
     ],
     optionsResolver: (answers) => {
       const carrier = answers[`phone.carrier`] as string;
       const currentFee = answers[`phone.currentFee`] as number;
       const cached = planCache[carrier] || [];
 
-      // 유저 입력 요금 기준 ±15,000원 이하 요금제들 필터링
+      // 유저 입력 요금 기준 ±25,000원 이하 요금제들 필터링 (최대 4개 카드로 제한)
       const matched = cached
-        .filter(p => Math.abs(p.price - currentFee) <= 15000)
-        .sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee));
+        .filter(p => Math.abs(p.price - currentFee) <= 25000)
+        .sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee))
+        .slice(0, 4);
 
       if (matched.length > 0) {
         return [
-          ...matched.map(m => ({ value: m.value, label: m.label, next: "phone-desired-network" })),
-          { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-desired-network" }
+          ...matched.map(m => ({ value: m.value, label: m.label, next: "phone-contract-period" })),
+          { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-contract-period" }
         ];
       }
 
       return [
-        { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-desired-network" }
+        { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-contract-period" }
       ];
     },
-    next: "phone-desired-network"
+    next: "phone-contract-period"
   },
 
   // 직접 요금제명을 입력하는 분기 스텝
@@ -182,6 +183,20 @@ const opening: FlowStep[] = [
     message: "사용 중이신 요금제 이름을 입력해주세요.",
     answerKey: `${namespace}.customPlan`,
     placeholder: "예: 슬림 요금제",
+    next: "phone-contract-period"
+  },
+
+  // 약정기간 질문 스텝
+  {
+    id: "phone-contract-period",
+    type: "single-choice",
+    message: " 약정 기간 진단 여부 확인",
+    answerKey: `${namespace}.contractPeriod`,
+    options: [
+      { value: "expired", label: "가입한 지 3년 넘음 (또는 만료됨)" },
+      { value: "remaining", label: "아직 약정 기간 남음" },
+      { value: "unknown", label: "잘 모르겠음" },
+    ],
     next: "phone-desired-network"
   }
 ];
@@ -241,7 +256,6 @@ const specific: FlowStep[] = [
     options: [
       { value: "select-discount", label: "선택약정 25% 할인 받는 중" },
       { value: "family-discount", label: "가족 결합 할인 중" },
-      { value: "device-installment", label: "기기값 할부 있음" },
       { value: "unknown", label: "잘 모르겠음" },
     ],
     minSelections: 1,

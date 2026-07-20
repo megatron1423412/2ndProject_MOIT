@@ -206,6 +206,11 @@ export const getPlanSpec = (
     if (carrier === "mvno") planName = `${carrierLabel} 유심 데이터 11GB+`;
   }
 
+  let officialLink = "https://www.tworld.co.kr";
+  if (carrierLabel === "KT") officialLink = "https://shop.kt.com";
+  if (carrierLabel === "LGU+") officialLink = "https://www.lguplus.com";
+  if (carrierLabel === "알뜰폰") officialLink = "https://www.mvnohub.kr";
+
   return {
     carrier: carrierLabel,
     name: planName,
@@ -220,6 +225,6 @@ export const getPlanSpec = (
     voiceMin: 200,
     sms: "기본 제공",
     smsCount: 50,
-    link: "https://www.tworld.co.kr",
+    link: officialLink,
   };
 };

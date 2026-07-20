@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CheckCircle2, ClipboardCheck, ArrowRightLeft, ShieldAlert, Sparkles, ExternalLink, Activity, Bot, Loader2 } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, ArrowRightLeft, ShieldAlert, Sparkles, ExternalLink, Activity, Bot, Loader2, AlertTriangle } from "lucide-react";
 import type { FlowResult } from "../../../core/types";
 import { getPlanSpec } from "./mockData";
 import {
@@ -43,6 +43,8 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
   const dataVolume = (answers["phone.dataVolume"] || "mid") as string;
   const ageGroup = (answers["phone.ageGroup"] || "normal") as string;
   const desiredNetwork = (answers["phone.desiredNetwork"] || "5g") as string;
+  const contractPeriod = (answers["phone.contractPeriod"] || "") as string;
+  const isContractRemaining = contractPeriod === "remaining" || contractPeriod === "unknown";
 
   // ── 스마트초이스 실시간 API 요금제 페칭 ───────────────────────
   const [apiPlan, setApiPlan] = useState<any | null>(null);
@@ -86,6 +88,18 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
         let smsCount = 100;
         if (p.sms.includes("기본") || p.sms.includes("무제한")) smsCount = 9999;
 
+        const getCarrierLink = (telecomStr?: string, linkUrl?: string) => {
+          if (linkUrl && linkUrl.trim() !== "" && !linkUrl.includes("smartchoice.or.kr")) {
+            return linkUrl;
+          }
+          const t = (telecomStr || "").toUpperCase();
+          if (t.includes("SKT") || t.includes("SK")) return "https://www.tworld.co.kr";
+          if (t.includes("KT")) return "https://shop.kt.com";
+          if (t.includes("LGU") || t.includes("LG") || t.includes("유플러스")) return "https://www.lguplus.com";
+          if (t.includes("알뜰") || t.includes("MVNO")) return "https://www.mvnohub.kr";
+          return "https://www.tworld.co.kr";
+        };
+
         setApiPlan({
           carrier: p.telecom,
           name: p.planName,
@@ -100,7 +114,7 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
           voiceMin,
           sms: p.sms,
           smsCount,
-          link: p.link || "https://www.smartchoice.or.kr",
+          link: getCarrierLink(p.telecom, p.link),
         });
       }
       setApiLoading(false);
@@ -192,6 +206,19 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
           현재 당신의 요금제는 <span className="text-accent font-extrabold">"{currentSpec.name}"</span> 입니다.
         </p>
       </div>
+
+      {/* 2-1. 약정 확인 경고 안내 */}
+      {isContractRemaining && (
+        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex gap-3 items-start">
+          <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
+          <div className="text-xs leading-relaxed">
+            <p className="font-black text-amber-600 dark:text-amber-400">📌 변경 전 확인사항</p>
+            <p className="mt-1 text-muted-foreground font-medium">
+              현재 약정이 남아 있는 것으로 확인되었습니다. 요금제 변경 또는 통신사 이동 전 위약금 및 약정 조건을 확인하시기 바랍니다.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 3. 스펙 카드 비교 */}
       <div className="mt-5 grid gap-4 sm:grid-cols-2">

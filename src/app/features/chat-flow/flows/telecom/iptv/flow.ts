@@ -1,80 +1,206 @@
 // src/app/features/chat-flow/flows/telecom/iptv/flow.ts
-
 import { composeFlow } from "../../../core/composeFlow";
 import type { FlowDefinition, FlowStep } from "../../../core/types";
-// Mock 데이터 및 등급 계산 함수 불러오기
-import { mockIptvPlans, fetchIptvPlansFromApi } from "./mockData";
-import { buildIptvResult } from "./result";
+import { mockIptvPlans, generateRegionDetailSteps } from "./mockData";
+import type { IptvPlan } from "./mockData";
 
 const namespace = "iptv";
 
-interface CachedPlan {
-  value: string;
-  label: string;
-  price: number;
-}
-
-const planCache: Record<string, CachedPlan[]> = {};
-
-export function prefetchPlans(carrier: string) {
-  if (planCache[carrier]) return;
-
-  let carrierKey = "KT";
-  if (carrier && carrier.startsWith("sk")) carrierKey = "SKT";
-  else if (carrier && carrier.startsWith("lg")) carrierKey = "LGU+";
-
-  let matching = mockIptvPlans.filter((p) => p.carrier === carrierKey);
-  if (matching.length === 0) {
-    matching = mockIptvPlans;
-  }
-
-  planCache[carrier] = matching.map(p => ({
-    value: p.id,
-    label: `[${p.carrier}] ${p.name} (월 ${p.price.toLocaleString("ko-KR")}원)`,
-    price: p.price
-  }));
-}
-
 // providerType 값(value) -> 실제 노출용 라벨 매핑
 const providerTypeLabelMap: Record<string, string> = {
-  sk_btv: "B tv(SK브로드밴드)",
-  kt_genie: "지니 TV",
-  lg_uplus: "U+ IPTV",
+  sk_btv: "SK 브로드밴드(B tv)",
+  kt_genie: "KT (지니 TV)",
+  lg_uplus: "LG유플러스 (U+tv)",
   dlive: "딜라이브",
   kt_hcn: "KT HCN",
-  genie_skylife: "지니 TV 스카이라이프",
+  lg_hellovision: "LG헬로비전",
+  genie_skylife: "스카이라이프",
   kt_skylife: "KT 스카이라이프",
+  cmb: "CMB",
   none: "셋톱박스 없음",
+};
+
+// providerType 값 -> mockData.ts의 실제 carrier 코드 매핑
+const providerTypeToCarrierMap: Record<string, IptvPlan["carrier"]> = {
+  sk_btv: "sk_btv",
+  kt_genie: "kt_genie",
+  lg_uplus: "lg_uplus",
+  dlive: "dlive",
+  kt_hcn: "kt_hcn",
+  lg_hellovision: "hello_vision",
+  genie_skylife: "genie_skylife",
+  kt_skylife: "kt_skylife",
+  cmb: "cmb",
+};
+
+// 통신사 그룹핑
+const providerGroupMap: Record<string, IptvPlan["carrier"][]> = {
+  sk_btv: ["sk_btv"],
+  kt_genie: ["kt_genie", "kt_hcn", "genie_skylife", "kt_skylife"],
+  kt_hcn: ["kt_genie", "kt_hcn", "genie_skylife", "kt_skylife"],
+  genie_skylife: ["kt_genie", "kt_hcn", "genie_skylife", "kt_skylife"],
+  kt_skylife: ["kt_genie", "kt_hcn", "genie_skylife", "kt_skylife"],
+  lg_uplus: ["lg_uplus", "hello_vision"],
+  lg_hellovision: ["lg_uplus", "hello_vision"],
+  dlive: ["dlive"],
+  cmb: ["cmb"],
+};
+
+// carrier 코드 -> 화면 표시용 라벨
+const carrierDisplayMap: Record<string, string> = {
+  sk_btv: "SK 브로드밴드(B tv)",
+  kt_genie: "KT (지니 TV)",
+  lg_uplus: "LG유플러스 (U+tv)",
+  dlive: "딜라이브",
+  kt_hcn: "KT HCN",
+  hello_vision: "LG헬로비전",
+  genie_skylife: "스카이라이프",
+  kt_skylife: "KT 스카이라이프",
+  cmb: "CMB",
+};
+
+// answers 객체에서 평탄형 키 또는 중첩된 객체형 키 모두 지원하는 헬퍼
+const getAnswerValue = (answers: Record<string, any>, key: string): any => {
+  if (key in answers) return answers[key];
+  const parts = key.split(".");
+  if (parts.length === 2) {
+    const [ns, field] = parts;
+    if (answers[ns] && typeof answers[ns] === "object") {
+      return answers[ns][field];
+    }
+  }
+  return undefined;
+};
+
+// 🔧 [수정] CMB 데이터 유실 방지를 위한 지역별 요금제 제공 여부 판별 헬퍼
+const isPlanAvailableInRegion = (plan: IptvPlan, answers: Record<string, any>): boolean => {
+  if (!plan.regions) {
+    return true; // 전국구 요금제
+  }
+
+  const regionLv1 = getAnswerValue(answers, "iptv.regionLv1") as string;
+  if (!regionLv1 || regionLv1 === "none") {
+    return false;
+  }
+
+  let regionKey = regionLv1;
+  let detailKey = "";
+
+  // 1단계 선택에 따른 분기 처리 및 소분류 detailKey 결정
+  if (regionLv1 === "seoul") {
+    detailKey = "regionDetailSeoul";
+  } else if (regionLv1 === "gyeonggi") {
+    detailKey = "regionDetailGyeonggi";
+  } else if (regionLv1 === "incheon") {
+    detailKey = "regionDetailIncheon";
+  } else if (regionLv1 === "gangwon") {
+    detailKey = "regionDetailGangwon";
+  } else if (regionLv1 === "jeju") {
+    detailKey = "regionDetailJeju";
+  } else if (regionLv1 === "gyeongsang") {
+    const lv2 = (getAnswerValue(answers, "iptv.regionLv2Gyeongsang") as string) || "";
+    regionKey = lv2; // 대구, 부산, 울산, gyeongbuk, gyeongnam 등으로 맵 키 전환
+    if (lv2 === "daegu") detailKey = "regionDetailDaegu";
+    else if (lv2 === "busan") detailKey = "regionDetailBusan";
+    else if (lv2 === "ulsan") detailKey = "regionDetailUlsan";
+    else if (lv2 === "gyeongbuk") detailKey = "regionDetailGyeongbuk";
+    else if (lv2 === "gyeongnam") detailKey = "regionDetailGyeongnam";
+  } else if (regionLv1 === "chungcheong") {
+    const lv2 = (getAnswerValue(answers, "iptv.regionLv2Chungcheong") as string) || "";
+    regionKey = lv2; // daejeon, sejong, chungbuk, chungnam 등으로 맵 키 전환
+    if (lv2 === "daejeon") detailKey = "regionDetailDaejeon";
+    else if (lv2 === "sejong") detailKey = "regionDetailSejong";
+    else if (lv2 === "chungbuk") detailKey = "regionDetailChungbuk";
+    else if (lv2 === "chungnam") detailKey = "regionDetailChungnam";
+  } else if (regionLv1 === "jeolla") {
+    const lv2 = (getAnswerValue(answers, "iptv.regionLv2Jeolla") as string) || "";
+    regionKey = lv2; // jeonbuk, jeonnam
+    if (lv2 === "jeonbuk") detailKey = "regionDetailJeonbuk";
+    else if (lv2 === "jeonnam") detailKey = "regionDetailJeonnam";
+  }
+
+  if (!regionKey || !detailKey) {
+    return false;
+  }
+
+  const detail = getAnswerValue(answers, `iptv.${detailKey}`) as string;
+  if (!detail) {
+    return false;
+  }
+
+  const districts = plan.regions[regionKey];
+  if (!districts) {
+    return false;
+  }
+
+  return districts.includes(detail);
+};
+
+// 약정 조건에 해당하는 가격을 안전하게 가져오는 헬퍼
+const getContractPrice = (plan: IptvPlan, contract: string): number => {
+  const priceMap = plan.prices.single as Record<string, number | undefined>;
+  return priceMap[contract] ?? 0;
+};
+
+export let lastDesiredContract = "3years";
+
+// price getter 동적 정의
+mockIptvPlans.forEach((plan) => {
+  if (!("price" in plan)) {
+    Object.defineProperty(plan, "price", {
+      get() {
+        return getContractPrice(plan, lastDesiredContract);
+      },
+      configurable: true,
+    });
+  }
+});
+
+// 우선순위 높은 약정 기준 대표 가격 가져오기
+const getRepresentativePrice = (plan: IptvPlan): number => {
+  const order = ["3years", "2years", "1year", "none"];
+  const priceMap = plan.prices.single as Record<string, number | undefined>;
+  for (const key of order) {
+    const price = priceMap[key];
+    if (price) return price;
+  }
+  return 0;
 };
 
 // =================================================================
 // [Part 1] 현재 사용자 정보 입력 파트
 // =================================================================
 const opening: FlowStep[] = [
-  // [Part 1 - 1번] 시작 안내 메시지 (인사말 분리로 phone 패턴 일치)
   {
     id: "iptv-intro",
     type: "assistant-message",
-    message: "TV·IPTV는 현재 요금과 실제 채널 사용량을 나눠서 볼게요.",
+    message: "TV·IPTV 요금 진단을 시작할께요. 현재 조건부터 확인해볼께요.",
     next: "iptv-provider-type",
   },
-
-  // [Part 1 - 2번] 통신사 (서비스 형태) 선택
   {
     id: "iptv-provider-type",
     type: "single-choice",
-    message: "현재 이용 중이신 TV·IPTV 서비스 형태를 선택해주세요.",
-    answerKey: `${namespace}.providerType`,
+    message: "현재 이용 중이신 TV·IPTV 통신사를 선택해주세요.",
+    answerKey: `${namespace}.providerCategory`,
     options: [
       { value: "sk_btv", label: providerTypeLabelMap.sk_btv, next: "iptv-current-price-input" },
       { value: "kt_genie", label: providerTypeLabelMap.kt_genie, next: "iptv-current-price-input" },
       { value: "lg_uplus", label: providerTypeLabelMap.lg_uplus, next: "iptv-current-price-input" },
+      { value: "cable", label: "케이블/지역방송", next: "iptv-provider-cable" },
+      { value: "none", label: providerTypeLabelMap.none, next: "iptv-desired-contract" },
+    ],
+  },
+  {
+    id: "iptv-provider-cable",
+    type: "single-choice",
+    message: "이용 중이신 케이블/지역방송 통신사를 선택해주세요.",
+    answerKey: `${namespace}.providerType`,
+    options: [
       { value: "dlive", label: providerTypeLabelMap.dlive, next: "iptv-current-price-input" },
       { value: "kt_hcn", label: providerTypeLabelMap.kt_hcn, next: "iptv-current-price-input" },
+      { value: "lg_hellovision", label: providerTypeLabelMap.lg_hellovision, next: "iptv-current-price-input" },
       { value: "genie_skylife", label: providerTypeLabelMap.genie_skylife, next: "iptv-current-price-input" },
-      { value: "kt_skylife", label: providerTypeLabelMap.kt_skylife, next: "iptv-current-price-input" },
-      // 💡 셋톱박스 없음 선택 시 Part 2 약정 선택 구간(iptv-desired-contract)으로 다이렉트 이동하도록 복원
-      { value: "none", label: providerTypeLabelMap.none, next: "iptv-desired-contract" },
+      { value: "cmb", label: providerTypeLabelMap.cmb, next: "iptv-current-price-input" },
     ],
   },
 ];
@@ -83,7 +209,6 @@ const opening: FlowStep[] = [
 // [Part 2] 원하는 요금제 및 서비스 조건 선택 파트
 // =================================================================
 const specific: FlowStep[] = [
-  // [Part 1 - 3번] 현재 납부 요금 입력
   {
     id: "iptv-current-price-input",
     type: "number-input",
@@ -92,184 +217,345 @@ const specific: FlowStep[] = [
     placeholder: "예: 15400",
     min: 0,
     unit: "원",
-    next: "iptv-current-plan-api", // 동적 API 조회 스텝으로 연결
+    next: "iptv-current-plan-api",
   },
-
-  // [Part 1 - 4번] 🔄 요금조회 API 결과를 매칭하는 동적 스텝
   {
     id: "iptv-current-plan-api",
     type: "single-choice",
-    message: "현재 사용하시는 IPTV 요금제가 맞을까요?",
+    message: "현재 사용하시는 TV·IPTV 요금제가 맞을까요?",
     answerKey: `${namespace}.confirmedPlan`,
     options: [
-      { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "iptv-current-plans-list" },
-      { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "iptv-manual-name-input" },
+      { value: "direct-select", label: "직접 선택", next: "iptv-choose-current-list" },
+      { value: "direct-input", label: "직접 입력", next: "iptv-manual-name-input" },
     ],
     optionsResolver: (answers) => {
-      const providerType = answers[`iptv.providerType`] as string;
-      const currentPrice = answers[`iptv.currentPlanPriceInput`] as number;
-      
-      prefetchPlans(providerType);
+      const providerType = (answers[`${namespace}.providerType`] || answers[`${namespace}.providerCategory`]) as string;
+      const currentPrice = Number(answers[`${namespace}.currentPlanPriceInput`]) || 0;
+      const carrierCode = providerTypeToCarrierMap[providerType];
 
-      const cached = planCache[providerType] || [];
-      // 1순위 후보 (금액 차이 3,000원 이하 가장 가까운 요금제 하나만 추천)
-      let matched = cached
-        .filter(p => Math.abs(p.price - currentPrice) <= 3000)
-        .slice(0, 1);
+      const candidatePlans = mockIptvPlans.filter((p) => p.carrier === carrierCode);
 
-      // 캐시에 결과가 아직 없거나 매칭되는 요금제가 없을 때, 입력 가격 기준 임시 요금제 카드를 항상 노출하여 카드 뷰를 유지합니다.
-      if (matched.length === 0) {
-        const apiPlans = fetchIptvPlansFromApi(providerType, currentPrice);
-        matched = apiPlans.map(p => ({
-          value: p.value,
-          label: p.label,
-          price: currentPrice
-        }));
-      }
+      let bestPlan: IptvPlan | null = null;
+      let bestPrice = 0;
+      let minDiff = Infinity;
+
+      candidatePlans.forEach((plan) => {
+        const priceMap = plan.prices.single as Record<string, number | undefined>;
+        Object.values(priceMap).forEach((price) => {
+          if (!price) return;
+          const diff = Math.abs(price - currentPrice);
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestPlan = plan;
+            bestPrice = price;
+          }
+        });
+      });
+
+      const apiOptions = bestPlan
+        ? [
+          {
+            value: bestPlan.id,
+            label: `[추정] [${providerTypeLabelMap[providerType] ?? carrierCode}] ${bestPlan.name}`,
+          },
+        ]
+        : [];
 
       return [
-        ...matched.map(m => ({ value: m.value, label: m.label, next: "iptv-contract-diagnosis" })),
-        { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "iptv-current-plans-list" },
-        { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "iptv-manual-name-input" },
+        ...apiOptions,
+        { value: "direct-select", label: "직접 선택", next: "iptv-choose-current-list" },
+        { value: "direct-input", label: "직접 입력", next: "iptv-manual-name-input" },
       ];
     },
-    next: "iptv-contract-diagnosis"
+    next: "iptv-contract-diagnosis",
   },
-
-  // [Part 1 - 4-1번] 🔄 입력 요금 기준 ±15,000원 범위 요금제 리스트 선택 스텝
   {
-    id: "iptv-current-plans-list",
+    id: "iptv-choose-current-list",
     type: "single-choice",
-    message: "입력하신 요금대와 비슷한 요금제 목록입니다. 현재 요금제를 선택해주세요.",
-    answerKey: `${namespace}.confirmedPlanList`,
+    message: "현재 이용 중이신 TV·IPTV 요금제를 선택해주세요.",
+    answerKey: `${namespace}.currentPlanId`,
     options: [
-      { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "iptv-contract-diagnosis" }
+      { value: "manual_fallback", label: "⚠️ 리스트에 내 요금제가 없음 (직접 입력)", next: "iptv-manual-name-input" },
     ],
     optionsResolver: (answers) => {
-      const providerType = answers[`iptv.providerType`] as string;
-      const currentPrice = answers[`iptv.currentPlanPriceInput`] as number;
-      
-      prefetchPlans(providerType);
-      const cached = planCache[providerType] || [];
-
-      // 유저 입력 요금 기준 ±15,000원 이하 요금제들 필터링
-      const matched = cached
-        .filter(p => Math.abs(p.price - currentPrice) <= 15000)
-        .sort((a, b) => Math.abs(a.price - currentPrice) - Math.abs(b.price - currentPrice));
-
-      if (matched.length > 0) {
-        return [
-          ...matched.map(m => ({ value: m.value, label: m.label, next: "iptv-contract-diagnosis" })),
-          { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "iptv-contract-diagnosis" }
-        ];
-      }
+      const providerType = (answers[`${namespace}.providerType`] || answers[`${namespace}.providerCategory`]) as string;
+      const carrierCode = providerTypeToCarrierMap[providerType];
+      const plans = mockIptvPlans.filter((p) => p.carrier === carrierCode);
 
       return [
-        { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "iptv-contract-diagnosis" }
+        ...plans.map((plan) => {
+          const price = getContractPrice(plan, "3years") || getRepresentativePrice(plan);
+          const feeStr = price > 0 ? ` (월 ${price.toLocaleString("ko-KR")}원)` : "";
+          return {
+            value: plan.id,
+            label: `${plan.name}${feeStr}`,
+            next: "iptv-contract-diagnosis",
+          };
+        }),
+        { value: "manual_fallback", label: "⚠️ 리스트에 내 요금제가 없음 (직접 입력)", next: "iptv-manual-name-input" },
       ];
     },
-    next: "iptv-contract-diagnosis"
+    next: "iptv-contract-diagnosis",
   },
-
-  // [Part 1 - 4-2번] 요금제 직접 입력
   {
     id: "iptv-manual-name-input",
     type: "text-input",
-    message: "현재 사용 중이신 요금제 이름을 입력해주세요.",
+    message: "현재 사용 중이신 TV·IPTV 요금제 이름을 입력해주세요.",
     answerKey: `${namespace}.currentPlanNameManual`,
-    placeholder: "예: Btv 스탠다드",
-    next: "iptv-contract-diagnosis", // 직접 입력 완료 후 바로 약정진단으로 복귀
+    placeholder: "통신사 요금제이름 (예 : Btv 스탠다드)",
+    next: "iptv-contract-diagnosis",
   },
-
-  // [Part 1 - 5번] 현재 약정 기간 상태 확인
   {
     id: "iptv-contract-diagnosis",
     type: "single-choice",
-    message:
-      "현재 고객님의 약정 상태는 어떠신가요?\n\n💡 [공지] 인터넷·IPTV는 3년 약정이 끝나면 무조건 사은품을 받거나 재약정 할인을 받아야 돈이 모입니다.",
+    message: "현재 고객님의 약정 상태는 어떠신가요?\n\n💡[공지] 약정 기간에 따라 위약금이 발생할 수 있으니, 기존 통신사 위약금을 꼭 먼저 확인해 주세요.",
     answerKey: `${namespace}.userContractStatus`,
     options: [
       { value: "expired", label: "가입한 지 3년 넘음 (또는 만료됨)", next: "iptv-desired-contract" },
       { value: "remaining", label: "아직 약정 기간 남음", next: "iptv-desired-contract" },
       { value: "unknown", label: "잘 모르겠음", next: "iptv-desired-contract" },
     ],
-  },
+    optionsResolver: (answers) => {
+      const confirmed = answers[`${namespace}.confirmedPlan`] as string;
+      const currentPlanId = answers[`${namespace}.currentPlanId`] as string;
+      const manualName = answers[`${namespace}.currentPlanNameManual`] as string;
 
-  // [Part 2 - 6번] 비교를 원하는 약정 기간 선택
+      if (confirmed && confirmed !== "direct-select" && confirmed !== "direct-input") {
+        answers[`${namespace}.currentPlanId`] = confirmed;
+        answers[`${namespace}.currentInputMethod`] = "list";
+      } else if (currentPlanId && currentPlanId !== "manual_fallback") {
+        answers[`${namespace}.currentInputMethod`] = "list";
+      } else if (manualName) {
+        answers[`${namespace}.currentInputMethod`] = "manual";
+      }
+
+      return [
+        { value: "expired", label: "가입한 지 3년 넘음 (또는 만료됨)", next: "iptv-desired-contract" },
+        { value: "remaining", label: "아직 약정 기간 남음", next: "iptv-desired-contract" },
+        { value: "unknown", label: "잘 모르겠음", next: "iptv-desired-contract" },
+      ];
+    },
+  },
   {
     id: "iptv-desired-contract",
     type: "single-choice",
-    message: "이제 원하시는 TV·IPTV 요금제를 찾아볼까요.\n비교를 원하시는 약정 기간을 선택해주세요.\n선택하신 약정에 맞게 TV·IPTV 요금제를 알려 드릴게요.",
+    message: "이제 원하시는 TV·IPTV 요금제를 찾아볼까요.\n비교를 원하시는 약정 기간을 선택해주세요. 선택하신 약정에 맞게 TV·IPTV 요금제를 알려 드릴게요.",
     answerKey: `${namespace}.desiredContract`,
     options: [
-      { value: "3years", label: "3년 약정 (추천)" },
-      { value: "2years", label: "2년 약정" },
-      { value: "1year", label: "1년 약정" },
-      { value: "none", label: "무약정" },
+      { value: "3years", label: "3년 약정 (추천)", next: "iptv-region-lv1" },
+      { value: "2years", label: "2년 약정", next: "iptv-region-lv1" },
+      { value: "1year", label: "1년 약정", next: "iptv-region-lv1" },
+      { value: "none", label: "무약정", next: "iptv-region-lv1" },
     ],
-    next: "iptv-select-new-plan",
+    next: "iptv-region-lv1",
+  },
+  {
+    id: "iptv-region-lv1",
+    type: "single-choice",
+    message: "사는 곳을 선택해주세요.",
+    answerKey: `${namespace}.regionLv1`,
+    options: [
+      { value: "gangwon", label: "강원", next: "iptv-region-gangwon" },
+      { value: "gyeonggi", label: "경기", next: "iptv-region-gyeonggi" },
+      { value: "gyeongsang", label: "경상도", next: "iptv-region-gyeongsang-lv2" },
+      { value: "seoul", label: "서울", next: "iptv-region-seoul" },
+      { value: "incheon", label: "인천", next: "iptv-region-incheon" },
+      { value: "jeolla", label: "전라도", next: "iptv-region-jeolla-lv2" },
+      { value: "jeju", label: "제주", next: "iptv-region-jeju" },
+      { value: "chungcheong", label: "충청도", next: "iptv-region-chungcheong-lv2" },
+      { value: "none", label: "선택안함", next: "iptv-select-new-plan" },
+    ],
   },
 
-  // [Part 2 - 7번] 요금제 리스트 선택 (추천 요금제 카드 형태로 변경)
+  // 🔧 mockData 팩토리 함수를 이용한 동적 지역 디테일 Step 전개
+  ...generateRegionDetailSteps(namespace, "iptv-select-new-plan"),
+
+  // 경상도 중분류
+  {
+    id: "iptv-region-gyeongsang-lv2",
+    type: "single-choice",
+    message: "경상도의 세부 지역을 선택해주세요.",
+    answerKey: `${namespace}.regionLv2Gyeongsang`,
+    options: [
+      { value: "gyeongnam", label: "경상남도", next: "iptv-region-gyeongnam" },
+      { value: "gyeongbuk", label: "경상북도", next: "iptv-region-gyeongbuk" },
+      { value: "daegu", label: "대구광역시", next: "iptv-region-daegu" },
+      { value: "busan", label: "부산광역시", next: "iptv-region-busan" },
+      { value: "ulsan", label: "울산광역시", next: "iptv-region-ulsan" },
+    ],
+  },
+  // 충청도 중분류
+  {
+    id: "iptv-region-chungcheong-lv2",
+    type: "single-choice",
+    message: "충청도의 세부 지역을 선택해주세요.",
+    answerKey: `${namespace}.regionLv2Chungcheong`,
+    options: [
+      { value: "daejeon", label: "대전광역시", next: "iptv-region-daejeon" },
+      { value: "sejong", label: "세종특별자치시", next: "iptv-region-sejong" },
+      { value: "chungnam", label: "충청남도", next: "iptv-region-chungnam" },
+      { value: "chungbuk", label: "충청북도", next: "iptv-region-chungbuk" },
+    ],
+  },
+  // 전라도 중분류
+  {
+    id: "iptv-region-jeolla-lv2",
+    type: "single-choice",
+    message: "전라도의 세부 지역을 선택해주세요.",
+    answerKey: `${namespace}.regionLv2Jeolla`,
+    options: [
+      { value: "jeonnam", label: "전라남도", next: "iptv-region-jeonnam" },
+      { value: "jeonbuk", label: "전라북도", next: "iptv-region-jeonbuk" },
+    ],
+  },
+  // [Part 2 - 7번] 요금제 리스트 선택 (추천 요금제 카드 형태)
   {
     id: "iptv-select-new-plan",
     type: "single-choice",
     message: "선택하신 약정 조건에 맞는 TV·IPTV 요금제 추천입니다. 변경을 고려 중이거나 관심 있는 요금제를 선택해주세요.\n※셋톱박스 대여, 출동비 별도※",
     answerKey: `${namespace}.selectedNewPlan`,
     options: [
-      { value: "iptv-sk-std", label: "[추천 1순위] [더미] Btv 스탠다드 (220개 채널) - 월 15,400원", next: "iptv-result" },
-      { value: "iptv-sk-all", label: "[추천 2순위] [더미] Btv All (252개 채널) - 월 19,800원", next: "iptv-result" },
-      { value: "direct-choose", label: "직접 고를래요 (전체 리스트 보기)", next: "iptv-all-plans-select" },
+      { value: "direct-choose", label: "직접 고를래요 (다른추천 리스트 보기)", next: "iptv-all-plans-select" },
     ],
     optionsResolver: (answers) => {
-      const providerType = answers[`${namespace}.providerType`] as string;
-      
-      let carrier = "KT";
-      if (providerType && providerType.startsWith("sk")) carrier = "SKT";
-      else if (providerType && providerType.startsWith("lg")) carrier = "LGU+";
+      const desiredContract = (answers[`${namespace}.desiredContract`] as string) || "3years";
+      lastDesiredContract = desiredContract;
 
-      // 해당 통신사의 요금제 2개 추출해서 카드용 1순위, 2순위 추천 옵션 생성
-      const matchingPlans = mockIptvPlans.filter((p) => p.carrier === carrier);
-      const rec1 = matchingPlans[0] || mockIptvPlans[0];
-      const rec2 = matchingPlans[1] || mockIptvPlans[1];
+      const carriers: IptvPlan["carrier"][] = [
+        "sk_btv",
+        "kt_genie",
+        "lg_uplus",
+        "dlive",
+        "kt_hcn",
+        "hello_vision",
+        "genie_skylife",
+        "kt_skylife",
+        "cmb"
+      ];
+
+      const cheapestByCarrier: { plan: IptvPlan; price: number }[] = [];
+
+      carriers.forEach((carrierCode) => {
+        // 지역 필터 적용
+        const plansInCarrier = mockIptvPlans.filter((p) =>
+          p.carrier === carrierCode && isPlanAvailableInRegion(p, answers)
+        );
+        let cheapest: IptvPlan | null = null;
+        let cheapestPrice = Infinity;
+
+        plansInCarrier.forEach((plan) => {
+          const price = getContractPrice(plan, desiredContract);
+          if (price > 0 && price < cheapestPrice) {
+            cheapestPrice = price;
+            cheapest = plan;
+          }
+        });
+
+        if (cheapest) {
+          cheapestByCarrier.push({ plan: cheapest, price: cheapestPrice });
+        }
+      });
+
+      // 가격 오름차순 정렬
+      cheapestByCarrier.sort((a, b) => a.price - b.price);
+
+      const recommendedOptions = cheapestByCarrier.map((item, idx) => {
+        const carrierName = carrierDisplayMap[item.plan.carrier] ?? item.plan.carrier;
+        return {
+          value: item.plan.id,
+          label: `[추천 ${idx + 1}순위] [${carrierName}] ${item.plan.name} (${item.plan.channels}개 채널) (월 ${item.price.toLocaleString("ko-KR")}원)`,
+          next: "iptv-result",
+        };
+      }).slice(0, 4);
 
       return [
-        { value: rec1.id, label: `[추천 1순위] ${rec1.name} (${rec1.channels}개 채널) - 월 ${rec1.price.toLocaleString()}원`, next: "iptv-result" },
-        { value: rec2.id, label: `[추천 2순위] ${rec2.name} (${rec2.channels}개 채널) - 월 ${rec2.price.toLocaleString()}원`, next: "iptv-result" },
-        { value: "direct-choose", label: "직접 고를래요 (전체 리스트 보기)", next: "iptv-all-plans-select" },
+        ...recommendedOptions,
+        { value: "direct-choose", label: "직접 고를래요 (다른추천 리스트 보기)", next: "iptv-all-plans-select" },
       ];
     },
     next: "iptv-result",
   },
-
-  // [Part 2 - 7-1번] 전체 요금제 리스트 직접 선택 스텝
   {
     id: "iptv-all-plans-select",
     type: "single-choice",
-    message: "TV·IPTV 전체 요금제 리스트입니다. 원하시는 요금제를 선택해 주세요.",
+    message: ((answers: any) => {
+      const desiredContract = answers.iptv?.desiredContract || "3years";
+      lastDesiredContract = desiredContract;
+      const labels: Record<string, string> = {
+        "3years": "3년 약정", "2years": "2년 약정", "1year": "1년 약정", "none": "무약정",
+      };
+      const contractLabel = labels[desiredContract] || desiredContract;
+
+      let table = `📊 [다른 추천 TV·IPTV 요금제입니다. 관심있는 요금제를 선택해주세요. (${contractLabel})]\n`;
+      return table;
+    }) as unknown as string,
     answerKey: `${namespace}.selectedNewPlanDirect`,
-    options: [...mockIptvPlans]
-      .sort((a, b) => {
-        const order: Record<string, number> = { "SKT": 1, "KT": 2, "LGU+": 3 };
-        return (order[a.carrier] || 99) - (order[b.carrier] || 99);
-      })
-      .map((plan) => ({
+    options: [],
+    optionsResolver: (answers) => {
+      const desiredContract = (answers[`${namespace}.desiredContract`] as string) || "3years";
+      lastDesiredContract = desiredContract;
+
+      const cacheKey = `${namespace}._cachedDirectOptions_${desiredContract}`;
+      if (answers[cacheKey]) {
+        return answers[cacheKey];
+      }
+
+      const availablePlans = mockIptvPlans
+        .filter((plan) => isPlanAvailableInRegion(plan, answers))
+        .map((plan) => ({ plan, price: getContractPrice(plan, desiredContract) }))
+        .filter((item) => item.price > 0);
+
+      // 통신사별로 그룹화
+      const groups: Record<string, typeof availablePlans> = {};
+      availablePlans.forEach((item) => {
+        const carrier = item.plan.carrier;
+        if (!groups[carrier]) {
+          groups[carrier] = [];
+        }
+        groups[carrier].push(item);
+      });
+
+      const selectedPlans: typeof availablePlans = [];
+
+      // 각 통신사별로 1~2개 랜덤 추출
+      Object.keys(groups).forEach((carrier) => {
+        const groupPlans = groups[carrier];
+        const shuffled = [...groupPlans].sort(() => Math.random() - 0.5);
+        let count = Math.random() < 0.5 ? 1 : 2;
+
+        // 지니 TV 스카이라이프(genie_skylife)는 30% 확률로 1개만 추출 (그 외에는 0개 추출)
+        if (carrier === "genie_skylife") {
+          count = Math.random() < 0.3 ? 1 : 0;
+        }
+
+        const selected = shuffled.slice(0, Math.min(groupPlans.length, count));
+        selectedPlans.push(...selected);
+      });
+
+      // 기존과 같이 정렬 (통신사 순, 그 안에서 가격 오름차순)
+      selectedPlans.sort((a, b) => {
+        if (a.plan.carrier !== b.plan.carrier) {
+          return a.plan.carrier.localeCompare(b.plan.carrier);
+        }
+        return a.price - b.price;
+      });
+
+      const resolvedOptions = selectedPlans.map(({ plan, price }) => ({
         value: plan.id,
-        label: `[${plan.carrier}] ${plan.name} (${plan.channels}개 채널) - 월 ${plan.price.toLocaleString()}원`,
-      })),
+        label: `[${carrierDisplayMap[plan.carrier] ?? plan.carrier}] ${plan.name} (${plan.channels}개 채널) (월 ${price.toLocaleString("ko-KR")}원)`,
+      }));
+
+      answers[cacheKey] = resolvedOptions;
+      return resolvedOptions;
+    },
     next: "iptv-result",
   },
-
-  // [Part 2 - 8번] 📊 요금 비교 결과 출력 스텝 (요금 비교·추천 솔루션)
   {
     id: "iptv-result",
     type: "result",
-    resultBuilder: buildIptvResult,
-    message: "선택하신 요금제를 바탕으로 IPTV 요금 비교·추천 솔루션 분석이 완료되었습니다. 아래 카드에서 비교 분석 리포트를 확인해 보세요.",
+    message: "선택하신 요금제를 바탕으로 TV·IPTV 요금 비교·추천 솔루션 분석이 완료되었습니다. 아래 카드에서 비교 분석 리포트를 확인해 보세요.",
     next: "iptv-ask-grade-diagnosis"
   },
-
-  // [Part 3 - 9번] 소비 패턴 등급 진단 여부 분기 질문
   {
     id: "iptv-ask-grade-diagnosis",
     type: "single-choice",
@@ -280,16 +566,11 @@ const specific: FlowStep[] = [
       { value: "no", label: "NO", next: "iptv-completed-exit" },
     ],
   },
-
-  // [Part 3 - 10번] 🏅 IPTV 소비 패턴 등급 진단 결과 노출
   {
     id: "iptv-grade-result",
     type: "result",
-    resultBuilder: buildIptvResult,
-    message: "IPTV 소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다.",
+    message: "TV·IPTV  소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다.",
   },
-
-  // [Part 3 - 14번] 최종 대화 종료
   {
     id: "iptv-completed-exit",
     type: "result",

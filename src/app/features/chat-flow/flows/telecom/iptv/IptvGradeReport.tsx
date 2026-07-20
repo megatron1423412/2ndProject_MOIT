@@ -16,19 +16,22 @@ export default function IptvGradeReport({ result, onEndChat }: IptvGradeReportPr
   const savingRate = Number(metadata.savingRate || 0);
   const answers = metadata.answers || {};
 
-  const confirmedPlanId = answers["iptv.confirmedPlan"] || answers["iptv.confirmedPlanList"] || "";
-  const planNameManual = answers["iptv.currentPlanNameManual"] as string;
+  const currentPlanId = answers["iptv.currentPlanId"];
+  const inputMethod = answers["iptv.currentInputMethod"];
 
   let currentChannels = 200; // 수동 입력 시 기본값 가정
 
-  if (!planNameManual && confirmedPlanId) {
-    const foundPlan = mockIptvPlans.find((p) => p.id === confirmedPlanId);
+  if (inputMethod === "list" && currentPlanId && currentPlanId !== "manual_fallback") {
+    const foundPlan = mockIptvPlans.find((p) => p.id === currentPlanId);
     if (foundPlan) {
       currentChannels = foundPlan.channels;
     }
   }
 
-  const selectedPlanId = answers["iptv.selectedNewPlan"] || answers["iptv.selectedNewPlanDirect"];
+  const selectedNewPlan = answers["iptv.selectedNewPlan"];
+  const selectedPlanId = (selectedNewPlan && selectedNewPlan !== "direct-choose")
+    ? selectedNewPlan
+    : answers["iptv.selectedNewPlanDirect"];
   const selectedPlan = mockIptvPlans.find((p) => p.id === selectedPlanId);
   const selectedChannels = selectedPlan ? selectedPlan.channels : 0;
 

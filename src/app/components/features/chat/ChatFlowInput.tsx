@@ -304,14 +304,59 @@ export default function ChatFlowInput({
         </div>
       );
     }
+    if (step.id.startsWith("iptv-region-")) {
+      return (
+        <div className="flex flex-col gap-3 w-full max-w-md">
+          <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-1 border border-border/80 rounded-2xl bg-card p-2 shadow-inner">
+            {step.options.map((opt) => {
+              const userSelectedThis = answers && answers[step.answerKey] === opt.value;
+              let itemClass = "";
+              if (isHistorical) {
+                if (userSelectedThis) {
+                  itemClass = "bg-accent/15 text-accent font-bold cursor-not-allowed";
+                } else {
+                  itemClass = "text-muted-foreground opacity-40 cursor-not-allowed";
+                }
+              } else {
+                itemClass = userSelectedThis
+                  ? "bg-accent/15 text-accent font-bold"
+                  : "hover:bg-muted text-primary cursor-pointer active:scale-[0.99]";
+              }
+
+              return (
+                <div
+                  key={opt.value}
+                  onClick={isHistorical ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
+                  className={`flex items-center justify-between rounded-xl px-4 py-2.5 text-xs transition-all duration-150 border border-transparent hover:border-border/40 ${itemClass}`}
+                >
+                  <span className="font-bold text-xs">{opt.label}</span>
+                  {userSelectedThis && (
+                    <span className="text-[10px] font-black text-accent">
+                      선택됨 ✓
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
     if (
       step.id === "phone-current-plans-list" ||
       step.id === "internet-current-plans-list" ||
       step.id === "iptv-current-plans-list" ||
-      step.id === "bundle-current-plans-list"
+      step.id === "bundle-current-plans-list" ||
+      step.id === "iptv-choose-current-list" ||
+      step.id === "iptv-all-plans-select"
     ) {
-      const planOptions = step.options.filter((o) => o.value !== "none-of-them");
-      const noneOfThemOption = step.options.find((o) => o.value === "none-of-them");
+      const planOptions = step.options.filter(
+        (o) => o.value !== "none-of-them" && o.value !== "manual_fallback" && o.value !== "direct-choose"
+      );
+      const fallbackOption = step.options.find(
+        (o) => o.value === "none-of-them" || o.value === "manual_fallback" || o.value === "direct-choose"
+      );
 
       return (
         <div className="flex flex-col gap-3 w-full max-w-md">
@@ -336,10 +381,10 @@ export default function ChatFlowInput({
                   className={`flex flex-col gap-1 rounded-xl border p-3.5 text-left shadow-sm transition-all duration-200 ${borderClass}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-primary">
+                    <span className="text-xs font-black text-primary truncate pr-2">
                       {opt.label.split(" (월 ")[0]}
                     </span>
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
                       {(opt.label.match(/월\s*([\d,]+원)/)?.[1]) || ""}
                     </span>
                   </div>
@@ -347,14 +392,14 @@ export default function ChatFlowInput({
               );
             })}
           </div>
-          {!isHistorical && noneOfThemOption && (
+          {!isHistorical && fallbackOption && (
             <div className="flex justify-center">
               <button
                 type="button"
-                onClick={() => onSubmit({ value: noneOfThemOption.value, displayValue: noneOfThemOption.label })}
+                onClick={() => onSubmit({ value: fallbackOption.value, displayValue: fallbackOption.label })}
                 className="rounded-full border border-border bg-card px-4 py-2.5 text-xs font-bold text-primary shadow-sm hover:border-accent/50 hover:bg-secondary active:scale-[0.98] transition-all"
               >
-                {noneOfThemOption.label}
+                {fallbackOption.label}
               </button>
             </div>
           )}
@@ -456,9 +501,7 @@ export default function ChatFlowInput({
           <div className="grid grid-cols-2 gap-3">
             {cardOptions.map((opt, idx) => {
               const isFav = favorites?.some((f) => f.productId === opt.value);
-              const cleanLabel = opt.label
-                .replace("[추천 1순위] ", "")
-                .replace("[추천 2순위] ", "");
+              const cleanLabel = opt.label.replace(/\[추천 \d+순위\]\s*/g, "");
               
               const isRec1 = opt.label.includes("1순위") || idx === 0;
               const isRec2 = opt.label.includes("2순위") || idx === 1;
@@ -491,11 +534,10 @@ export default function ChatFlowInput({
                   : "text-accent";
 
               const badgeBg = isRec1 ? "bg-emerald-600" : isRec2 ? "bg-blue-600" : "bg-accent";
-              const badgeLabel = opt.label.includes("1순위") 
-                ? "1순위 추천" 
-                : opt.label.includes("2순위") 
-                  ? "2순위 추천" 
-                  : `선택안 ${idx + 1}`;
+              const badgeMatch = opt.label.match(/추천 (\d+)순위/);
+              const badgeLabel = badgeMatch 
+                ? `${badgeMatch[1]}순위 추천` 
+                : `선택안 ${idx + 1}`;
 
               return (
                 <div 

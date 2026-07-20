@@ -255,9 +255,9 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
           <div className="text-xs leading-relaxed">
             <p className="font-black text-emerald-600 dark:text-emerald-400">🚨 3년 약정 만료 대상자 특별 안내</p>
             <p className="mt-1 text-muted-foreground">
-              고객님은 현재 약정 기간(3년)이 완전히 끝난 상태입니다. 추가 비용 지출을 막기 위해 
-              <span className="font-extrabold text-primary"> 즉시 본사 재약정(상품권/할인 요구) 또는 타사 신규 가입(최대 45만 원 사은품 확보)</span>을 
-              진행하시는 것이 돈을 버는 가장 빠른 방법입니다.
+              고객님은 현재 약정 기간이 모두 만료된 상태입니다. 지금은 통신사를 자유롭게 변경하거나 본사 재약정을 검토하기 가장 좋은 시기입니다.
+              <span className="font-extrabold text-primary"> 홈페이지 또는 전화 상담을 통해 제공되는 할인 및 가입 혜택을 비교한 뒤</span>
+              가장 유리한 조건으로 가입하시길 권장드립니다.
             </p>
           </div>
         </div>
