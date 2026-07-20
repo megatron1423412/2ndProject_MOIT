@@ -1,5 +1,5 @@
 import { composeFlow } from "../../../core/composeFlow";
-import type { FlowDefinition, FlowStep } from "../../../core/types";
+import type { FlowAnswers, FlowChoiceOption, FlowDefinition, FlowStep } from "../../../core/types";
 import { MOCK_CURRENT_PLANS, MOCK_RECOMMENDED_PLANS, fetchPlansFromApi } from "./mockData";
 import { fetchSmartChoicePhonePlans } from "../shared/telecomApi";
 
@@ -13,22 +13,37 @@ interface CachedPlan {
 }
 
 const planCache: Record<string, CachedPlan[]> = {};
-const isFetching: Record<string, boolean> = {};
+const carrierFetches = new Map<string, Promise<void>>();
+let allPlans: import("../shared/telecomApi").SmartChoicePlan[] | null = null;
+let allPlansRequest: Promise<import("../shared/telecomApi").SmartChoicePlan[]> | null = null;
 
-export function prefetchPlans(carrier: string) {
-  if (planCache[carrier] || isFetching[carrier]) return;
-  isFetching[carrier] = true;
+const getAllPlans = () => {
+  if (allPlans) return Promise.resolve(allPlans);
+  if (allPlansRequest) return allPlansRequest;
 
-  const carrierUpper = carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : "알뜰폰";
-
-  // LTE와 5G 모두 받아와서 합칩니다.
-  Promise.all([
+  allPlansRequest = Promise.all([
     fetchSmartChoicePhonePlans({ voice: "999999", data: "20480", sms: "999999", age: "20", type: "6", dis: "24" }),
     fetchSmartChoicePhonePlans({ voice: "999999", data: "20480", sms: "999999", age: "20", type: "3", dis: "24" }),
   ]).then(([res5g, resLte]) => {
-    const allPlans = [...(res5g.plans || []), ...(resLte.plans || [])];
-    
-    const filtered = allPlans.filter(p => {
+    const plans = [...(res5g.plans || []), ...(resLte.plans || [])];
+    if (res5g.success && resLte.success) allPlans = plans;
+    return plans;
+  }).finally(() => {
+    allPlansRequest = null;
+  });
+
+  return allPlansRequest;
+};
+
+export function prefetchPlans(carrier: string) {
+  if (planCache[carrier]) return Promise.resolve();
+  const inFlight = carrierFetches.get(carrier);
+  if (inFlight) return inFlight;
+
+  const carrierUpper = carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : "알뜰폰";
+
+  const request = getAllPlans().then((plans) => {
+    const filtered = plans.filter(p => {
       if (carrier === "mvno") {
         return p.telecom !== "SKT" && p.telecom !== "KT" && p.telecom !== "LGU+";
       }
@@ -50,21 +65,42 @@ export function prefetchPlans(carrier: string) {
     });
 
     planCache[carrier] = mapped;
-    isFetching[carrier] = false;
   }).catch(() => {
-    isFetching[carrier] = false;
+    // Keep the fallback option path available and allow a later user action to retry.
+  }).finally(() => {
+    carrierFetches.delete(carrier);
   });
+
+  carrierFetches.set(carrier, request);
+  return request;
 }
 
-// 모듈 로드 시점에 모든 통신사 요금제 백그라운드 선독취 시작
-try {
-  prefetchPlans("skt");
-  prefetchPlans("kt");
-  prefetchPlans("lgu");
-  prefetchPlans("mvno");
-} catch (e) {
-  console.error("Prefetch plans failed", e);
-}
+export const resolvePhoneCurrentPlanOptions = (answers: FlowAnswers): FlowChoiceOption[] => {
+  const carrier = answers[`${namespace}.carrier`] as string;
+  const currentFee = answers[`${namespace}.currentFee`] as number;
+  const cached = planCache[carrier] || [];
+
+  // 1순위 후보 (금액 차이 3,000원 이하 가장 가까운 요금제 하나만 추천)
+  let matched = cached
+    .filter(p => Math.abs(p.price - currentFee) <= 3000)
+    .slice(0, 1);
+
+  // Cache is still loading or has no close match: retain the existing fallback card.
+  if (matched.length === 0) {
+    const apiPlans = fetchPlansFromApi(carrier, currentFee);
+    matched = apiPlans.map(p => ({
+      value: p.value,
+      label: p.label,
+      price: currentFee,
+    }));
+  }
+
+  return [
+    ...matched.map(m => ({ value: m.value, label: m.label, next: "phone-contract-period" })),
+    { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "phone-current-plans-list" },
+    { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "phone-custom-plan-input" },
+  ];
+};
 
 const opening: FlowStep[] = [
   { 
@@ -111,34 +147,7 @@ const opening: FlowStep[] = [
       { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "phone-current-plans-list" },
       { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "phone-custom-plan-input" },
     ],
-    optionsResolver: (answers) => {
-      const carrier = answers[`phone.carrier`] as string;
-      const currentFee = answers[`phone.currentFee`] as number;
-      
-      prefetchPlans(carrier);
-
-      const cached = planCache[carrier] || [];
-      // 1순위 후보 (금액 차이 3,000원 이하 가장 가까운 요금제 하나만 추천)
-      let matched = cached
-        .filter(p => Math.abs(p.price - currentFee) <= 3000)
-        .slice(0, 1);
-
-      // 캐시에 결과가 아직 없거나 매칭되는 요금제가 없을 때, 입력 가격 기준 임시 요금제 카드를 항상 노출하여 카드 뷰를 유지합니다.
-      if (matched.length === 0) {
-        const apiPlans = fetchPlansFromApi(carrier, currentFee);
-        matched = apiPlans.map(p => ({
-          value: p.value,
-          label: p.label,
-          price: currentFee
-        }));
-      }
-
-      return [
-        ...matched.map(m => ({ value: m.value, label: m.label, next: "phone-contract-period" })),
-        { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "phone-current-plans-list" },
-        { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "phone-custom-plan-input" },
-      ];
-    },
+    optionsResolver: resolvePhoneCurrentPlanOptions,
     next: "phone-contract-period"
   },
 
