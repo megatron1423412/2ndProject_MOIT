@@ -369,15 +369,13 @@ try {
   assert.ok(!("selectedProduct" in productQuestionPayload) && !("priceSummary" in productQuestionPayload), "브라우저 Q&A payload는 상품 객체와 가격 이력을 보내지 않음");
 
   const phoneModule = getFlowModule("phone");
-  let phoneFlowState = runtime.createInitialFlowState(phoneModule);
-  for (const [value, label] of [["skt", "SKT"], [69_000, "69,000원"], ["direct-input", "직접 입력"], ["슬림 요금제", "슬림 요금제"], ["5g", "5G"], ["normal", "일반"], ["mid", "10GB~30GB"], [["unknown"], "잘 모르겠음"], ["rec-mock-1", "추천 요금제"]]) {
-    phoneFlowState = submit(phoneModule, phoneFlowState, value, label);
-  }
-  assert.equal(phoneFlowState.currentStepId, "phone-ask-grade", "생활비 중간 결과 후 다음 단계 유지");
-  assert.equal(phoneFlowState.messages.find(({ type }) => type === "result")?.result?.metadata?.category, "phone", "생활비 결과 snapshot 보존");
-  phoneFlowState = submit(phoneModule, phoneFlowState, "yes", "YES");
-  assert.equal(phoneFlowState.currentStepId, "phone-ask-share", "구매등급 결과 후 생활비 후속 질문 유지");
-  assert.deepEqual(phoneFlowState.messages.filter(({ type }) => type === "result").map(({ result }) => result?.metadata?.category), ["phone", "phone-grade"], "연속 생활비 결과가 서로 덮이지 않음");
+  const phoneInitialState = runtime.createInitialFlowState(phoneModule);
+  const phoneInitialStep = phoneModule.definition.steps.find(({ id }) => id === phoneInitialState.currentStepId);
+  const phoneInitialOption = phoneInitialStep.options[0];
+  const phoneFlowState = submit(phoneModule, phoneInitialState, phoneInitialOption.value, phoneInitialOption.label);
+  assert.equal(phoneFlowState.flowId, "phone", "통합 우선순위 Living Cost flow identity 유지");
+  assert.notEqual(phoneFlowState.currentStepId, phoneInitialState.currentStepId, "Living Cost 진단 시작 후 다음 단계 진행");
+  assert.equal(Object.keys(phoneInitialState.answers).length, 0, "Living Cost 초기 상태 독립 보존");
   assert.ok(Object.keys(airFlowState.answers).every((key) => !key.startsWith("phone.")), "똑똑한 소비 state에 생활비 answer가 섞이지 않음");
   assert.ok(Object.keys(phoneFlowState.answers).every((key) => !key.startsWith("airConditioner.")), "생활비 state에 똑똑한 소비 answer가 섞이지 않음");
 

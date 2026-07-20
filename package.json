@@ -10,6 +10,7 @@
     "verify:naver-shopping": "node scripts/verify-naver-shopping.mjs",
     "verify:openai-product-question": "node scripts/verify-openai-product-question.mjs",
     "test:openai-product-question": "node scripts/test-openai-product-question.mjs",
+    "test:service-integration": "node scripts/test-service-integration-regression.mjs",
     "test:smart-shopping": "node scripts/verify-smart-shopping.mjs"
   },
   "dependencies": {
