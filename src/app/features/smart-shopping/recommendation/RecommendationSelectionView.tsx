@@ -9,7 +9,7 @@ import { calculatePurchaseGrade } from "../grade/calculatePurchaseGrade";
 import { startPurchaseGradeDiagnosis } from "../grade/startPurchaseGradeDiagnosis";
 import { buildNaverSearchQuery } from "../naver/buildSearchQuery";
 import { matchInternalProduct } from "../naver/matchInternalProduct";
-import { fetchNaverShoppingProducts } from "../naver/naverShoppingClient";
+import { fetchNaverShoppingProducts, NaverShoppingClientError } from "../naver/naverShoppingClient";
 import { endSmartShoppingChat } from "../next-actions/endSmartShoppingChat";
 import { getNextActionLabel, type NextActionId } from "../next-actions/nextActionOptions";
 import { resolvePurchaseLink } from "../next-actions/resolvePurchaseLink";
@@ -47,7 +47,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const [view, dispatch] = useReducer(recommendationViewReducer, initialRecommendationViewState);
   const [session, sessionDispatch] = useReducer(smartShoppingSessionReducer, { categoryId: category, criteria: createCriteriaSnapshot(criteria) }, createSmartShoppingSession);
   const [naverItems, setNaverItems] = useState<NaverShoppingProduct[]>([]);
-  const [naverStatus, setNaverStatus] = useState<"loading" | "success" | "error">("loading");
+  const [naverStatus, setNaverStatus] = useState<RecommendationSnapshot["naverStatus"]>("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [questionLoading, setQuestionLoading] = useState(false);
   const [questionError, setQuestionError] = useState("");
@@ -85,7 +85,8 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     } catch (error) {
       if (signal?.aborted) return;
       const message = error instanceof Error ? error.message : "네이버 쇼핑 검색에 실패했습니다.";
-      setNaverStatus("error"); setErrorMessage(message); snapshotRecommendations([], "error", message);
+      const status = error instanceof NaverShoppingClientError && error.code === "NAVER_CREDENTIALS_MISSING" ? "missing-config" : error instanceof NaverShoppingClientError && ["NAVER_AUTH_FAILED", "NAVER_PERMISSION_DENIED"].includes(error.code) ? "auth-error" : "error";
+      setNaverStatus(status); setErrorMessage(message); snapshotRecommendations([], status, message);
     } finally {
       if (!signal?.aborted) dispatch({ type: "recommendations-settled" });
     }

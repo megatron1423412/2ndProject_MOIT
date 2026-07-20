@@ -23,6 +23,7 @@ export interface NaverShoppingProduct {
   brand: string;
   maker: string;
   category: string[];
+  productType?: string;
   source: "naver";
   /** 네이버 원본에 명시적 모델 필드가 생기거나 서버가 확정 추출한 경우에만 설정합니다. */
   modelNumber?: string;

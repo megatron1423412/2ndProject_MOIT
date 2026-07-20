@@ -5,7 +5,7 @@ import FavoriteToggleButton from "../../favorites/FavoriteToggleButton";
 
 interface Props {
   items: NaverShoppingProduct[];
-  status: "loading" | "success" | "error";
+  status: "loading" | "success" | "missing-config" | "auth-error" | "error";
   errorMessage: string;
   onRetry: () => void;
   onSelect: (item: NaverShoppingProduct) => void;
@@ -19,7 +19,7 @@ export default function NaverLowestPriceList({ items, status, errorMessage, onRe
     <section className="min-w-0 rounded-xl border border-border bg-card p-4 shadow-sm">
       <div><p className="text-xs font-black text-emerald-600">검색어 기반 후보 · NAVER</p><h3 className="mt-1 text-base font-black text-primary">낮은 가격순 TOP 10</h3><p className="mt-1 text-xs text-muted-foreground">네이버가 제공한 기본 상품·가격 정보만 표시하며 상세 조건 충족을 보장하지 않습니다.</p></div>
       {status === "loading" && <div className="mt-4 rounded-lg bg-muted/30 p-5 text-sm font-bold text-muted-foreground">네이버 쇼핑 가격을 불러오는 중이에요…</div>}
-      {status === "error" && <div className="mt-4 rounded-lg border border-amber-300/50 bg-amber-50 p-4 dark:bg-amber-400/10"><p className="text-sm font-bold text-amber-800 dark:text-amber-200">{errorMessage}</p><button type="button" disabled={!isActive} onClick={onRetry} className="mt-3 rounded-lg bg-primary px-3 py-2 text-xs font-black text-primary-foreground disabled:cursor-default disabled:opacity-60">다시 시도</button></div>}
+      {["missing-config", "auth-error", "error"].includes(status) && <div className="mt-4 rounded-lg border border-amber-300/50 bg-amber-50 p-4 dark:bg-amber-400/10"><p className="text-sm font-bold text-amber-800 dark:text-amber-200">{errorMessage}</p><button type="button" disabled={!isActive} onClick={onRetry} className="mt-3 rounded-lg bg-primary px-3 py-2 text-xs font-black text-primary-foreground disabled:cursor-default disabled:opacity-60">다시 시도</button></div>}
       {status === "success" && items.length === 0 && <p className="mt-4 rounded-lg bg-muted/30 p-4 text-sm text-muted-foreground">검색 결과가 없습니다. 왼쪽 내부 DB 목록을 이용해주세요.</p>}
       <div className="mt-4 space-y-2">
         {status === "success" && items.map((item, index) => (

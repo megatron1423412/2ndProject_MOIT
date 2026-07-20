@@ -12,7 +12,7 @@ export interface RecommendationSnapshot {
   recommendations: ProductRecommendation[];
   catalogSource: ProductSource;
   naverItems: NaverShoppingProduct[];
-  naverStatus: "loading" | "success" | "error";
+  naverStatus: "loading" | "success" | "missing-config" | "auth-error" | "error";
   naverErrorMessage: string;
 }
 

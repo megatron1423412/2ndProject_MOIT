@@ -389,6 +389,22 @@ try {
   ]);
   assert.deepEqual(naverItems.map((item) => item.productId), ["1", "2"], "네이버 중복 제거·최저가 오름차순");
   assert.equal(naverItems[0].title, "저렴한 TV MV-G55", "네이버 상품명 HTML 제거");
+  const { NaverShoppingServiceError, searchNaverShopping } = await import("../server/naverShoppingService.mjs");
+  let capturedNaverRequest;
+  const serverNaverResult = await searchNaverShopping({
+    query: "에어컨",
+    clientId: "test-client-id",
+    clientSecret: "test-client-secret",
+    fetchImpl: async (url, init) => {
+      capturedNaverRequest = { url: String(url), init };
+      return new Response(JSON.stringify({ items: [{ productId: "naver-1", title: "<b>테스트</b> 에어컨", link: "https://example.test/product", image: "https://example.test/image.jpg", lprice: "100000", hprice: "0", mallName: "테스트몰", maker: "테스트제조사", brand: "테스트브랜드", category1: "디지털", productType: "1" }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+    },
+  });
+  assert.equal(new URL(capturedNaverRequest.url).origin, "https://openapi.naver.com", "Naver server adapter uses the official API host");
+  assert.deepEqual(Object.fromEntries(new URL(capturedNaverRequest.url).searchParams), { query: "에어컨", display: "10", start: "1", sort: "asc" }, "Naver server adapter uses required query parameters only");
+  assert.equal(capturedNaverRequest.init.method, "GET"); assert.equal(capturedNaverRequest.init.headers["X-Naver-Client-Id"], "test-client-id"); assert.equal(capturedNaverRequest.init.headers["X-Naver-Client-Secret"], "test-client-secret", "Naver credentials stay in server request headers");
+  assert.deepEqual(serverNaverResult.items[0], { productId: "naver-1", title: "테스트 에어컨", link: "https://example.test/product", image: "https://example.test/image.jpg", lowestPrice: 100000, highestPrice: null, mallName: "테스트몰", maker: "테스트제조사", brand: "테스트브랜드", category1: "디지털", category2: "", category3: "", category4: "", productType: "1" }, "Naver server adapter normalizes an item and treats zero price as unavailable");
+  await assert.rejects(() => searchNaverShopping({ query: "TV", clientId: "test-client-id", clientSecret: "test-client-secret", fetchImpl: async () => new Response(JSON.stringify({ errorCode: "024" }), { status: 403 }) }), (error) => error instanceof NaverShoppingServiceError && error.code === "NAVER_PERMISSION_DENIED" && error.upstreamStatus === 403, "Naver permission errors retain only safe status and error code");
 
   const { matchInternalProduct } = await load("/src/app/features/smart-shopping/naver/matchInternalProduct.ts");
   const matchedTv = matchInternalProduct({ ...naverItems[0], modelNumber: "MV-G55" }, TV_PRODUCTS);
@@ -410,8 +426,12 @@ try {
   let proxyHandler;
   naverShoppingProxy({}).configureServer({ middlewares: { use: (handler) => { proxyHandler = handler; } } });
   let proxyStatus = 0; let proxyBody = "";
-  await proxyHandler({ url: "/api/shopping/search?query=TV", method: "GET" }, { setHeader: () => {}, end: (body) => { proxyBody = body; }, set statusCode(value) { proxyStatus = value; } }, () => {});
-  assert.equal(proxyStatus, 503); assert.equal(JSON.parse(proxyBody).code, "NAVER_API_NOT_CONFIGURED", "API 키 미설정 상태 정규화");
+  await proxyHandler({ url: "/api/naver-shopping?query=TV", method: "GET" }, { setHeader: () => {}, end: (body) => { proxyBody = body; }, set statusCode(value) { proxyStatus = value; } }, () => {});
+  assert.equal(proxyStatus, 503); assert.equal(JSON.parse(proxyBody).code, "NAVER_CREDENTIALS_MISSING", "API 키 미설정 상태 정규화");
+  const naverClientSource = await readFile("src/app/features/smart-shopping/naver/naverShoppingClient.ts", "utf8");
+  const naverListStateSource = await readFile("src/app/features/smart-shopping/recommendation/NaverLowestPriceList.tsx", "utf8");
+  assert.ok(naverClientSource.includes("/api/naver-shopping?query=") && !naverClientSource.includes("openapi.naver.com"), "브라우저는 같은 출처 네이버 프록시만 호출");
+  assert.ok(naverListStateSource.includes("missing-config") && naverListStateSource.includes("auth-error"), "네이버 UI가 설정·인증/권한 오류를 구분해 표시");
   assert.ok(airResult.recommendations.length > 0, "네이버 실패와 무관하게 내부 목록 유지");
 
   const { getRecommendedCapacityRange } = await load("/src/app/features/chat-flow/flows/appliances/refrigerator/criteria.ts");

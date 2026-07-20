@@ -6,6 +6,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
+    "preview": "vite preview",
+    "verify:naver-shopping": "node scripts/verify-naver-shopping.mjs",
     "test:smart-shopping": "node scripts/verify-smart-shopping.mjs"
   },
   "dependencies": {

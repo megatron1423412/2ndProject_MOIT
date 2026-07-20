@@ -70,7 +70,7 @@
 
 ## 네이버 쇼핑 API 설정
 
-로컬 서버용 최소 프록시는 `server/naverShoppingProxy.ts`이고 브라우저는 `/api/shopping/search`만 호출합니다. 프로젝트 루트의 `.env.example`을 참고해 커밋되지 않는 `.env` 또는 배포 환경의 서버 비밀 저장소에 다음 값을 설정합니다.
+로컬 서버용 최소 프록시는 `server/naverShoppingProxy.ts`이고 브라우저는 `/api/naver-shopping`만 호출합니다. 프로젝트 루트의 `.env.example`을 참고해 커밋되지 않는 `.env` 또는 배포 환경의 서버 비밀 저장소에 다음 값을 설정합니다.
 
 ```text
 NAVER_CLIENT_ID=
