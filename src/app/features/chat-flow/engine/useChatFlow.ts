@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { AnswerInputStep, FlowRuntimeState, SubmittedFlowAnswer } from "../core/types";
 import { getFlowModule } from "../registry/loadFlows";
-import { appendSupplementalFlowMessage, createInitialFlowState, submitFlowAnswer, undoLatestFlowAnswer } from "./flowRuntime";
+import { appendSupplementalFlowMessage, createInitialFlowState, submitFlowAnswer, goBackFlow } from "./flowRuntime";
 import type { SubCategoryId } from "../../../types/moit";
 
 const EMPTY_STATE: FlowRuntimeState = {
@@ -14,14 +14,11 @@ const EMPTY_STATE: FlowRuntimeState = {
   result: null,
   error: null,
   messageSequence: 0,
-  checkpoints: [],
 };
 
 export const useChatFlow = (subCategoryId: SubCategoryId) => {
   const module = useMemo(() => getFlowModule(subCategoryId), [subCategoryId]);
   const [state, setState] = useState<FlowRuntimeState>(() => module ? createInitialFlowState(module) : EMPTY_STATE);
-  const transitionLockRef = useRef(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
 
   useEffect(() => {
     setState(module ? createInitialFlowState(module) : { ...EMPTY_STATE, error: `Flow '${subCategoryId}'를 찾을 수 없습니다.` });
@@ -51,19 +48,13 @@ export const useChatFlow = (subCategoryId: SubCategoryId) => {
     : null;
 
   const submitAnswer = (answer: SubmittedFlowAnswer) => {
-    if (!module || transitionLockRef.current) return;
-    transitionLockRef.current = true;
-    setIsTransitioning(true);
+    if (!module) return;
     setState((current) => current.flowId === module.id ? submitFlowAnswer(module, current, answer) : createInitialFlowState(module));
-    queueMicrotask(() => { transitionLockRef.current = false; setIsTransitioning(false); });
   };
 
-  const undoLatestAnswer = () => {
-    if (!module || transitionLockRef.current) return;
-    transitionLockRef.current = true;
-    setIsTransitioning(true);
-    setState((current) => current.flowId === module.id ? undoLatestFlowAnswer(module, current) : current);
-    queueMicrotask(() => { transitionLockRef.current = false; setIsTransitioning(false); });
+  const goBack = () => {
+    if (!module) return;
+    setState((current) => current.flowId === module.id ? goBackFlow(module, current) : current);
   };
 
   return {
@@ -75,9 +66,7 @@ export const useChatFlow = (subCategoryId: SubCategoryId) => {
     result: isCurrentFlow ? state.result : null,
     error: module ? state.error : `이 챗봇의 Flow Definition을 찾을 수 없습니다: ${subCategoryId}`,
     submitAnswer,
-    canUndo: Boolean(module?.definition.enableConditionUndo && !state.completed && state.checkpoints.length > 0),
-    undoLatestAnswer,
-    isTransitioning,
+    goBack,
     appendSupplementalMessage: (message: { sender: "ai" | "user"; text: string; metadata?: Record<string, unknown> }) => {
       if (!module) return;
       setState((current) => current.flowId === module.id

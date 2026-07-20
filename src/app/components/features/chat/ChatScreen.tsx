@@ -4,17 +4,14 @@ import { useChatFlow } from "../../../features/chat-flow/engine/useChatFlow";
 import type { ConversationHistoryItem, SubCategory, SubCategoryId, TopActionState } from "../../../types/moit";
 import ChatFlowInput from "./ChatFlowInput";
 import ChatHeader from "./ChatHeader";
-import ChatConversationTurn from "./ChatConversationTurn";
-import ChatTimelineRow from "./ChatTimelineRow";
+import ChatMessage from "./ChatMessage";
 import ChatSidebar from "./ChatSidebar";
 import DiagnosisResultCard from "./DiagnosisResultCard";
 import { buildSmartShoppingGreeting } from "../../../features/smart-shopping/greeting/buildSmartShoppingGreeting";
 import type { UserProfile } from "../../../features/smart-shopping/user/userProfile";
 import type { PriceAlertDraft } from "../../../features/smart-shopping/price-alerts/types";
-import type { FavoriteDraft, FavoriteProduct } from "../../../features/favorites/types";
-import RecommendationSelectionView from "../../../features/smart-shopping/recommendation/RecommendationSelectionView";
-import { isSmartShoppingConversationItem, SmartShoppingAlternativeCards, SmartShoppingWideTimelineContent, type SmartShoppingTimelineRenderModel } from "../../../features/smart-shopping/timeline/SmartShoppingTimeline";
-import type { ProductRecommendation } from "../../../features/product-catalog/core/types";
+
+import type { FavoriteProduct, FavoriteDraft } from "../../../features/favorites/types";
 
 interface ChatScreenProps {
   subCategoryId: SubCategoryId;
@@ -24,11 +21,21 @@ interface ChatScreenProps {
   userProfile: UserProfile;
   onEndSmartShoppingChat: () => void;
   onCreatePriceAlert: (draft: PriceAlertDraft) => unknown;
-  favorites: FavoriteProduct[];
-  onToggleFavorite: (draft: FavoriteDraft) => void;
+  favorites?: FavoriteProduct[];
+  onToggleFavoriteProduct?: (productId: string, draft: FavoriteDraft) => void;
 }
 
-export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory, actions, userProfile, onEndSmartShoppingChat, onCreatePriceAlert, favorites, onToggleFavorite }: ChatScreenProps) {
+export default function ChatScreen({
+  subCategoryId,
+  onBack,
+  onSelectSubCategory,
+  actions,
+  userProfile,
+  onEndSmartShoppingChat,
+  onCreatePriceAlert,
+  favorites,
+  onToggleFavoriteProduct,
+}: ChatScreenProps) {
   const item = getSubCategoryById(subCategoryId);
   const flow = useChatFlow(subCategoryId);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -60,11 +67,6 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
     );
   }
 
-  const smartShoppingResult = flow.messages
-    .filter((message) => message.type === "result")
-    .map((message) => message.result ?? flow.result)
-    .find((result) => Boolean(result?.recommendations));
-
   const handleHistorySelect = (historyItem: ConversationHistoryItem) => {
     setNotice(`${historyItem.title} 상세 화면은 다음 단계에서 연결할게요.`);
     window.setTimeout(() => setNotice(""), 2200);
@@ -89,25 +91,23 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
         />
 
         <main ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-5">
-          <div className="mx-auto grid w-full max-w-4xl grid-cols-[minmax(0,1fr)] gap-4" aria-live="polite" data-chat-timeline-root>
+          <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
             {item.parentCategory === "appliances" && (
-              <ChatConversationTurn sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} />
+              <ChatMessage sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} />
             )}
             {flow.messages.map((message, index) => {
               const isLast = index === flow.messages.length - 1;
               const isAi = message.sender === "ai";
-              const renderedResult = message.result ?? flow.result;
-              const isSmartShoppingResult = Boolean(renderedResult?.recommendations);
               
               // 선택형 단계이거나 완료 상태인 경우에만 인라인 선택지를 표시합니다.
               const isSelectionStep = flow.currentStep && ["single-choice", "multi-choice", "confirmation"].includes(flow.currentStep.type);
               const showInlineInput = isLast && isAi && (isSelectionStep || flow.completed);
-              const currentStepForMessage = showInlineInput ? flow.currentStep : undefined;
+              const currentStepForMessage = showInlineInput ? flow.currentStep : (isAi ? message.step : undefined);
 
               return (
                 <React.Fragment key={message.id}>
                   {message.text && (
-                    <ChatConversationTurn
+                    <ChatMessage
                       sender={message.sender}
                       text={message.text}
                       timestamp={message.timestamp}
@@ -115,32 +115,24 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
                       completed={isLast ? flow.completed : false}
                       onSubmit={flow.submitAnswer}
                       onReset={flow.reset}
-                      canUndo={isLast && isAi && Boolean(flow.currentStep) && flow.canUndo}
-                      undoDisabled={flow.isTransitioning}
-                      onUndo={flow.undoLatestAnswer}
+                      onGoBack={flow.goBack}
+                      favorites={favorites}
+                      onToggleFavoriteProduct={onToggleFavoriteProduct}
+                      subCategoryId={subCategoryId}
+                      userId={userProfile.id}
+                      isHistorical={!isLast}
+                      answers={flow.answers}
+                      onEndSmartShoppingChat={onEndSmartShoppingChat}
                     />
                   )}
-                  {message.type === "result" && renderedResult && !isSmartShoppingResult && (
+                  {message.type === "result" && (message.result ?? flow.result) && (message.result ?? flow.result)?.metadata?.category !== "completed-exit" && (
                     <div className="w-full self-start pl-11">
-                      <DiagnosisResultCard result={renderedResult} />
+                      <DiagnosisResultCard result={(message.result ?? flow.result)!} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} onTimelineChange={() => setTimelineRevision((value) => value + 1)} userId={userProfile.id} />
                     </div>
                   )}
                 </React.Fragment>
               );
             })}
-            {smartShoppingResult && (
-              <RecommendationSelectionView
-                key={`${String(smartShoppingResult.metadata?.category ?? "unknown")}-${smartShoppingResult.title}`}
-                result={smartShoppingResult}
-                onEndSmartShoppingChat={onEndSmartShoppingChat}
-                onCreatePriceAlert={onCreatePriceAlert}
-                onTimelineChange={() => setTimelineRevision((value) => value + 1)}
-                userId={userProfile.id}
-                favorites={favorites}
-                onToggleFavorite={onToggleFavorite}
-                renderTimeline={(model) => <ChatScreenSmartShoppingTimeline model={model} />}
-              />
-            )}
             {flow.error && (
               <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm font-bold text-destructive">
                 {flow.error}
@@ -154,11 +146,15 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
         {flow.currentStep && ["number-input", "text-input"].includes(flow.currentStep.type) && (
           <footer className="flex-shrink-0 border-t border-border bg-card p-4">
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-3">
-              <ChatFlowInput
+               <ChatFlowInput
                 step={flow.currentStep}
                 completed={flow.completed}
                 onSubmit={flow.submitAnswer}
                 onReset={flow.reset}
+                favorites={favorites}
+                onToggleFavoriteProduct={onToggleFavoriteProduct}
+                subCategoryId={subCategoryId}
+                userId={userProfile.id}
               />
             </div>
           </footer>
@@ -185,38 +181,5 @@ export default function ChatScreen({ subCategoryId, onBack, onSelectSubCategory,
         </div>
       )}
     </div>
-  );
-}
-
-/** Flattens smart-shopping entries into the same outer ChatScreen timeline as flow turns. */
-export function ChatScreenSmartShoppingTimeline({ model }: { model: SmartShoppingTimelineRenderModel }) {
-  const { timeline, showClosestOverBudget, onShowClosestOverBudget, ...bindings } = model;
-  return (
-    <>
-      {showClosestOverBudget && (
-        <ChatTimelineRow kind="wide">
-          <button type="button" onClick={onShowClosestOverBudget} className="rounded-lg border border-accent bg-card px-4 py-2.5 text-sm font-black text-accent shadow-sm transition hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-accent/40">
-            예산 초과가 가장 적은 상품 보기
-          </button>
-        </ChatTimelineRow>
-      )}
-      {timeline.map((timelineItem) => {
-        if (isSmartShoppingConversationItem(timelineItem)) {
-          const isAssistant = timelineItem.type === "assistant-text";
-          const alternatives = timelineItem.metadata?.alternatives as ProductRecommendation[] | undefined;
-          return (
-            <React.Fragment key={timelineItem.id}>
-              <ChatConversationTurn sender={isAssistant ? "ai" : "user"} text={timelineItem.text} timestamp={timelineItem.timestamp} />
-              {alternatives?.length ? <ChatTimelineRow kind="wide"><SmartShoppingAlternativeCards items={alternatives} /></ChatTimelineRow> : null}
-            </React.Fragment>
-          );
-        }
-        return (
-          <ChatTimelineRow key={timelineItem.id} kind="wide">
-            <SmartShoppingWideTimelineContent item={timelineItem} {...bindings} />
-          </ChatTimelineRow>
-        );
-      })}
-    </>
   );
 }

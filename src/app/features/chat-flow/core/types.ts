@@ -148,6 +148,7 @@ export interface ChatFlowMessage {
   metadata?: Record<string, unknown>;
   /** Result snapshots let living-cost flows continue after an intermediate result. */
   result?: FlowResult;
+  step?: AnswerInputStep;
 }
 
 export interface FlowRuntimeState {

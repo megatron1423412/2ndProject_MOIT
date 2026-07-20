@@ -8,8 +8,6 @@ import type { PriceAlert, PriceAlertDraft, PriceAlertNotification } from "./feat
 import { LocalFavoriteRepository } from "./features/favorites/LocalFavoriteRepository";
 import FavoritesPage from "./features/favorites/FavoritesPage";
 import NotificationsPage from "./features/notifications/NotificationsPage";
-import type { FavoriteDraft } from "./features/favorites/types";
-import { toggleFavoriteInRepository } from "./features/favorites/toggleFavorite";
 
 export default function App() {
   const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<SubCategoryId | null>(null);
@@ -22,10 +20,14 @@ export default function App() {
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>(() => alertRepository.getAlertsForUser(currentUser.id));
   const [favoritesRevision, setFavoritesRevision] = useState(0);
   const favorites = useMemo(() => favoriteRepository.getFavoritesForUser(currentUser.id), [favoriteRepository, favoritesRevision]);
-  const refreshFavorites = () => setFavoritesRevision((value) => value + 1);
-  const toggleFavorite = (draft: FavoriteDraft) => {
-    toggleFavoriteInRepository(favoriteRepository, draft);
-    refreshFavorites();
+  const handleToggleFavoriteProduct = (productId: string, draft: any) => {
+    const existing = favorites.find(f => f.productId === productId);
+    if (existing) {
+      favoriteRepository.removeFavorite(existing.id);
+    } else {
+      favoriteRepository.addFavorite(draft);
+    }
+    setFavoritesRevision(prev => prev + 1);
   };
   const refreshAlerts = () => {
     setPriceAlerts(alertRepository.getAlertsForUser(currentUser.id));
@@ -52,6 +54,7 @@ export default function App() {
   const appActions: TopActionState = {
     isLoggedIn,
     isDarkMode,
+    isFavorite: favorites.length > 0,
     onToggleLogin: () => setIsLoggedIn((value) => !value),
     onToggleTheme: () => setIsDarkMode((value) => !value),
     onToggleFavorite: () => setUtilityPage("favorites"),
@@ -98,7 +101,7 @@ export default function App() {
             actions={appActions}
             userProfile={currentUser}
             favorites={favorites}
-            onToggleFavorite={toggleFavorite}
+            onToggleFavoriteProduct={handleToggleFavoriteProduct}
           />
         ) : (
           <MainStartScreen
@@ -106,7 +109,7 @@ export default function App() {
             onSelectSubCategory={(item) => setSelectedSubCategoryId(item.id)}
           />
         )}
-        {utilityPage === "favorites" && <FavoritesPage favorites={favorites} alerts={priceAlerts} onBack={closeUtilityPage} onDelete={(favoriteId) => { favoriteRepository.removeFavorite(favoriteId); refreshFavorites(); }} onCreatePriceAlert={createPriceAlert} />}
+        {utilityPage === "favorites" && <FavoritesPage favorites={favorites} alerts={priceAlerts} onBack={closeUtilityPage} onDelete={(favoriteId) => { favoriteRepository.removeFavorite(favoriteId); setFavoritesRevision((value) => value + 1); }} onCreatePriceAlert={createPriceAlert} />}
         {utilityPage === "notifications" && <NotificationsPage notifications={priceNotifications} alerts={priceAlerts} onBack={closeUtilityPage} onMarkRead={(notificationId) => { alertRepository.markNotificationRead(notificationId); refreshAlerts(); }} onDelete={(notificationId) => { alertRepository.deleteNotification(notificationId); refreshAlerts(); }} />}
       </div>
     </>

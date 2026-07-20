@@ -22,13 +22,14 @@ export const buildPhoneResult = (answers: Record<string, any>): FlowResult => {
   const saving = currentSpec.price - recommendedSpec.price;
   const savingRate = currentSpec.price > 0 ? (saving / currentSpec.price) : 0;
 
+  const isExit = answers["phone.exitRestart"] === "exit" || answers["phone.askGrade"] === "no";
   const isGrade = answers["phone.askGrade"] === "yes";
 
   return {
     ...baseResult,
     metadata: {
       ...baseResult.metadata,
-      category: isGrade ? "phone-grade" : "phone",
+      category: isExit ? "completed-exit" : (isGrade ? "phone-grade" : "phone"),
       saving,
       savingRate,
       answers,

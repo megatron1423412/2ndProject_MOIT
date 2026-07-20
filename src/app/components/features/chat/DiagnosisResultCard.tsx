@@ -4,26 +4,55 @@ import type { FlowResult } from "../../../features/chat-flow/core/types";
 import PhoneDiagnosisReport from "../../../features/chat-flow/flows/telecom/phone/PhoneDiagnosisReport";
 import PhoneGradeReport from "../../../features/chat-flow/flows/telecom/phone/PhoneGradeReport";
 import InternetDiagnosisReport from "../../../features/chat-flow/flows/telecom/internet/InternetDiagnosisReport";
+import InternetGradeReport from "../../../features/chat-flow/flows/telecom/internet/InternetGradeReport";
 import IptvDiagnosisReport from "../../../features/chat-flow/flows/telecom/iptv/IptvDiagnosisReport";
+import IptvGradeReport from "../../../features/chat-flow/flows/telecom/iptv/IptvGradeReport";
+import BundleDiagnosisReport from "../../../features/chat-flow/flows/telecom/bundle/BundleDiagnosisReport";
+import BundleGradeReport from "../../../features/chat-flow/flows/telecom/bundle/BundleGradeReport";
+import RecommendationSelectionView from "../../../features/smart-shopping/recommendation/RecommendationSelectionView";
+import type { PriceAlertDraft } from "../../../features/smart-shopping/price-alerts/types";
 
 interface DiagnosisResultCardProps {
   result: FlowResult;
+  onEndSmartShoppingChat?: () => void;
+  onCreatePriceAlert?: (draft: PriceAlertDraft) => unknown;
+  onTimelineChange?: () => void;
+  userId?: string;
 }
 
 const fmt = (n: number) => n.toLocaleString("ko-KR");
 
-export default function DiagnosisResultCard({ result }: DiagnosisResultCardProps) {
+export default function DiagnosisResultCard({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId }: DiagnosisResultCardProps) {
+  if (result.metadata?.category === "completed-exit") {
+    return null;
+  }
+  if (result.recommendations) {
+    const category = (result.metadata as { category?: string } | undefined)?.category ?? "unknown";
+    return <RecommendationSelectionView key={`${category}-${result.title}`} result={result} onEndSmartShoppingChat={onEndSmartShoppingChat ?? (() => {})} onCreatePriceAlert={onCreatePriceAlert ?? (() => {})} onTimelineChange={onTimelineChange} userId={userId ?? "mock-user"} />;
+  }
   if (result.metadata?.category === "phone") {
     return <PhoneDiagnosisReport result={result} />;
   }
   if (result.metadata?.category === "phone-grade") {
-    return <PhoneGradeReport result={result} />;
+    return <PhoneGradeReport result={result} onEndChat={onEndSmartShoppingChat} />;
   }
   if (result.metadata?.category === "internet") {
     return <InternetDiagnosisReport result={result} />;
   }
+  if (result.metadata?.category === "internet-grade") {
+    return <InternetGradeReport result={result} onEndChat={onEndSmartShoppingChat} />;
+  }
   if (result.metadata?.category === "iptv") {
     return <IptvDiagnosisReport result={result} />;
+  }
+  if (result.metadata?.category === "iptv-grade") {
+    return <IptvGradeReport result={result} onEndChat={onEndSmartShoppingChat} />;
+  }
+  if (result.metadata?.category === "bundle") {
+    return <BundleDiagnosisReport result={result} />;
+  }
+  if (result.metadata?.category === "bundle-grade") {
+    return <BundleGradeReport result={result} onEndChat={onEndSmartShoppingChat} />;
   }
 
   return (

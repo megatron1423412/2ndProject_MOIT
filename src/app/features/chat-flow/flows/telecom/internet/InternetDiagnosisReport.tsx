@@ -1,6 +1,7 @@
-import React from "react";
-import { CheckCircle2, ShieldAlert, Sparkles, ExternalLink, Activity, Wifi, Laptop, ArrowRightLeft, Users } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { CheckCircle2, ShieldAlert, Sparkles, ExternalLink, Activity, Wifi, Laptop, ArrowRightLeft, Users, Bot, Loader2 } from "lucide-react";
 import type { FlowResult } from "../../../core/types";
+import { generateTelecomComment, buildInternetCommentPrompt } from "../shared/telecomApi";
 
 interface InternetDiagnosisReportProps {
   result: FlowResult;
@@ -23,12 +24,40 @@ const speedMap: Record<string, string> = {
   unknown: "미확인 (기본형)",
 };
 
+import { MOCK_ALL_INTERNET_PLANS } from "./mockData";
+
 export default function InternetDiagnosisReport({ result }: InternetDiagnosisReportProps) {
   const answers = result.metadata?.answers || {};
   
   const carrier = answers["internet.commonCarrier"] || "KT";
-  const currentSpeedKey = answers["internet.currentSpeed"] || "500";
   const currentFee = Number(answers["internet.fee"]) || 0;
+
+  const confirmedPlanId = answers["internet.confirmedPlan"] || answers["internet.confirmedPlanList"] || "";
+  const customPlan = answers["internet.customPlan"] as string;
+
+  let currentSpeedKey = answers["internet.currentSpeed"] || "500";
+  if (confirmedPlanId.includes("plan-internet-1") || confirmedPlanId.includes("100Mbps")) {
+    currentSpeedKey = "100";
+  } else if (confirmedPlanId.includes("plan-internet-2") || confirmedPlanId.includes("500Mbps")) {
+    currentSpeedKey = "500";
+  } else if (confirmedPlanId.includes("plan-internet-3") || confirmedPlanId.includes("1Gbps") || confirmedPlanId.includes("1000")) {
+    currentSpeedKey = "1000";
+  } else if (confirmedPlanId.includes("plan-internet-4") || confirmedPlanId.includes("2.5Gbps")) {
+    currentSpeedKey = "1000";
+  }
+
+  let currentPlanName = "";
+  if (customPlan) {
+    currentPlanName = customPlan;
+  } else {
+    const matchedPlan = MOCK_ALL_INTERNET_PLANS.find(p => p.value === confirmedPlanId);
+    if (matchedPlan) {
+      currentPlanName = matchedPlan.label.split(" (월 ")[0];
+    } else {
+      currentPlanName = speedMap[currentSpeedKey] || currentSpeedKey;
+    }
+  }
+
   const contractPeriod = answers["internet.contractPeriod"] || "unknown";
   const householdSize = Number(answers["internet.householdSize"]) || 1;
   const deviceCount = Number(answers["internet.deviceCount"]) || 1;
@@ -64,6 +93,33 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
   // 약정 만료 여부 혜택 설명
   const isExpired = contractPeriod === "expired";
 
+  // 선택 요금제 정보 (사용자가 internet-recommendation-api 또는 internet-all-plans-select 에서 고른 값)
+  const selectedPlanRaw = (answers["internet.selectedRecommendedPlan"] || answers["internet.manualSelectedPlan"] || "") as string;
+  const selectedSpeedKey = answers["internet.desiredSpeed"] as string || recommendedSpeedKey;
+  const selectedPrice = standardPrices[selectedSpeedKey] ?? recommendedPrice;
+  const selectedPlanName = `인터넷 ${speedMap[selectedSpeedKey] || selectedSpeedKey}`;
+
+  // ── Ollama AI 코멘트 ────────────────────────────────────────
+  const [aiComment, setAiComment] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const prompt = buildInternetCommentPrompt({
+      carrier: (carrierMap[carrier as string] || carrier as string),
+      currentFee,
+      selectedPlanName,
+      selectedFee: selectedPrice,
+      desiredSpeed: selectedSpeedKey,
+      contractPeriod: contractPeriod as string,
+    });
+    generateTelecomComment(prompt, "internet").then((comment) => {
+      if (!cancelled) { setAiComment(comment); setAiLoading(false); }
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="w-full max-w-2xl rounded-2xl border border-border/80 bg-gradient-to-b from-card to-background p-6 shadow-md transition-all hover:shadow-lg">
       
@@ -89,10 +145,8 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
 
       {/* 현재 사용중 요약 */}
       <div className="mt-5 rounded-xl bg-muted/20 p-4 border border-border/40 text-xs sm:text-sm">
-        <p className="text-xs font-bold text-muted-foreground">현재 이용 중인 인터넷 정보</p>
-        <p className="mt-1 font-black text-primary leading-relaxed">
-          현재 이용 통신사는 <span className="text-accent">{carrierMap[carrier] || carrier}</span> 이며,{" "}
-          속도 스펙은 <span className="text-accent">"{speedMap[currentSpeedKey]}"</span> 요금제입니다.
+        <p className="font-black text-primary leading-relaxed text-center">
+          현재 당신의 요금제는 <span className="text-accent font-extrabold">"{currentPlanName}"</span> 입니다.
         </p>
       </div>
 
@@ -107,7 +161,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
             </span>
           </div>
           <h4 className="mt-2 text-sm font-black text-primary truncate">
-            {speedMap[currentSpeedKey]}
+            {currentPlanName}
           </h4>
           <div className="mt-4 flex items-baseline gap-1">
             <span className="text-lg font-black text-primary">{fmt(currentFee)}</span>
@@ -172,24 +226,23 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
 
       {/* 3. 금액 변동 문구 */}
       <div className="mt-5 rounded-xl bg-blue-500/5 border border-blue-500/20 p-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 border-b border-blue-500/10 pb-2">
           <ArrowRightLeft className="text-blue-500" size={15} />
-          <h4 className="text-xs font-black text-primary">매월 고정 지출비 변동 안내</h4>
+          <h4 className="text-xs font-black text-primary">"{speedMap[recommendedSpeedKey]}"를 선택한다면</h4>
         </div>
         <p className="mt-2 text-xs leading-relaxed text-primary/95 font-medium">
           {priceDiff > 0 ? (
             <>
-              권장 스펙으로 조정 시 기존 요금보다 매달 고정비 <span className="font-extrabold text-blue-600">{fmt(priceDiff)}원</span>을 아끼고, 
-              1년이면 총 <span className="font-extrabold text-blue-600">{fmt(priceDiff * 12)}원</span>을 아낄 수 있어요!
+              인터넷 속도를 일상 실속형(~200Mbps)으로 낮추면, 매달 고정비 <span className="font-extrabold text-blue-600">{fmt(priceDiff)}원</span> / 연 <span className="font-extrabold text-blue-600">{fmt(priceDiff * 12)}원</span>을 아낄 수 있어요!<br />
+              (기존 속도 대비 요금만 줄어들 뿐, 웹서핑이나 4K 유튜브 시청은 똑같이 끊김 없이 가능합니다.)
             </>
           ) : priceDiff < 0 ? (
             <>
-              매달 요금이 약 <span className="font-extrabold text-destructive">{fmt(Math.abs(priceDiff))}원</span> 가량 인상될 수 있지만, 
-              현재 연결 기기 대수({deviceCount}대)와 사용 목적에 최적화되어 재택근무 및 게임 시 끊김 현상이 완전히 해결됩니다.
+              매달 <span className="font-extrabold text-destructive">{fmt(Math.abs(priceDiff))}원</span> / 연 <span className="font-extrabold text-destructive">{fmt(Math.abs(priceDiff) * 12)}원</span>이 더 지출되지만, 인터넷 속도가 초고속 기가(~1Gbps)로 빨라져 대용량 게임 다운로드나 재택근무 환경이 훨씬 쾌적해집니다.
             </>
           ) : (
             <>
-              현재 납부하고 계신 요금({fmt(currentFee)}원)은 권장 속도 등급 대비 표준 요금과 동일합니다.
+              현재 납부하고 계신 요금({fmt(currentFee)}원)은 권장 요금제 스펙 요금과 동일하여 금액 변동이 없습니다.
             </>
           )}
         </p>
@@ -202,9 +255,9 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
           <div className="text-xs leading-relaxed">
             <p className="font-black text-emerald-600 dark:text-emerald-400">🚨 3년 약정 만료 대상자 특별 안내</p>
             <p className="mt-1 text-muted-foreground">
-              고객님은 현재 약정 기간(3년)이 완전히 끝난 상태입니다. 추가 비용 지출을 막기 위해 
-              <span className="font-extrabold text-primary"> 즉시 본사 재약정(상품권/할인 요구) 또는 타사 신규 가입(최대 45만 원 사은품 확보)</span>을 
-              진행하시는 것이 돈을 버는 가장 빠른 방법입니다.
+              고객님은 현재 약정 기간이 모두 만료된 상태입니다. 지금은 통신사를 자유롭게 변경하거나 본사 재약정을 검토하기 가장 좋은 시기입니다.
+              <span className="font-extrabold text-primary"> 홈페이지 또는 전화 상담을 통해 제공되는 할인 및 가입 혜택을 비교한 뒤</span>
+              가장 유리한 조건으로 가입하시길 권장드립니다.
             </p>
           </div>
         </div>
@@ -229,8 +282,27 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
         )}
       </div>
 
+      {/* AI 맞춤 코멘트 (Ollama) */}
+      <div className="mt-6 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
+        <div className="flex items-center gap-2 border-b border-violet-500/10 pb-2">
+          <Bot className="text-violet-500" size={14} />
+          <span className="text-xs font-black text-violet-600 dark:text-violet-400">AI 맞춤 절약 가이드</span>
+          <span className="ml-auto rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-500">Ollama</span>
+        </div>
+        {aiLoading ? (
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <Loader2 size={13} className="animate-spin text-violet-400" />
+            AI가 맞춤 가이드를 생성 중입니다...
+          </div>
+        ) : aiComment ? (
+          <p className="mt-3 text-xs leading-relaxed text-primary/90 font-medium whitespace-pre-wrap">{aiComment}</p>
+        ) : (
+          <p className="mt-3 text-xs text-muted-foreground/70">AI 가이드를 불러올 수 없습니다. Ollama가 실행 중인지 확인해 주세요.</p>
+        )}
+      </div>
+
       {/* 6. 상세 연동 및 하단 안내 */}
-      <div className="mt-6 flex flex-col gap-2">
+      <div className="mt-4 flex flex-col gap-2">
         <a
           href="https://www.mvnohub.kr"
           target="_blank"
@@ -240,8 +312,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
           통신사별 결합 할인 및 사은품 혜택 확인 <ExternalLink size={13} />
         </a>
         <p className="text-[10px] text-center text-muted-foreground/60 leading-normal">
-          본 리포트는 고객님이 입력하신 정보와 표준 요율을 비교하여 작성되었습니다. 
-          결합된 모바일 개수 및 제휴 카드 사용 조건에 따라 실제 월 납부금은 더 낮아질 수 있습니다.
+          본 리포트는 고객님이 입력하신 정보와 표준 요율을 비교하여 작성되었습니다. 실제 월 납부금은 더 낮아질 수 있습니다.
         </p>
       </div>
 

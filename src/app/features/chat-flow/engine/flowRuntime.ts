@@ -99,8 +99,25 @@ const advanceToStep = (
       }
     }
 
-    const text = typeof step.message === "function" ? (step.message as Function)(getNestedAnswers(state.answers)) : step.message;
-    state = appendMessage(state, { sender: "ai", text, type: "text" });
+    let text = typeof step.message === "function" ? (step.message as Function)(getNestedAnswers(state.answers)) : step.message;
+    
+    // Append ⤴️ for telecom flows' input steps (except the start step)
+    const isTelecom = module.id === "bundle" || module.id === "internet" || module.id === "iptv" || module.id === "phone";
+    if (isTelecom && step.type !== "assistant-message" && step.type !== "result" && step.id !== module.definition.startStepId) {
+      if (typeof text === "string" && !text.includes("⤴️")) {
+        text = text.trim() + " ⤴️";
+      }
+    }
+    
+    const resolvedStep = { ...step };
+    if (step.type === "single-choice" || step.type === "multi-choice") {
+      const stepWithResolver = step as any;
+      if (typeof stepWithResolver.optionsResolver === "function") {
+        resolvedStep.options = stepWithResolver.optionsResolver(state.answers);
+      }
+    }
+
+    state = appendMessage(state, { sender: "ai", text, type: "text", step: resolvedStep as AnswerInputStep });
     return { ...state, currentStepId: step.id };
   }
 
@@ -220,4 +237,46 @@ export const appendSupplementalFlowMessage = (
     messageSequence: state.messageSequence + 1,
     supplementalMessages: [...state.supplementalMessages, { ...normalized, id: `${state.flowId}-supplemental-${state.messageSequence + 1}`, timestamp: getTimeString() }],
   };
+};
+
+export const goBackFlow = (
+  module: ChatFlowModule,
+  currentState: FlowRuntimeState,
+): FlowRuntimeState => {
+  const submissionHistory: { step: AnswerInputStep; answer: SubmittedFlowAnswer }[] = [];
+  
+  currentState.messages.forEach((msg, idx) => {
+    if (msg.sender === "user") {
+      let step: AnswerInputStep | null = null;
+      for (let i = idx - 1; i >= 0; i--) {
+        if (currentState.messages[i].sender === "ai" && currentState.messages[i].step) {
+          step = currentState.messages[i].step as AnswerInputStep;
+          break;
+        }
+      }
+      if (step) {
+        const val = currentState.answers[step.answerKey];
+        if (val !== undefined) {
+          submissionHistory.push({
+            step,
+            answer: {
+              value: val,
+              displayValue: msg.text || String(val),
+            }
+          });
+        }
+      }
+    }
+  });
+
+  if (submissionHistory.length === 0) return currentState;
+
+  const remainingSubmissions = submissionHistory.slice(0, -1);
+
+  let state = createInitialFlowState(module);
+  for (const item of remainingSubmissions) {
+    state = submitFlowAnswer(module, state, item.answer);
+  }
+
+  return state;
 };
