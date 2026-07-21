@@ -4,6 +4,7 @@ import { loadEnv } from "vite";
 export const loadServerEnv = (mode = process.env.NODE_ENV === "production" ? "production" : "development") => {
   const env = loadEnv(mode, process.cwd(), "");
   if (!process.env.OPENAI_MODEL && env.OPENAI_MODEL?.trim()) process.env.OPENAI_MODEL = env.OPENAI_MODEL.trim();
+  if (!process.env.OPENAI_EMBEDDING_MODEL && env.OPENAI_EMBEDDING_MODEL?.trim()) process.env.OPENAI_EMBEDDING_MODEL = env.OPENAI_EMBEDDING_MODEL.trim();
   return env;
 };
 

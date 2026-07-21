@@ -16,6 +16,8 @@ import type { FavoriteProduct, FavoriteDraft } from "../../../features/favorites
 import RecommendationSelectionView from "../../../features/smart-shopping/recommendation/RecommendationSelectionView";
 import { isSmartShoppingConversationItem, SmartShoppingAlternativeCards, SmartShoppingWideTimelineContent, type SmartShoppingTimelineRenderModel } from "../../../features/smart-shopping/timeline/SmartShoppingTimeline";
 import type { ProductRecommendation } from "../../../features/product-catalog/core/types";
+import ProductQuestionSources from "../../../features/smart-shopping/product-detail/ProductQuestionSources";
+import type { ProductQuestionSource } from "../../../features/smart-shopping/product-detail/productQuestionClient";
 
 interface ChatScreenProps {
   subCategoryId: SubCategoryId;
@@ -229,9 +231,10 @@ export function ChatScreenSmartShoppingTimeline({ model }: { model: SmartShoppin
         if (isSmartShoppingConversationItem(timelineItem)) {
           const isAssistant = timelineItem.type === "assistant-text";
           const alternatives = timelineItem.metadata?.alternatives as ProductRecommendation[] | undefined;
+          const sources = isAssistant && Array.isArray(timelineItem.metadata?.sources) ? timelineItem.metadata.sources as ProductQuestionSource[] : [];
           return (
             <React.Fragment key={timelineItem.id}>
-              <ChatConversationTurn sender={isAssistant ? "ai" : "user"} text={timelineItem.text} timestamp={timelineItem.timestamp} />
+              <ChatConversationTurn sender={isAssistant ? "ai" : "user"} text={timelineItem.text} timestamp={timelineItem.timestamp}>{sources.length ? <ProductQuestionSources sources={sources} /> : null}</ChatConversationTurn>
               {alternatives?.length ? <ChatTimelineRow kind="wide"><SmartShoppingAlternativeCards items={alternatives} /></ChatTimelineRow> : null}
             </React.Fragment>
           );

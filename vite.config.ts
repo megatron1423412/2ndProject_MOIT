@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => {
       clientId: serverEnv.NAVER_CLIENT_ID,
       clientSecret: serverEnv.NAVER_CLIENT_SECRET,
     }),
-    productQuestionRoute({ apiKey: serverEnv.OPENAI_API_KEY }),
+    productQuestionRoute({ apiKey: serverEnv.OPENAI_API_KEY, embeddingModel: serverEnv.OPENAI_EMBEDDING_MODEL }),
     telecomOllamaRoute({
       ollamaUrl: serverEnv.VITE_OLLAMA_API_URL,
       ollamaModel: serverEnv.VITE_OLLAMA_MODEL,

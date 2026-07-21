@@ -147,7 +147,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     try {
       const request = buildProductQuestionRequest({ selected, userCriteria: criteria, timeline: session.timeline });
       const response = await askProductQuestion({ ...request, question: trimmedQuestion });
-      appendText("assistant-text", response.answer);
+      appendText("assistant-text", response.answer, { sources: response.sources, grounding: response.grounding });
       appendActionGroup("detail", showAlternative);
     } catch (error) {
       setQuestionError(productQuestionErrorMessage(error instanceof Error ? error.message : "OPENAI_REQUEST_FAILED"));

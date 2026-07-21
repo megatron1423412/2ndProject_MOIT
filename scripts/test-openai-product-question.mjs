@@ -30,19 +30,21 @@ try {
   assert.ok("historicalLowestPrice" in context.product && "differenceFromHistoricalLow" in context.product && "percentAboveHistoricalLow" in context.product, "가격 통계는 호출 전에 계산");
 
   let calls = 0; let modelFields;
-  const success = await service.answerProductQuestion({ apiKey: "test-key", request, modelFactory: (fields) => ({ invoke: async () => { calls += 1; modelFields = fields; return { content: "저장된 가격 이력과 예산을 함께 비교해보세요.", usage_metadata: { input_tokens: 12, output_tokens: 8, total_tokens: 20 } }; } }) });
+  const success = await service.answerProductQuestion({ apiKey: "test-key", request, ragRetriever: async () => [], modelFactory: (fields) => ({ invoke: async () => { calls += 1; modelFields = fields; return { content: "저장된 가격 이력과 예산을 함께 비교해보세요.", usage_metadata: { input_tokens: 12, output_tokens: 8, total_tokens: 20 } }; } }) });
   assert.equal(calls, 1, "한 제출은 정확히 한 번 모델 호출");
   assert.deepEqual({ model: modelFields.model, temperature: modelFields.temperature, maxTokens: modelFields.maxTokens, timeout: modelFields.timeout, maxRetries: modelFields.maxRetries }, { model: process.env.OPENAI_MODEL ?? "gpt-4o-mini", temperature: 0.2, maxTokens: 400, timeout: 20_000, maxRetries: 1 }, "gpt-4o-mini LangChain 구성");
   assert.equal(success.usage.totalTokens, 20, "사용량은 서버 내부에서만 집계");
+  assert.deepEqual(success.sources, [], "검색 근거가 없으면 sources는 비어 있음");
+  assert.deepEqual(success.grounding, { usedProductDatabase: true, usedRag: false }, "상품 DB grounding은 유지");
   await assert.rejects(() => service.answerProductQuestion({ apiKey: "test-key", request: { ...request, question: " " }, modelFactory: () => ({ invoke: async () => { calls += 1; return { content: "실패" }; } }) }), (error) => error.code === "INVALID_QUESTION", "빈 질문은 모델 호출 없이 거부");
   assert.equal(calls, 1, "유효하지 않은 질문은 호출하지 않음");
   await assert.rejects(() => service.answerProductQuestion({ apiKey: "test-key", request: { ...request, productId: "not-a-catalog-product" }, modelFactory: () => ({ invoke: async () => ({ content: "실패" }) }) }), (error) => error.code === "PRODUCT_NOT_FOUND", "선택 상품은 서버 카탈로그에서 해석");
-  for (const [status, code] of [[401, "OPENAI_AUTH_FAILED"], [429, "OPENAI_RATE_LIMITED"]]) await assert.rejects(() => service.answerProductQuestion({ apiKey: "test-key", request, modelFactory: () => ({ invoke: async () => { throw { status }; } }) }), (error) => error.code === code, `OpenAI ${status} 안전 코드`);
-  await assert.rejects(() => service.answerProductQuestion({ apiKey: "test-key", request, modelFactory: () => ({ invoke: async () => { throw new Error("timeout"); } }) }), (error) => error.code === "OPENAI_TIMEOUT", "timeout 안전 코드");
+  for (const [status, code] of [[401, "OPENAI_AUTH_FAILED"], [429, "OPENAI_RATE_LIMITED"]]) await assert.rejects(() => service.answerProductQuestion({ apiKey: "test-key", request, ragRetriever: async () => [], modelFactory: () => ({ invoke: async () => { throw { status }; } }) }), (error) => error.code === code, `OpenAI ${status} 안전 코드`);
+  await assert.rejects(() => service.answerProductQuestion({ apiKey: "test-key", request, ragRetriever: async () => [], modelFactory: () => ({ invoke: async () => { throw new Error("timeout"); } }) }), (error) => error.code === "OPENAI_TIMEOUT", "timeout 안전 코드");
 
   const [clientSource, viewSource] = await Promise.all([readFile("src/app/features/smart-shopping/product-detail/productQuestionClient.ts", "utf8"), readFile("src/app/features/smart-shopping/recommendation/RecommendationSelectionView.tsx", "utf8")]);
   assert.ok(clientSource.includes('fetch("/api/ai/product-question"') && !clientSource.includes("OPENAI_API_KEY") && !clientSource.includes("import.meta.env"), "브라우저는 같은 출처 endpoint만 호출");
-  assert.ok(viewSource.includes("questionRequestInFlight") && viewSource.includes('appendText("user-text", trimmedQuestion)') && viewSource.includes('appendText("assistant-text", response.answer)'), "중복을 막고 성공 시 canonical user·assistant 턴을 각각 추가");
+  assert.ok(viewSource.includes("questionRequestInFlight") && viewSource.includes('appendText("user-text", trimmedQuestion)') && viewSource.includes('appendText("assistant-text", response.answer'), "중복을 막고 성공 시 canonical user·assistant 턴을 각각 추가");
   assert.ok(viewSource.includes("appendActionGroup(\"detail\", showAlternative)") && viewSource.includes("setQuestionLoading(false)"), "성공·실패 후 입력과 액션 컨트롤 복원");
   console.log("openai product-question focused checks: passed");
 } finally {

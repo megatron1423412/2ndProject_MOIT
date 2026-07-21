@@ -13,13 +13,18 @@
     "test:smartchoice-requests": "node scripts/test-smartchoice-requests.mjs",
     "test:service-integration": "node scripts/test-service-integration-regression.mjs",
     "test:smart-shopping": "node scripts/verify-smart-shopping.mjs",
-    "verify:rag-curation": "node scripts/verify-rag-curation.mjs"
+    "verify:rag-curation": "node scripts/verify-rag-curation.mjs",
+    "rag:index": "node scripts/rag-index.mjs",
+    "test:rag": "node scripts/test-rag.mjs",
+    "verify:rag-index": "node scripts/verify-rag-index.mjs",
+    "verify:rag-retrieval": "node scripts/verify-rag-retrieval.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
     "@langchain/core": "^1.2.3",
     "@langchain/openai": "^1.5.5",
+    "@langchain/textsplitters": "^1.0.1",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
     "@popperjs/core": "2.11.8",

@@ -26,17 +26,21 @@ const createHandler = ({ apiKey }: { apiKey?: string }) => async (request: impor
   try {
     const result = await answerProductQuestion({ apiKey, request: await readJson(request) });
     console.info(JSON.stringify({ feature: "product-question", model: result.model, status: "success", latencyMs: result.latencyMs, inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens, totalTokens: result.usage.totalTokens }));
-    return respondJson(response, 200, { ok: true, answer: result.answer });
+    return respondJson(response, 200, { ok: true, answer: result.answer, sources: result.sources, grounding: result.grounding });
   } catch (error) {
     const result = toProductQuestionResult(error);
     console.info(JSON.stringify({ feature: "product-question", model: process.env.OPENAI_MODEL ?? "gpt-4o-mini", status: result.code, latencyMs: Date.now() - startedAt }));
+    if (result.code === "RAG_INDEX_MISSING") console.error("RAG index is missing or incompatible. Run: npm run rag:index");
     return respondJson(response, error instanceof ProductQuestionServiceError ? error.status : 502, result);
   }
 };
 
 /** OpenAI credentials and LangChain run only inside Vite's server/preview middleware. */
-export const productQuestionRoute = (options: { apiKey?: string }): Plugin => ({
+export const productQuestionRoute = (options: { apiKey?: string; embeddingModel?: string }): Plugin => {
+  if (!process.env.OPENAI_EMBEDDING_MODEL && options.embeddingModel?.trim()) process.env.OPENAI_EMBEDDING_MODEL = options.embeddingModel.trim();
+  return ({
   name: "moit-product-question-route",
   configureServer(server) { server.middlewares.use(createHandler(options)); },
   configurePreviewServer(server) { server.middlewares.use(createHandler(options)); },
-});
+  });
+};
