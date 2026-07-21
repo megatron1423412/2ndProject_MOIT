@@ -911,7 +911,8 @@ try {
   assert.ok(favoriteButtonSource.includes('aria-pressed={isFavorite}') && favoriteButtonSource.includes("즐겨찾기에 추가") && favoriteButtonSource.includes("즐겨찾기에서 삭제"), "별 버튼 접근성 상태·안내");
   assert.ok(favoriteButtonSource.includes("event.stopPropagation()") && selectableRecommendationCardSource.includes("FavoriteToggleButton") && naverListSource.includes("FavoriteToggleButton") && productDetailViewSource.includes("FavoriteToggleButton"), "별 클릭과 내부·더미·대체 상품 선택 이벤트 분리");
   assert.ok(optimizedListSource.includes("SelectableRecommendationCard") && selectableRecommendationCardSource.includes("onClick={() => onSelect(recommendation)}") && naverListSource.includes("onClick={() => onSelect(item)}") && recommendationViewSource.includes("productSelectionAnchorId") && recommendationViewSource.includes('createConversationAnchorId("product-selection")') && recommendationViewSource.includes('createConversationAnchorId("back-to-list")') && recommendationViewSource.includes('if (action === "back-to-list") return backToList()') && timelineSource.includes("onBack={props.onBackToList}") && timelineSource.includes("SmartShoppingAlternativeCards") && timelineSource.includes("SelectableRecommendationCard") && chatScreenSource.includes("SmartShoppingAlternativeCards items={alternatives} onSelect={bindings.onSelectRecommendation}") && recommendationViewSource.includes("onSelectRecommendation: (recommendation) => selectProduct") && recommendationViewSource.includes("onSelectDummyProduct: (product) => selectProduct"), "AI 최적화·대체·더미 상품 목록은 공통 canonical 선택과 앵커 스크롤·상세 경로를 사용");
-  assert.ok(timelineSource.includes('className="flex w-full min-w-0 flex-col gap-3" data-chat-content="alternative-products"') && !timelineSource.includes('md:grid-cols-2 xl:grid-cols-3" data-chat-content="alternative-products"'), "대체 상품 목록은 넓은 대화 열을 한 행 카드로 모두 사용");
+  assert.ok(optimizedListSource.includes('cardWidth: "25.5rem"') && optimizedListSource.includes('twoColumnMinWidth: "51.75rem"') && timelineSource.includes("OPTIMIZED_RECOMMENDATION_CARD_LAYOUT") && timelineSource.includes("gridTemplateColumns: `repeat(2, ${OPTIMIZED_RECOMMENDATION_CARD_LAYOUT.cardWidth})`") && timelineSource.includes("minWidth: OPTIMIZED_RECOMMENDATION_CARD_LAYOUT.twoColumnMinWidth") && timelineSource.includes('className="grid w-max max-w-none gap-3" data-chat-content="alternative-products"'), "대체 상품 목록은 최적화 카드 폭을 재사용한 고정 2열이며 한 개도 늘어나지 않고 세 번째부터 왼쪽 다음 행에 배치");
+  assert.ok(!timelineSource.includes('md:grid-cols-1') && !timelineSource.includes('sm:grid-cols-1') && !timelineSource.includes('grid-cols-1'), "대체 상품 목록은 반응형 한 열 전환이나 가변 1fr 열을 사용하지 않음");
   assert.ok(selectableRecommendationCardSource.includes('className="relative w-full"') && selectableRecommendationCardSource.includes('className="flex w-full items-start gap-3 rounded-lg border border-border bg-card') && selectableRecommendationCardSource.includes('className="min-w-0 flex-1"') && selectableRecommendationCardSource.includes('break-keep font-black text-primary') && selectableRecommendationCardSource.includes('flex items-center justify-between text-xs'), "공유 추천 카드는 전체 폭·공용 카드 표면·자연스러운 상품명 줄바꿈·조건/가격 하단 배치를 유지");
   assert.ok(optimizedListSource.includes('rank={index + 1}') && selectableRecommendationCardSource.includes('rank !== undefined'), "AI 최적화 카드의 순위 배지와 적합도 점수 배치를 보존");
   assert.ok(selectableRecommendationCardSource.includes("disabled={!isActive}") && !optimizedListSource.includes("<FavoriteToggleButton isFavorite={isFavorite(item)} disabled={!isActive}"), "AI 목록의 과거 읽기 전용 상품 선택과 전역 즐겨찾기 토글을 분리");
@@ -934,6 +935,18 @@ try {
   const alternativeProduct = tvResult.recommendations[0].product;
   assert.strictEqual(selectedAlternative, tvResult.recommendations[0], "대체 카드 선택은 불완전한 표시 데이터가 아닌 canonical ProductRecommendation을 전달");
   assert.ok(alternativeCardMarkup.includes(alternativeProduct.name) && alternativeCardMarkup.includes(alternativeProduct.modelNumber) && alternativeCardMarkup.includes(`${tvResult.recommendations[0].score}점`) && alternativeCardMarkup.includes(`${alternativeProduct.currentPrice.toLocaleString("ko-KR")}원`) && selectableRecommendationCardSource.includes("ProductImage"), "대체 카드가 기존 이미지 fallback·이름·모델·적합도·가격과 조건 태그 구조를 유지");
+  const { SmartShoppingAlternativeCards } = await load("/src/app/features/smart-shopping/timeline/SmartShoppingTimeline.tsx");
+  const alternativeGridFor = (items) => SmartShoppingAlternativeCards({ items, onSelect: () => {}, isFavorite: () => false, onToggleFavorite: () => {} });
+  const oneAlternativeGrid = alternativeGridFor(tvResult.recommendations.slice(0, 1));
+  const twoAlternativeGrid = alternativeGridFor(tvResult.recommendations.slice(0, 2));
+  const threeAlternativeGrid = alternativeGridFor(tvResult.recommendations.slice(0, 3));
+  for (const grid of [oneAlternativeGrid, twoAlternativeGrid, threeAlternativeGrid]) {
+    assert.equal(grid.props.style.gridTemplateColumns, "repeat(2, 25.5rem)", "대체 상품은 결과 수와 무관하게 고정 폭 2열을 사용");
+    assert.equal(grid.props.style.minWidth, "51.75rem", "대체 목록 부모는 최적화 카드 두 장과 기존 간격을 수용");
+  }
+  assert.equal(React.Children.count(oneAlternativeGrid.props.children), 1, "대체 상품 1개는 왼쪽 고정 카드 한 장만 렌더");
+  assert.equal(React.Children.count(twoAlternativeGrid.props.children), 2, "대체 상품 2개는 같은 고정 2열에 렌더");
+  assert.equal(React.Children.count(threeAlternativeGrid.props.children), 3, "대체 상품 3개는 세 번째 카드부터 다음 행 왼쪽에 배치");
   const { endSmartShoppingChat } = await load("/src/app/features/smart-shopping/next-actions/endSmartShoppingChat.ts");
   let didEndChat = false; endSmartShoppingChat(() => { didEndChat = true; }); assert.equal(didEndChat, true, "동일 종료 함수 재사용");
 

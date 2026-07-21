@@ -2,6 +2,16 @@ import React from "react";
 import type { ProductRecommendation, ProductSource } from "../../product-catalog/core/types";
 import SelectableRecommendationCard from "./SelectableRecommendationCard";
 
+/**
+ * A desktop optimized-card is 25.5rem wide: the 4xl timeline (56rem) splits
+ * into two 27.5rem recommendation columns around a 1rem gap, then this panel's
+ * p-4 inset leaves its selectable product-card width.
+ */
+export const OPTIMIZED_RECOMMENDATION_CARD_LAYOUT = {
+  cardWidth: "25.5rem",
+  twoColumnMinWidth: "51.75rem",
+} as const;
+
 interface Props {
   items: ProductRecommendation[];
   catalogSource: ProductSource;
