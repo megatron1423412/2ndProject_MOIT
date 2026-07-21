@@ -39,7 +39,7 @@ export default function ProductDetailDataSections({
             : <p className="mt-2 text-xs text-muted-foreground">등록된 장점 정보가 없습니다.</p>}
         </section>
         <section className="rounded-lg border border-border bg-muted/30 p-4" data-price-summary data-detail-right-bottom>
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(8.5rem,auto)] items-baseline gap-x-6 gap-y-3" data-price-summary-grid>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(8.5rem,auto)] items-baseline gap-x-5 gap-y-3" data-price-summary-grid>
             <PriceSummaryRow label="현재가" value={Number.isFinite(currentPrice) && currentPrice > 0 ? won(currentPrice) : "이용 불가"} sub={currentPriceLabel} />
             <PriceSummaryRow label="역대 최저가" value={summary ? won(summary.allTimeLow) : "이용 불가"} />
             <PriceSummaryRow label="최저가 대비" value={summary ? `${signedWon(summary.differenceFromLow)} (${summary.percentAboveLow}%)` : "이용 불가"} emphasized />
@@ -52,11 +52,22 @@ export default function ProductDetailDataSections({
 
 function PriceSummaryRow({ label, value, sub, emphasized = false }: { label: string; value: string; sub?: string; emphasized?: boolean }) {
   const color = emphasized ? "text-red-600 dark:text-red-400" : "text-primary";
+  const displayLabel = label === "현재가" ? "구매 현재가" : label;
+
+  let amount = value;
+  let pct = "";
+  if (label === "최저가 대비" && value.includes(" (") && value.endsWith(")")) {
+    const parts = value.split(" (");
+    amount = parts[0];
+    pct = `(${parts[1]}`;
+  }
+
   return (
     <>
-      <p className={`text-right text-xs font-semibold ${color}`} data-price-summary-label={label}>{label}</p>
-      <div className={`min-w-0 text-right ${color}`} data-price-summary-value={label}>
-        <p className="whitespace-nowrap text-sm font-black tabular-nums">{value}</p>
+      <p className={`text-left text-xs font-semibold ${color}`} data-price-summary-label={label}>{displayLabel}</p>
+      <div className={`min-w-0 flex flex-col items-end text-right ${color}`} data-price-summary-value={label}>
+        <p className="whitespace-nowrap text-sm font-black tabular-nums">{amount}</p>
+        {pct && <p className="mt-0.5 text-[0.85em] font-black tabular-nums">{pct}</p>}
         {sub && <p className="mt-1 text-[10px] text-muted-foreground">{sub}</p>}
       </div>
     </>

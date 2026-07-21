@@ -35,13 +35,13 @@ export default function ProductRecommendationCard({ recommendation, isFavorite =
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div><p className="text-xs font-bold text-muted-foreground">{product.brand} · {product.modelNumber}</p><h4 className="mt-1 font-black text-primary">{product.name}</h4></div>
-            <div className="flex items-center gap-2"><span className="rounded-full bg-brand-surface px-3 py-1 text-xs font-black text-brand-surface-foreground">{recommendation.score}점</span>{onToggleFavorite && <FavoriteToggleButton isFavorite={isFavorite} onToggle={onToggleFavorite} positionClassName="relative right-auto top-auto" />}</div>
+            <div className="flex items-center gap-2"><span className="hidden" aria-hidden="true">{recommendation.score}점</span>{onToggleFavorite && <FavoriteToggleButton isFavorite={isFavorite} onToggle={onToggleFavorite} positionClassName="relative right-auto top-auto" />}</div>
           </div>
           <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{product.shortInfo}</p>
           <div className="mt-2 flex flex-wrap gap-1">{specLabels(product).map((label) => <span key={label} className="rounded-full border border-border px-2 py-1 text-[10px] font-bold text-muted-foreground">{label}</span>)}</div>
         </div>
       </div>
-      <div className="mt-4"><CriteriaMatchList matched={recommendation.matchedCoreCriteria} unmatched={confirmationItems} confirmationTitle={isAirConditioner ? "구매 전 확인" : undefined} /></div>
+      <div className="hidden" aria-hidden="true"><CriteriaMatchList matched={recommendation.matchedCoreCriteria} unmatched={confirmationItems} confirmationTitle={isAirConditioner ? "구매 전 확인" : undefined} /></div>
       <ProductDetailDataSections productId={product.id} reviewSummary={product.aiReviewSummary} strengths={product.strengths} currentPrice={product.currentPrice} currentPriceLabel="모잇 내부 카탈로그 현재가" priceHistory={product.priceHistory} />
       <RecommendationReasonList recommendation={recommendation} />
     </article>
