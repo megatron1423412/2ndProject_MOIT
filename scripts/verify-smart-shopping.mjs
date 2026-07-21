@@ -570,7 +570,7 @@ try {
   assert.ok(manyChartMarkup.includes(">5.1.<") && manyChartMarkup.includes(">7.13.<") && !manyChartMarkup.match(/<text[^>]*>2026-/), "X축은 첫·마지막 M.D. 라벨을 사용하고 연도를 숨김");
 
   const { PRODUCT_DETAIL_ACTIONS } = await load("/src/app/features/smart-shopping/actions/productDetailActions.ts");
-  assert.deepEqual(PRODUCT_DETAIL_ACTIONS.map((item) => item.label), ["예상 세일 달 제안", "다른 제품 추천", "싸게 구매하는 법 TIP", "기타·직접 질문 입력", "목록 다시 보기", "다음 단계로"], "상세 하단 액션 순서와 표시 문구");
+  assert.deepEqual(PRODUCT_DETAIL_ACTIONS.map((item) => item.label), ["구매 최적기 제안", "다른 제품 추천", "싸게 구매하는 법 TIP", "기타·직접 질문 입력", "목록 다시 보기", "다음 단계로"], "상세 하단 액션 순서와 표시 문구");
   const { default: ProductDetailActionBar } = await load("/src/app/features/smart-shopping/product-detail/ProductDetailActionBar.tsx");
   const productActionMarkup = renderToStaticMarkup(React.createElement(ProductDetailActionBar, { showAlternative: true, isQuestionLoading: false, onAction: () => {}, onBack: () => {}, onNext: () => {} }));
   const productActionWithoutPriceSignalMarkup = renderToStaticMarkup(React.createElement(ProductDetailActionBar, { showAlternative: false, isQuestionLoading: false, onAction: () => {}, onBack: () => {}, onNext: () => {} }));
@@ -646,7 +646,7 @@ try {
     { id: "user-product", type: "user-action", text: "상품 선택", timestamp: "오전 10:01" },
     { id: "product-detail", type: "product-detail", snapshot: { categoryId: "tv", selected: { source: "internal", recommendation: tvResult.recommendations[0] }, internalRecommendations: tvResult.recommendations, showAlternative: false } },
     { id: "wide-action", type: "action-group", group: "detail", isActive: false },
-    { id: "user-after", type: "user-action", text: "예상 세일 달 제안", timestamp: "오전 10:02" },
+    { id: "user-after", type: "user-action", text: "구매 최적기 제안", timestamp: "오전 10:02" },
     { id: "assistant-after", type: "assistant-text", text: "세일 달 답변", timestamp: "오전 10:03" },
     { id: "wide-action-later", type: "action-group", group: "detail", isActive: false },
     { id: "user-tip", type: "user-action", text: "싸게 구매하는 법 TIP", timestamp: "오전 10:04" },
@@ -849,7 +849,7 @@ try {
   assert.deepEqual(productTimelineSnapshot.selected.recommendation.product.priceHistory, snapshottedHistory, "상세 snapshot이 실제 저장 가격 이력을 독립 보존");
   shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "select-product", product: timelineSelected });
   shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append", item: timelineSnapshots.createProductDetailTimelineItem(shoppingSession.sessionId, productTimelineSnapshot) });
-  shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append", item: timelineSnapshots.createTextTimelineItem(shoppingSession.sessionId, "assistant-text", "예상 세일 달 제안 답변") });
+  shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "append", item: timelineSnapshots.createTextTimelineItem(shoppingSession.sessionId, "assistant-text", "구매 최적기 제안 답변") });
   const timelineLengthBeforeStageChange = shoppingSession.timeline.length;
   shoppingSession = sessionModule.smartShoppingSessionReducer(shoppingSession, { type: "set-stage", stage: "choosing-next-action" });
   assert.equal(shoppingSession.timeline.length, timelineLengthBeforeStageChange, "단계 전환은 누적 타임라인을 초기화하지 않음");
@@ -865,7 +865,7 @@ try {
   assert.equal(shoppingSession.timeline.filter((item) => item.type === "recommendation-list").length, 1, "목록 복귀 시 기존 추천 snapshot item 재사용");
   assert.equal(shoppingSession.timeline.at(-1).type, "recommendation-list", "재사용 목록을 현재 타임라인 끝의 활성 UI로 이동");
   assert.equal(shoppingSession.timeline.filter((item) => item.type === "product-detail").length, 1, "목록 복귀 후 이전 상세 기록 유지");
-  assert.equal(shoppingSession.timeline.filter((item) => item.type === "assistant-text" && item.text === "예상 세일 달 제안 답변").length, 1, "목록 복귀 후 이전 후속 답변 유지");
+  assert.equal(shoppingSession.timeline.filter((item) => item.type === "assistant-text" && item.text === "구매 최적기 제안 답변").length, 1, "목록 복귀 후 이전 후속 답변 유지");
   const refrigeratorSession = sessionModule.createSmartShoppingSession({ categoryId: "refrigerator", criteria: {} });
   assert.notEqual(shoppingSession.sessionId, refrigeratorSession.sessionId, "다른 소분류 세션 격리");
   const recommendationViewSource = await readFile("src/app/features/smart-shopping/recommendation/RecommendationSelectionView.tsx", "utf8");

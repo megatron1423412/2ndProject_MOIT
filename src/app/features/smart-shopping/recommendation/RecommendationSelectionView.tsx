@@ -228,7 +228,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     const productId = product?.id ?? `naver:${selected.source === "naver" ? selected.product.productId : "unknown"}`;
     const productName = product?.name ?? (selected.source === "naver" ? selected.product.title : "상품명 없음");
     onCreatePriceAlert({ userId, productId, productName, modelNumber: product?.modelNumber, source: selected.source, purchaseLink: resolvePurchaseLink(selected, []), currentPrice, targetPrice, active: true });
-    appendText("assistant-text", `${productName}의 목표 가격을 ${targetPrice.toLocaleString("ko-KR")}원으로 저장했어요. 상시 감시는 아직 연결되지 않았으며, 가격을 다시 확인할 때 조건을 평가합니다.`);
+    appendText("assistant-text", `${productName}의 목표 가격을 ${targetPrice.toLocaleString("ko-KR")}원으로 저장했어요.`);
     returnToActions();
   };
 
