@@ -6,10 +6,10 @@ export const PRICE_HISTORY_CHART_LAYOUT = {
   width: 640,
   height: 260,
   padding: { left: 33, right: 33 },
-  plotTopY: 60,
+  plotTopY: 45,
   plotBaselineY: 180,
-  axisY: 216,
-  axisLabelY: 245,
+  axisY: 228,
+  axisLabelY: 255,
 } as const;
 
 const { width: WIDTH, height: HEIGHT, padding: PADDING } = PRICE_HISTORY_CHART_LAYOUT;
@@ -109,13 +109,13 @@ export const getPriceBubblePlacement = (
   };
 };
 
-export default function PriceHistoryChart({ productId, history }: { productId: string; history: readonly PriceHistoryPoint[] }) {
+export default function PriceHistoryChart({ productId, history, style }: { productId: string; history: readonly PriceHistoryPoint[]; style?: React.CSSProperties }) {
   const points = useMemo(() => buildPriceHistoryChartPoints(history), [history]);
   const pointIdentity = points.map(({ date, lowestPrice }) => `${date}:${lowestPrice}`).join("|");
-  return <InteractivePriceHistoryChart key={`${productId}|${pointIdentity}`} productId={productId} points={points} />;
+  return <InteractivePriceHistoryChart key={`${productId}|${pointIdentity}`} productId={productId} points={points} style={style} />;
 }
 
-function InteractivePriceHistoryChart({ productId, points }: { productId: string; points: PriceHistoryChartPoint[] }) {
+function InteractivePriceHistoryChart({ productId, points, style }: { productId: string; points: PriceHistoryChartPoint[]; style?: React.CSSProperties }) {
   const defaultPoint = useMemo(() => getDefaultPriceHistoryPoint(points), [points]);
   const defaultIndex = useMemo(() => {
     if (!defaultPoint) return null;
@@ -131,9 +131,9 @@ function InteractivePriceHistoryChart({ productId, points }: { productId: string
 
   if (points.length === 0) {
     return (
-      <section className="h-full rounded-lg border border-border p-3" data-price-history-card data-product-id={productId}>
+      <section className="h-full flex flex-col rounded-lg border border-border p-2.5" data-price-history-card data-product-id={productId} style={style}>
         <p className="text-[11px] font-black text-primary">역대 최저가 추이</p>
-        <div className="flex min-h-64 items-center justify-center rounded-md bg-muted/20 px-4 text-center text-xs text-muted-foreground">저장된 가격 이력이 없습니다.</div>
+        <div className="flex flex-1 min-h-0 items-center justify-center rounded-md bg-muted/20 px-4 text-center text-xs text-muted-foreground">저장된 가격 이력이 없습니다.</div>
       </section>
     );
   }
@@ -147,10 +147,10 @@ function InteractivePriceHistoryChart({ productId, points }: { productId: string
   const areaPath = points.length > 1 ? `M ${points[0].x} ${axisBaseline} L ${polyline.replaceAll(",", " ")} L ${points[points.length - 1].x} ${axisBaseline} Z` : null;
 
   return (
-    <section className="h-full flex flex-col rounded-lg border border-border p-3" data-price-history-card data-product-id={productId}>
+    <section className="h-full flex flex-col rounded-lg border border-border p-2.5" data-price-history-card data-product-id={productId} style={style}>
       <p className="text-[11px] font-black text-primary">역대 최저가 추이</p>
-      <div className="relative mt-2 flex-1 w-full overflow-visible" onMouseLeave={() => setHoveredIndex(null)}>
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-full w-full overflow-visible" role="img" aria-label={`${productId} 저장 가격 이력 ${points.length}개`} data-price-chart-svg>
+      <div className="relative mt-1.5 flex-1 w-full flex items-center justify-center overflow-visible" onMouseLeave={() => setHoveredIndex(null)}>
+        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="max-h-full max-w-full overflow-visible" role="img" aria-label={`${productId} 저장 가격 이력 ${points.length}개`} data-price-chart-svg>
           {areaPath && <path d={areaPath} fill="currentColor" opacity="0.12" className="text-accent" data-price-area data-area-baseline={axisBaseline} />}
           {points.length > 1 && <polyline points={polyline} fill="none" stroke="currentColor" strokeWidth="3" className="text-accent" vectorEffect="non-scaling-stroke" />}
           <line x1={PADDING.left} y1={PRICE_HISTORY_CHART_LAYOUT.axisY} x2={WIDTH - PADDING.right} y2={PRICE_HISTORY_CHART_LAYOUT.axisY} className="stroke-border" strokeWidth="1" data-price-axis-baseline />
