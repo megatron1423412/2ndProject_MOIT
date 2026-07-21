@@ -220,6 +220,28 @@ export const submitFlowAnswer = (
   return advanceToStep(module, stateWithAnswer, nextStepId);
 };
 
+/** Keeps completed turns visible while starting the same category's conditions from the first question. */
+export const restartFlowWithNewConditionSession = (
+  module: ChatFlowModule,
+  currentState: FlowRuntimeState,
+): FlowRuntimeState => {
+  const freshState = createInitialFlowState(module);
+  const messageSequence = currentState.messageSequence + freshState.messages.length;
+  return {
+    ...freshState,
+    flowId: currentState.flowId,
+    messages: [
+      ...currentState.messages,
+      ...freshState.messages.map((message, index) => ({
+        ...message,
+        id: `${currentState.flowId}-message-${currentState.messageSequence + index + 1}`,
+      })),
+    ],
+    supplementalMessages: [...currentState.supplementalMessages],
+    messageSequence,
+  };
+};
+
 /** Restores the state before the latest committed answer. Derived turns are part of that transaction. */
 export const undoLatestFlowAnswer = (
   module: ChatFlowModule,

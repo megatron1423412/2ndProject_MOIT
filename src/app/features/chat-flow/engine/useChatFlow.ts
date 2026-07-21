@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AnswerInputStep, FlowRuntimeState, SubmittedFlowAnswer } from "../core/types";
 import { getFlowModule } from "../registry/loadFlows";
-import { appendSupplementalFlowMessage, createInitialFlowState, submitFlowAnswer, goBackFlow, undoLatestFlowAnswer } from "./flowRuntime";
+import { appendSupplementalFlowMessage, createInitialFlowState, restartFlowWithNewConditionSession, submitFlowAnswer, goBackFlow, undoLatestFlowAnswer } from "./flowRuntime";
 import type { SubCategoryId } from "../../../types/moit";
 
 const EMPTY_STATE: FlowRuntimeState = {
@@ -92,6 +92,12 @@ export const useChatFlow = (subCategoryId: SubCategoryId) => {
     clearSupplementalMessages: () => {
       if (!module) return;
       setState((current) => current.flowId === module.id ? { ...current, supplementalMessages: [] } : current);
+    },
+    restartConditionSearch: () => {
+      if (!module) return;
+      setState((current) => current.flowId === module.id
+        ? restartFlowWithNewConditionSession(module, current)
+        : createInitialFlowState(module));
     },
     reset: () => module && setState(createInitialFlowState(module)),
   };
