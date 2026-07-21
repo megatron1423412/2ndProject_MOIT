@@ -15,6 +15,7 @@ import { getUpcomingPromotionMessage } from "../promotions/getUpcomingPromotionM
 import { buildProductQuestionRequest } from "../product-detail/productQuestionContext";
 import { askProductQuestion, productQuestionErrorMessage } from "../product-detail/productQuestionClient";
 import { PRODUCT_DETAIL_SETTINGS } from "../product-detail/productDetailSettings";
+import type { QuestionSourceMode } from "../product-detail/questionSourceMode";
 import { createSmartShoppingSession, smartShoppingSessionReducer } from "../session/smartShoppingSessionReducer";
 import type { RecommendationSnapshot, TimelineActionGroupKind } from "../session/smartShoppingSessionTypes";
 import { createActionGroupTimelineItem, createCriteriaSnapshot, createPriceAlertTimelineItem, createProductDetailSnapshot, createProductDetailTimelineItem, createPurchaseGradeTimelineItem, createPurchaseLinkTimelineItem, createQuestionInputTimelineItem, createRecommendationListTimelineItem, createRecommendationSnapshot, createTextTimelineItem } from "../timeline/createTimelineSnapshot";
@@ -47,6 +48,9 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const [questionLoading, setQuestionLoading] = useState(false);
   const questionRequestInFlight = useRef(false);
   const [questionError, setQuestionError] = useState("");
+  const [questionSourceMode, setQuestionSourceMode] = useState<QuestionSourceMode>("auto");
+  const questionRequestSequence = useRef(0);
+  const activeQuestionRequest = useRef<number | null>(null);
   const [returnActionGroup, setReturnActionGroup] = useState<TimelineActionGroupKind>("next");
   const [showedOverBudget, setShowedOverBudget] = useState(false);
   const [activeRecommendations, setActiveRecommendations] = useState(result.recommendations ?? []);
@@ -92,10 +96,25 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const selectedInternal = selected?.source === "internal" ? selected.recommendation.product : selected?.matchedInternalProduct;
   const selectedCurrentPrice = selected ? (selected.source === "internal" ? selected.recommendation.product.currentPrice : selected.product.lowestPrice) : 0;
   const selectedCategory = selectedInternal?.categoryId ?? category;
+  const selectedProductKey = selectedInternal?.id ?? (selected?.source === "naver" ? `naver:${selected.product.productId}` : "none");
+  const questionScopeKey = `${session.sessionId}|${selectedProductKey}|${selectedCategory}`;
+  const questionScopeRef = useRef(questionScopeKey);
+  questionScopeRef.current = questionScopeKey;
   const priceRisePct = selected ? getSelectedPriceRisePct(selected) : null;
   const showAlternative = priceRisePct !== null && priceRisePct >= PRODUCT_DETAIL_SETTINGS.alternativeRecommendationThresholdPct;
 
+  const resetQuestionSourceMode = useCallback(() => {
+    questionRequestSequence.current += 1;
+    activeQuestionRequest.current = null;
+    questionRequestInFlight.current = false;
+    setQuestionLoading(false);
+    setQuestionSourceMode("auto");
+  }, []);
+
+  useEffect(() => { resetQuestionSourceMode(); }, [category, selectedProductKey, session.sessionId, resetQuestionSourceMode]);
+
   const selectProduct = (product: SelectedShoppingProduct) => {
+    resetQuestionSourceMode();
     const name = product.source === "internal" ? product.recommendation.product.name : product.product.title;
     const productAlternative = getSelectedPriceRisePct(product);
     const productShowAlternative = productAlternative !== null && productAlternative >= PRODUCT_DETAIL_SETTINGS.alternativeRecommendationThresholdPct;
@@ -109,6 +128,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   };
 
   const backToList = () => {
+    resetQuestionSourceMode();
     sessionDispatch({ type: "deactivate-interactions" });
     appendText("user-action", "목록 다시 보기");
     appendText("assistant-text", "이전에 확인한 조건으로 상품 목록을 다시 보여드릴게요.");
@@ -138,21 +158,32 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     appendActionGroup("detail", showAlternative);
   };
 
-  const handleQuestionSubmit = async (question: string, addUserMessage = true) => {
+  const handleQuestionSubmit = async (question: string, submittedMode: QuestionSourceMode, addUserMessage = true) => {
     const trimmedQuestion = question.trim();
     if (!selected || !trimmedQuestion || questionLoading || questionRequestInFlight.current) return;
+    const requestId = ++questionRequestSequence.current;
+    const requestScope = questionScopeKey;
+    activeQuestionRequest.current = requestId;
     questionRequestInFlight.current = true;
-    if (addUserMessage) appendText("user-text", trimmedQuestion);
+    if (addUserMessage) appendText("user-text", trimmedQuestion, { requestedMode: submittedMode });
     setQuestionLoading(true); setQuestionError("");
     try {
-      const request = buildProductQuestionRequest({ selected, userCriteria: criteria, timeline: session.timeline });
+      const request = buildProductQuestionRequest({ selected, userCriteria: criteria, timeline: session.timeline, sourceMode: submittedMode });
       const response = await askProductQuestion({ ...request, question: trimmedQuestion });
-      appendText("assistant-text", response.answer, { sources: response.sources, grounding: response.grounding });
+      if (activeQuestionRequest.current !== requestId || questionScopeRef.current !== requestScope) return;
+      appendText("assistant-text", response.answer, { requestedMode: response.requestedMode, resolvedSources: response.resolvedSources, usedSources: response.usedSources, grounding: response.grounding });
       appendActionGroup("detail", showAlternative);
     } catch (error) {
+      if (activeQuestionRequest.current !== requestId) return;
       setQuestionError(productQuestionErrorMessage(error instanceof Error ? error.message : "OPENAI_REQUEST_FAILED"));
       appendActionGroup("detail", showAlternative);
-    } finally { questionRequestInFlight.current = false; setQuestionLoading(false); }
+    } finally {
+      if (activeQuestionRequest.current === requestId) {
+        activeQuestionRequest.current = null;
+        questionRequestInFlight.current = false;
+        setQuestionLoading(false);
+      }
+    }
   };
 
   const nextStep = () => {
@@ -223,13 +254,15 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     onShowClosestOverBudget: showClosestOverBudget,
     questionLoading,
     questionError,
+    questionSourceMode,
+    onQuestionSourceModeChange: setQuestionSourceMode,
     onSelectRecommendation: (recommendation) => selectProduct({ source: "internal", recommendation }),
     onSelectDummyProduct: (product) => selectProduct({ source: "internal", recommendation: createDummyCatalogRecommendation(product) }),
     onDetailAction: handleDetailAction,
     onBackToList: backToList,
     onNextStep: nextStep,
-    onQuestionSubmit: (question) => void handleQuestionSubmit(question),
-    onQuestionRetry: (question) => void handleQuestionSubmit(question, false),
+    onQuestionSubmit: (question, mode) => void handleQuestionSubmit(question, mode),
+    onQuestionRetry: (question, mode) => void handleQuestionSubmit(question, mode, false),
     onQuestionCancel: () => { sessionDispatch({ type: "deactivate-interactions" }); appendText("user-action", "질문 입력 취소"); appendActionGroup("detail", showAlternative); },
     onNextAction: handleNextAction,
     onCancelPurchaseLink: cancelPurchaseLink,

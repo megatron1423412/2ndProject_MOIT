@@ -1,25 +1,22 @@
 import type { ProductQuestionRequest } from "./productQuestionContext";
+import type { QuestionSourceMode } from "./questionSourceMode";
 
 export class ProductQuestionClientError extends Error {
   constructor(readonly code: string) { super(code); }
 }
 
-export type ProductQuestionSource = {
-  title: string;
-  topic: string;
-  sourceName: string;
-  sourceUrl?: string;
-  heading?: string;
-  temporalStatus: "stable" | "mixed" | "dated";
-};
+export type ProductQuestionSource =
+  | { kind: "product_db"; id: string; title: "MOIT 상품 DB" }
+  | { kind: "rag"; id: string; title: string; section?: string; topic: string; sourceName: string; sourceUrl?: string; temporalStatus: "stable" | "mixed" | "dated" }
+  | { kind: "model"; id: string; title: string };
 
-export type ProductQuestionGrounding = { usedProductDatabase: boolean; usedRag: boolean };
+export type ProductQuestionGrounding = { usedProductDatabase: boolean; usedRag: boolean; usedModelKnowledge: boolean };
 
 export const askProductQuestion = async (request: ProductQuestionRequest, signal?: AbortSignal) => {
   const response = await fetch("/api/ai/product-question", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(request), signal });
-  const payload = await response.json().catch(() => ({})) as { ok?: boolean; answer?: string; sources?: ProductQuestionSource[]; grounding?: ProductQuestionGrounding; code?: string };
+  const payload = await response.json().catch(() => ({})) as { ok?: boolean; answer?: string; requestedMode?: QuestionSourceMode; resolvedSources?: Array<"product_db" | "rag" | "model">; usedSources?: ProductQuestionSource[]; grounding?: ProductQuestionGrounding; code?: string };
   if (!response.ok || !payload.ok || !payload.answer?.trim()) throw new ProductQuestionClientError(payload.code ?? "OPENAI_REQUEST_FAILED");
-  return { answer: payload.answer.trim(), sources: Array.isArray(payload.sources) ? payload.sources : [], grounding: payload.grounding ?? { usedProductDatabase: true, usedRag: false } };
+  return { answer: payload.answer.trim(), requestedMode: payload.requestedMode ?? request.sourceMode, resolvedSources: Array.isArray(payload.resolvedSources) ? payload.resolvedSources : [], usedSources: Array.isArray(payload.usedSources) ? payload.usedSources : [], grounding: payload.grounding ?? { usedProductDatabase: false, usedRag: false, usedModelKnowledge: false } };
 };
 
 export const productQuestionErrorMessage = (code: string) => {

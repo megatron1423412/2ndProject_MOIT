@@ -231,7 +231,7 @@ export function ChatScreenSmartShoppingTimeline({ model }: { model: SmartShoppin
         if (isSmartShoppingConversationItem(timelineItem)) {
           const isAssistant = timelineItem.type === "assistant-text";
           const alternatives = timelineItem.metadata?.alternatives as ProductRecommendation[] | undefined;
-          const sources = isAssistant && Array.isArray(timelineItem.metadata?.sources) ? timelineItem.metadata.sources as ProductQuestionSource[] : [];
+          const sources = isAssistant && Array.isArray(timelineItem.metadata?.usedSources) ? timelineItem.metadata.usedSources as ProductQuestionSource[] : [];
           return (
             <React.Fragment key={timelineItem.id}>
               <ChatConversationTurn sender={isAssistant ? "ai" : "user"} text={timelineItem.text} timestamp={timelineItem.timestamp}>{sources.length ? <ProductQuestionSources sources={sources} /> : null}</ChatConversationTurn>

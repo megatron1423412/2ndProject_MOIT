@@ -15,17 +15,20 @@ import type { SmartShoppingTimelineItem } from "../session/smartShoppingSessionT
 import type { ProductRecommendation } from "../../product-catalog/core/types";
 import type { CatalogProduct } from "../../product-catalog/core/types";
 import type { SelectedShoppingProduct } from "../types/recommendation";
+import type { QuestionSourceMode } from "../product-detail/questionSourceMode";
 
 export interface SmartShoppingTimelineBindings {
   questionLoading: boolean;
   questionError: string;
+  questionSourceMode: QuestionSourceMode;
+  onQuestionSourceModeChange: (mode: QuestionSourceMode) => void;
   onSelectRecommendation: (item: ProductRecommendation) => void;
   onSelectDummyProduct: (item: CatalogProduct) => void;
   onDetailAction: (action: ProductDetailActionId) => void;
   onBackToList: () => void;
   onNextStep: () => void;
-  onQuestionSubmit: (question: string) => void;
-  onQuestionRetry: (question: string) => void;
+  onQuestionSubmit: (question: string, mode: QuestionSourceMode) => void;
+  onQuestionRetry: (question: string, mode: QuestionSourceMode) => void;
   onQuestionCancel: () => void;
   onNextAction: (action: NextActionId) => void;
   onCancelPurchaseLink: () => void;
@@ -54,7 +57,7 @@ export function SmartShoppingWideTimelineContent({ item, ...props }: SmartShoppi
   if (item.type === "product-detail") return <ProductDetailView categoryId={item.snapshot.categoryId} selected={item.snapshot.selected} internalRecommendations={item.snapshot.internalRecommendations} interactive={false} isFavorite={props.isFavorite(item.snapshot.selected)} onToggleFavorite={() => props.onToggleFavorite(item.snapshot.selected)} />;
   if (item.type === "action-group" && item.group === "detail") return <div className="rounded-xl border border-border bg-card p-4 shadow-sm" data-chat-content="action-toolbar"><ProductDetailActionBar showAlternative={item.showAlternative ?? false} isQuestionLoading={props.questionLoading} isActive={item.isActive} onAction={props.onDetailAction} onBack={props.onBackToList} onNext={props.onNextStep} /></div>;
   if (item.type === "action-group") return <NextActionSelection showPurchaseGrade={item.group === "next"} isActive={item.isActive} onSelect={props.onNextAction} />;
-  if (item.type === "question-input") return item.isActive ? <div className="rounded-xl border border-border bg-card p-4 shadow-sm"><ProductQuestionInput isLoading={props.questionLoading} errorMessage={props.questionError} onSubmit={props.onQuestionSubmit} onRetry={props.onQuestionRetry} onCancel={props.onQuestionCancel} /></div> : <p className="text-xs text-muted-foreground">직접 질문 입력을 완료했어요.</p>;
+  if (item.type === "question-input") return item.isActive ? <div className="rounded-xl border border-border bg-card p-4 shadow-sm"><ProductQuestionInput isLoading={props.questionLoading} errorMessage={props.questionError} sourceMode={props.questionSourceMode} onSourceModeChange={props.onQuestionSourceModeChange} onSubmit={props.onQuestionSubmit} onRetry={props.onQuestionRetry} onCancel={props.onQuestionCancel} /></div> : <p className="text-xs text-muted-foreground">직접 질문 입력을 완료했어요.</p>;
   if (item.type === "purchase-link") return <PurchaseLinkAction link={item.link} isActive={item.isActive} onCancel={props.onCancelPurchaseLink} />;
   if (item.type === "price-alert-form") return <PriceAlertForm inputId={`target-price-${item.id}`} productName={item.productName} currentPrice={item.currentPrice} allTimeLow={item.allTimeLow} isActive={item.isActive} onSubmit={props.onSavePriceAlert} onCancel={props.onCancelPriceAlert} />;
   return <PurchaseGradeResultCard input={item.input} result={item.result} />;

@@ -10,6 +10,7 @@ import type { SelectedShoppingProduct } from "../types/recommendation";
 import { combineProductDetail } from "./combineProductDetail";
 import FavoriteToggleButton from "../../favorites/FavoriteToggleButton";
 import ProductDetailDataSections from "../product-detail/ProductDetailDataSections";
+import type { QuestionSourceMode } from "../product-detail/questionSourceMode";
 
 interface Props {
   selected: SelectedShoppingProduct;
@@ -19,9 +20,11 @@ interface Props {
   questionOpen?: boolean;
   questionLoading?: boolean;
   questionError?: string;
+  questionSourceMode?: QuestionSourceMode;
+  onQuestionSourceModeChange?: (mode: QuestionSourceMode) => void;
   onAction?: (action: ProductDetailActionId) => void;
-  onQuestionSubmit?: (question: string) => void;
-  onQuestionRetry?: (question: string) => void;
+  onQuestionSubmit?: (question: string, mode: QuestionSourceMode) => void;
+  onQuestionRetry?: (question: string, mode: QuestionSourceMode) => void;
   onQuestionCancel?: () => void;
   onBack?: () => void;
   onNext?: () => void;
@@ -42,7 +45,7 @@ export default function ProductDetailView(props: Props) {
       {content}
       {interactive && <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <ProductDetailActionBar showAlternative={props.showAlternative ?? false} isQuestionLoading={props.questionLoading ?? false} onAction={props.onAction ?? (() => {})} onBack={props.onBack ?? (() => {})} onNext={props.onNext ?? (() => {})} />
-        {props.questionOpen && <div className="mt-3"><ProductQuestionInput isLoading={props.questionLoading ?? false} errorMessage={props.questionError ?? ""} onSubmit={props.onQuestionSubmit ?? (() => {})} onRetry={props.onQuestionRetry ?? (() => {})} onCancel={props.onQuestionCancel ?? (() => {})} /></div>}
+        {props.questionOpen && <div className="mt-3"><ProductQuestionInput isLoading={props.questionLoading ?? false} errorMessage={props.questionError ?? ""} sourceMode={props.questionSourceMode ?? "auto"} onSourceModeChange={props.onQuestionSourceModeChange ?? (() => {})} onSubmit={props.onQuestionSubmit ?? (() => {})} onRetry={props.onQuestionRetry ?? (() => {})} onCancel={props.onQuestionCancel ?? (() => {})} /></div>}
       </div>}
     </div>
   );

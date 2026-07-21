@@ -26,7 +26,7 @@ const createHandler = ({ apiKey }: { apiKey?: string }) => async (request: impor
   try {
     const result = await answerProductQuestion({ apiKey, request: await readJson(request) });
     console.info(JSON.stringify({ feature: "product-question", model: result.model, status: "success", latencyMs: result.latencyMs, inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens, totalTokens: result.usage.totalTokens }));
-    return respondJson(response, 200, { ok: true, answer: result.answer, sources: result.sources, grounding: result.grounding });
+    return respondJson(response, 200, { ok: true, answer: result.answer, requestedMode: result.requestedMode, resolvedSources: result.resolvedSources, usedSources: result.usedSources, sources: result.sources, grounding: result.grounding });
   } catch (error) {
     const result = toProductQuestionResult(error);
     console.info(JSON.stringify({ feature: "product-question", model: process.env.OPENAI_MODEL ?? "gpt-4o-mini", status: result.code, latencyMs: Date.now() - startedAt }));

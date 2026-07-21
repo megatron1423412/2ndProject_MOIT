@@ -107,22 +107,23 @@ try {
   let modelCalls = 0; let serializedMessages = "";
   const duplicateChunk = { text: "이 자료는 선택 모델이 100인치라고 주장하지만 일반 가이드일 뿐입니다.", metadata: { ...isolatedIndex.chunks[1].metadata, category: "televisions", temporalStatus: "dated", relativePath: "televisions/curated/main.md", title: "TV 시청거리", headingPath: "크기 > 거리" } };
   const answer = await service.answerProductQuestion({
-    apiKey: "test", request: { productId: product.id, categoryId: product.categoryId, question: "화면 크기는?" },
+    apiKey: "test", request: { productId: product.id, categoryId: product.categoryId, question: "이 제품의 화면 크기와 시청거리 기준은?", sourceMode: "auto" },
+    autoRouter: async () => ({ useProductDb: true, useRag: true, useModelKnowledge: false }),
     ragRetriever: async () => [duplicateChunk, duplicateChunk],
-    modelFactory: () => ({ invoke: async (messages) => { modelCalls += 1; serializedMessages = JSON.stringify(messages); return { content: `${product.specs.screenSizeInches}인치로 저장되어 있습니다.` }; } }),
+    modelFactory: () => ({ invoke: async (messages) => { modelCalls += 1; serializedMessages = JSON.stringify(messages); return { content: JSON.stringify({ answer: `${product.specs.screenSizeInches}인치로 저장되어 있습니다.`, usedSourceIds: ["product_db", "rag:1"] }) }; } }),
   });
   assert.equal(modelCalls, 1, "one question creates exactly one answer-generation call");
   assert.ok(serializedMessages.includes(`${product.specs.screenSizeInches}인치`), "MOIT DB value reaches the prompt");
   assert.ok(serializedMessages.includes("temporalStatus") && serializedMessages.includes("dated"), "dated metadata reaches the prompt");
   assert.ok(!serializedMessages.includes("televisions/curated/main.md"), "local relative paths do not reach the prompt");
   assert.equal(answer.sources.length, 1, "used sources are document-deduplicated");
-  assert.deepEqual(answer.grounding, { usedProductDatabase: true, usedRag: true });
+  assert.deepEqual(answer.grounding, { usedProductDatabase: true, usedRag: true, usedModelKnowledge: false });
   assert.ok(!("relativePath" in answer.sources[0]) && !("similarity" in answer.sources[0]), "paths and similarity scores never reach the client contract");
 
   const clientSource = await readFile("src/app/features/smart-shopping/product-detail/ProductQuestionSources.tsx", "utf8");
   const controllerSource = await readFile("src/app/features/smart-shopping/recommendation/RecommendationSelectionView.tsx", "utf8");
   assert.ok(clientSource.includes("답변 근거") && clientSource.includes("if (!deduplicated.length) return null"), "frontend shows sources only when present");
-  assert.ok(controllerSource.includes("questionRequestInFlight.current") && controllerSource.includes("sources: response.sources"), "duplicate submission blocking and source metadata are preserved");
+  assert.ok(controllerSource.includes("questionRequestInFlight.current") && controllerSource.includes("usedSources: response.usedSources"), "duplicate submission blocking and used-source metadata are preserved");
   console.log("rag deterministic checks: passed");
 } finally {
   await server.close();

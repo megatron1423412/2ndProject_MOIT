@@ -364,8 +364,9 @@ try {
   assert.equal(tvCriteria.getTvPlatformDisplayLabel({ brand: "LG전자", specs: { os: "other" } }), "webOS");
   assert.ok(!["Tizen", "webOS", tvCriteria.getTvPlatformDisplayLabel({ brand: "기타", specs: { os: "other" } })].includes("other"), "TV 사용자 플랫폼 라벨에 내부 other 미노출");
   const { buildProductQuestionRequest } = await load("/src/app/features/smart-shopping/product-detail/productQuestionContext.ts");
-  const productQuestionPayload = buildProductQuestionRequest({ selected: { source: "internal", recommendation: tvResult.recommendations[0] }, userCriteria: tvAnswers, timeline: [] });
+  const productQuestionPayload = buildProductQuestionRequest({ selected: { source: "internal", recommendation: tvResult.recommendations[0] }, userCriteria: tvAnswers, timeline: [], sourceMode: "auto" });
   assert.equal(productQuestionPayload.productId, tvResult.recommendations[0].product.id, "직접 Q&A는 전체 상품이 아닌 선택 product id만 서버에 전달");
+  assert.equal(productQuestionPayload.sourceMode, "auto", "직접 Q&A는 안정적인 출처 모드 enum을 전달");
   assert.ok(!("selectedProduct" in productQuestionPayload) && !("priceSummary" in productQuestionPayload), "브라우저 Q&A payload는 상품 객체와 가격 이력을 보내지 않음");
 
   const phoneModule = getFlowModule("phone");
