@@ -12,7 +12,8 @@
     "test:openai-product-question": "node scripts/test-openai-product-question.mjs",
     "test:smartchoice-requests": "node scripts/test-smartchoice-requests.mjs",
     "test:service-integration": "node scripts/test-service-integration-regression.mjs",
-    "test:smart-shopping": "node scripts/verify-smart-shopping.mjs"
+    "test:smart-shopping": "node scripts/verify-smart-shopping.mjs",
+    "verify:rag-curation": "node scripts/verify-rag-curation.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
