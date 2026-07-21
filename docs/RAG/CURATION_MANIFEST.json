@@ -1,0 +1,49 @@
+{
+  "created_at": "2026-07-21",
+  "categories": {
+    "refrigerators": [
+      "built-in-and-modular-refrigerators.md",
+      "compressor-and-cooling-method.md",
+      "conventional-and-compact-refrigerators.md",
+      "four-door-refrigerator.md",
+      "home-bar-and-door-storage.md",
+      "ice-maker-selection.md",
+      "premium-and-smart-refrigerator-features.md",
+      "refrigerator-energy-efficiency.md",
+      "refrigerator-type-selection-overview.md",
+      "side-by-side-refrigerator.md",
+      "sterilization-deodorization-and-temperature-features.md",
+      "variable-temperature-and-flexible-storage.md",
+      "water-purifier-refrigerator.md"
+    ],
+    "vacuum-cleaners": [
+      "accessory-brushes-and-mop-functions.md",
+      "battery-runtime-and-replacement.md",
+      "center-of-gravity-and-main-secondary-use.md",
+      "cleaner-type-comparison.md",
+      "controls-and-auto-suction.md",
+      "dustbin-and-clean-station.md",
+      "floor-and-brush-selection.md",
+      "noise-and-exhaust-filtration.md",
+      "suction-units-and-real-performance.md",
+      "vacuum-feature-priority.md",
+      "washing-maintenance-and-hair-tangle.md",
+      "weight-and-handling.md"
+    ],
+    "televisions": [
+      "display-technology-overview.md",
+      "hdr-formats-and-compatibility.md",
+      "oled-mini-led-and-lcd-tradeoffs.md",
+      "overseas-purchase-and-small-brand-tvs.md",
+      "refresh-rate-gaming-and-hdmi.md",
+      "resolution-content-and-upscaling.md",
+      "screen-size-and-viewing-distance.md",
+      "smart-tv-and-power-consumption.md",
+      "sound-and-soundbar.md",
+      "tv-model-code-interpretation.md",
+      "tv-purchase-priority.md"
+    ]
+  },
+  "raw_sources_preserved_in_package": false,
+  "note": "This archive contains curated Markdown and coverage documents only. Keep the original local HTML packages in the project until review is complete."
+}

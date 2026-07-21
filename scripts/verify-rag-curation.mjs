@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const root = path.resolve('docs', 'RAG');
-const allowRaw = process.argv.includes('--allow-raw');
 const requiredFields = [
   'title',
   'category',
@@ -12,6 +11,7 @@ const requiredFields = [
   'source_url',
   'source_type',
   'curated_at',
+  'temporal_status',
   'limitations',
 ];
 const categories = {
@@ -81,7 +81,7 @@ for (const [category, expectedFiles] of Object.entries(categories)) {
     if (!new RegExp(`^category:\\s*${category}\\s*$`, 'm').test(frontmatter)) {
       fail(`${category}/${file}: category frontmatter does not match its folder`);
     }
-    if (body.trim().length < 240 || !/^#\s+.+/m.test(body)) {
+    if (body.trim().length < 700 || !/^#\s+.+/m.test(body)) {
       fail(`${category}/${file}: body is too short or lacks a meaningful heading`);
     }
     if (/<\/?[a-z][^>]*>/i.test(body) || /\b(?:script|style)\b/i.test(body)) {
@@ -98,22 +98,19 @@ for (const [category, expectedFiles] of Object.entries(categories)) {
   }
 
   const rawHtml = fs.readdirSync(categoryDir).filter((file) => /\.html?$/i.test(file));
-  const rawAssets = fs.readdirSync(categoryDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && /_files$/i.test(entry.name));
-  if (allowRaw) {
-    if (rawHtml.length === 0) fail(`${category}: source HTML is required during pre-deletion validation`);
-  } else if (rawHtml.length || rawAssets.length) {
-    fail(`${category}: raw HTML or companion asset directory remains after curation`);
-  }
+  if (rawHtml.length === 0) fail(`${category}: local source HTML is required`);
 }
 
-const reportPath = path.join(root, 'CURATION_REPORT.md');
-if (!fs.existsSync(reportPath)) {
-  fail('CURATION_REPORT.md is missing');
+const coveragePath = path.join(root, 'CURATION_COVERAGE.md');
+if (!fs.existsSync(coveragePath)) {
+  fail('CURATION_COVERAGE.md is missing');
 } else {
-  const report = fs.readFileSync(reportPath, 'utf8');
+  const coverage = fs.readFileSync(coveragePath, 'utf8');
   for (const category of Object.keys(categories)) {
-    if (!report.includes(`## ${category}`)) fail(`CURATION_REPORT.md does not list ${category}`);
+    if (!coverage.includes(`## ${category}`)) fail(`CURATION_COVERAGE.md does not list ${category}`);
+    for (const file of categories[category]) {
+      if (!coverage.includes(file)) fail(`CURATION_COVERAGE.md does not reference ${category}/${file}`);
+    }
   }
 }
 
@@ -123,4 +120,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log(`RAG curation validation passed (${allowRaw ? 'pre-deletion' : 'post-deletion'} mode).`);
+console.log('RAG curation validation passed.');
