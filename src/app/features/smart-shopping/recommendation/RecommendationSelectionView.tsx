@@ -37,10 +37,11 @@ interface Props {
   onToggleFavorite: (draft: FavoriteDraft) => void;
   onProductSelectionAnchorMount?: (anchorId: string, element: HTMLDivElement | null) => void;
   onRecommendationResultContainerMount?: () => void;
+  onRestartConditionSearch: () => void;
   renderTimeline: (model: SmartShoppingTimelineRenderModel) => React.ReactNode;
 }
 
-export default function RecommendationSelectionView({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId, favorites, onToggleFavorite, onProductSelectionAnchorMount, onRecommendationResultContainerMount, renderTimeline }: Props) {
+export default function RecommendationSelectionView({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId, favorites, onToggleFavorite, onProductSelectionAnchorMount, onRecommendationResultContainerMount, onRestartConditionSearch, renderTimeline }: Props) {
   const metadata = result.metadata as { category?: ProductCategoryId; answers?: FlowAnswers; overBudgetRecommendations?: ProductRecommendation[] } | undefined;
   const category = metadata?.category ?? "tv";
   const catalogSource = catalogSourceByCategory[category];
@@ -147,6 +148,12 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     appendRecommendation(reusableSnapshot);
     setQuestionError("");
     dispatch({ type: "back-to-list" });
+  };
+
+  const restartConditionSearch = () => {
+    const actionAnchorId = createConversationAnchorId("new-condition-search");
+    appendText("user-action", "새 조건으로 다시 검색하기", { productSelectionAnchorId: actionAnchorId });
+    onRestartConditionSearch();
   };
 
   const handleDetailAction = (action: ProductDetailActionId) => {
@@ -271,6 +278,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     onSelectDummyProduct: (product) => selectProduct({ source: "internal", recommendation: createDummyCatalogRecommendation(product) }),
     onDetailAction: handleDetailAction,
     onBackToList: backToList,
+    onRestartConditionSearch: restartConditionSearch,
     onNextStep: nextStep,
     onQuestionSubmit: (question, mode) => void handleQuestionSubmit(question, mode),
     onQuestionRetry: (question, mode) => void handleQuestionSubmit(question, mode, false),

@@ -193,11 +193,6 @@ export default function ChatScreen({
     );
   }
 
-  const smartShoppingResult = flow.messages
-    .filter((message) => message.type === "result")
-    .map((message) => message.result ?? flow.result)
-    .find((result) => Boolean(result?.recommendations));
-
   const handleHistorySelect = (historyItem: ConversationHistoryItem) => {
     setNotice(`${historyItem.title} 상세 화면은 다음 단계에서 연결할게요.`);
     window.setTimeout(() => setNotice(""), 2200);
@@ -271,24 +266,25 @@ export default function ChatScreen({
                       <DiagnosisResultCard result={renderedResult} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} onTimelineChange={() => setTimelineRevision((value) => value + 1)} userId={userProfile.id} />
                     </div>
                   )}
+                  {message.type === "result" && renderedResult && isSmartShoppingResult && (
+                    <RecommendationSelectionView
+                      key={message.id}
+                      result={renderedResult}
+                      onEndSmartShoppingChat={onEndSmartShoppingChat}
+                      onCreatePriceAlert={onCreatePriceAlert}
+                      onTimelineChange={() => setTimelineRevision((value) => value + 1)}
+                      userId={userProfile.id}
+                      favorites={favorites ?? []}
+                      onToggleFavorite={onToggleFavorite ?? (() => {})}
+                      onProductSelectionAnchorMount={scrollToProductSelectionAnchor}
+                      onRecommendationResultContainerMount={correctRecommendationStartScroll}
+                      onRestartConditionSearch={flow.restartConditionSearch}
+                      renderTimeline={(model) => <ChatScreenSmartShoppingTimeline model={model} />}
+                    />
+                  )}
                 </React.Fragment>
               );
             })}
-            {smartShoppingResult && (
-              <RecommendationSelectionView
-                key={`${String(smartShoppingResult.metadata?.category ?? "unknown")}-${smartShoppingResult.title}`}
-                result={smartShoppingResult}
-                onEndSmartShoppingChat={onEndSmartShoppingChat}
-                onCreatePriceAlert={onCreatePriceAlert}
-                onTimelineChange={() => setTimelineRevision((value) => value + 1)}
-                userId={userProfile.id}
-                favorites={favorites ?? []}
-                onToggleFavorite={onToggleFavorite ?? (() => {})}
-                onProductSelectionAnchorMount={scrollToProductSelectionAnchor}
-                onRecommendationResultContainerMount={correctRecommendationStartScroll}
-                renderTimeline={(model) => <ChatScreenSmartShoppingTimeline model={model} />}
-              />
-            )}
             {flow.error && (
               <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm font-bold text-destructive">
                 {flow.error}
