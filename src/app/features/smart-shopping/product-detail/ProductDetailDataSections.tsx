@@ -54,6 +54,7 @@ export default function ProductDetailDataSections({
 function PriceSummaryRow({ label, value, sub, emphasized = false }: { label: string; value: string; sub?: string; emphasized?: boolean }) {
   const color = emphasized ? "text-red-600 dark:text-red-400" : "text-primary";
   const displayLabel = label === "현재가" ? "현재 구매가" : label;
+  const selfAlign = label === "현재가" ? "self-end" : "";
 
   let amount = value;
   let pct = "";
@@ -65,11 +66,11 @@ function PriceSummaryRow({ label, value, sub, emphasized = false }: { label: str
 
   return (
     <>
-      <p className={`text-left text-xs font-semibold ${color}`} data-price-summary-label={label}>{displayLabel}</p>
+      <p className={`text-left text-xs font-semibold ${color} ${selfAlign}`} data-price-summary-label={label}>{displayLabel}</p>
       <div className={`min-w-0 flex flex-col items-end text-right ${color}`} data-price-summary-value={label}>
+        {sub && <p className="mb-1 text-[10px] text-muted-foreground">{sub}</p>}
         <p className="whitespace-nowrap text-sm font-black tabular-nums">{amount}</p>
         {pct && <p className="mt-0.5 text-[0.85em] font-black tabular-nums">{pct}</p>}
-        {sub && <p className="mt-1 text-[10px] text-muted-foreground">{sub}</p>}
       </div>
     </>
   );
