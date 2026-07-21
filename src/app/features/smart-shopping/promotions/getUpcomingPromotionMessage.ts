@@ -23,7 +23,7 @@ export const getUpcomingPromotionMessage = ({
   if (priceHistory.length === 0 || !currentPrice) return message;
   const price = summarizePriceHistory(currentPrice, priceHistory);
   const priceNote = currentPrice > price.averagePrice
-    ? " 현재가는 내부 더미 이력 평균가보다 높은 편이에요."
+    ? ""
     : currentPrice <= price.allTimeLow * 1.05
       ? " 현재가는 내부 더미 이력의 역대 최저가에 비교적 가까운 편이에요."
       : " 현재가와 내부 더미 가격 이력을 함께 비교해보세요.";

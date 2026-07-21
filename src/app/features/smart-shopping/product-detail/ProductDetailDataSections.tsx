@@ -22,11 +22,12 @@ export default function ProductDetailDataSections({
   priceHistory: readonly PriceHistoryPoint[];
 }) {
   const summary = summarizeStoredPriceHistory(currentPrice, priceHistory);
+  const formattedReviewSummary = reviewSummary ? reviewSummary.replace(/,\s*/g, ", ") : null;
   return (
     <>
       <section className="mt-3 rounded-lg bg-muted/30 p-3">
         <p className="text-[11px] font-black text-primary">AI 리뷰 요약</p>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{reviewSummary ?? "저장된 AI 리뷰 요약이 없습니다."}</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{formattedReviewSummary ?? "저장된 AI 리뷰 요약이 없습니다."}</p>
       </section>
       <div className="mt-3 grid items-stretch gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(16rem,0.85fr)] md:grid-rows-[auto_auto]" data-detail-lower-grid>
         <div className="min-w-0 md:row-span-2" data-detail-chart-column>
@@ -52,7 +53,8 @@ export default function ProductDetailDataSections({
 
 function PriceSummaryRow({ label, value, sub, emphasized = false }: { label: string; value: string; sub?: string; emphasized?: boolean }) {
   const color = emphasized ? "text-red-600 dark:text-red-400" : "text-primary";
-  const displayLabel = label === "현재가" ? "구매 현재가" : label;
+  const displayLabel = label === "현재가" ? "현재 구매가" : label;
+  const selfAlign = label === "현재가" ? "self-end" : "";
 
   let amount = value;
   let pct = "";
@@ -64,11 +66,11 @@ function PriceSummaryRow({ label, value, sub, emphasized = false }: { label: str
 
   return (
     <>
-      <p className={`text-left text-xs font-semibold ${color}`} data-price-summary-label={label}>{displayLabel}</p>
+      <p className={`text-left text-xs font-semibold ${color} ${selfAlign}`} data-price-summary-label={label}>{displayLabel}</p>
       <div className={`min-w-0 flex flex-col items-end text-right ${color}`} data-price-summary-value={label}>
+        {sub && <p className="mb-1 text-[10px] text-muted-foreground">{sub}</p>}
         <p className="whitespace-nowrap text-sm font-black tabular-nums">{amount}</p>
         {pct && <p className="mt-0.5 text-[0.85em] font-black tabular-nums">{pct}</p>}
-        {sub && <p className="mt-1 text-[10px] text-muted-foreground">{sub}</p>}
       </div>
     </>
   );

@@ -317,7 +317,7 @@ async function clickActionAndWaitForAssistant(send, label, requestedAction) {
     }
     throw error;
   }
-  const action = requestedAction ?? (label === "예상 세일 달 제안" ? "sale-month" : "alternative-product");
+  const action = requestedAction ?? (label === "구매 최적기 제안" ? "sale-month" : "alternative-product");
   const entryId = `post-detail-${action}`;
   const tagged = await evaluate(send, `(() => {
     const row = document.querySelector('[data-chat-timeline-row="assistant"]:not([data-cdp-seen])');
@@ -528,9 +528,9 @@ try {
   } else {
     await completeAirConditionerConditions(send);
     await selectFirstInternalRecommendation(send);
-    const saleTag = await clickActionAndWaitForAssistant(send, "예상 세일 달 제안");
+    const saleTag = await clickActionAndWaitForAssistant(send, "구매 최적기 제안");
     const alternativeTag = await clickActionAndWaitForAssistant(send, "다른 제품 추천");
-    const repeatedSaleTag = await clickActionAndWaitForAssistant(send, "예상 세일 달 제안", "sale-month-repeat");
+    const repeatedSaleTag = await clickActionAndWaitForAssistant(send, "구매 최적기 제안", "sale-month-repeat");
     const measurement = await measureRenderedAlignment(send);
     const screenshot = await send("Page.captureScreenshot", { format: "png", fromSurface: true, captureBeyondViewport: false });
     const screenshotBuffer = Buffer.from(screenshot.data, "base64");
