@@ -33,7 +33,17 @@ interface ChatScreenProps {
 }
 
 export const PRODUCT_SELECTION_SCROLL_OFFSET = 16;
+export const CHAT_BOTTOM_STICKY_THRESHOLD = 96;
+export const CHAT_SCROLL_BOTTOM_EPSILON = 1;
 type ChatScrollContainer = Pick<HTMLElement, "scrollTop" | "scrollHeight" | "clientHeight" | "getBoundingClientRect" | "scrollTo">;
+
+export const resolveChatScrollOwnership = ({ remainingScroll, manualScrollIntent }: { remainingScroll: number; manualScrollIntent: boolean }) => {
+  const keepsManualControl = manualScrollIntent && remainingScroll > CHAT_SCROLL_BOTTOM_EPSILON;
+  return {
+    manualScrollIntent: keepsManualControl,
+    shouldStickToBottom: !keepsManualControl && remainingScroll < CHAT_BOTTOM_STICKY_THRESHOLD,
+  };
+};
 
 export const getProductSelectionScrollPosition = ({ container, anchor }: {
   container: Pick<ChatScrollContainer, "scrollTop" | "scrollHeight" | "clientHeight" | "getBoundingClientRect">;
@@ -99,6 +109,7 @@ export default function ChatScreen({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
   const shouldStickToBottomRef = useRef(true);
+  const manualScrollIntentRef = useRef(false);
   const productSelectionScrollFrameRef = useRef<number | null>(null);
   const scrolledProductSelectionAnchorsRef = useRef(new Set<string>());
   const currentRecommendationStartAnchorRef = useRef<string | null>(null);
@@ -125,17 +136,30 @@ export default function ChatScreen({
   const handleScroll = () => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    shouldStickToBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 96;
+    const ownership = resolveChatScrollOwnership({
+      remainingScroll: container.scrollHeight - container.scrollTop - container.clientHeight,
+      manualScrollIntent: manualScrollIntentRef.current,
+    });
+    manualScrollIntentRef.current = ownership.manualScrollIntent;
+    shouldStickToBottomRef.current = ownership.shouldStickToBottom;
   };
 
-  const cancelRecommendationStartCorrectionOnManualScroll = () => {
+  const takeChatScrollControl = () => {
+    manualScrollIntentRef.current = true;
+    shouldStickToBottomRef.current = false;
     const correction = recommendationStartCorrectionRef.current;
     if (correction) correction.userScrolled = true;
+    if (productSelectionScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
+      productSelectionScrollFrameRef.current = null;
+    }
+    const container = scrollContainerRef.current;
+    if (container) container.scrollTo({ top: container.scrollTop, behavior: "auto" });
   };
 
   const cancelRecommendationStartCorrectionOnScrollKey = (event: React.KeyboardEvent<HTMLElement>) => {
     if ([" ", "ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End"].includes(event.key)) {
-      cancelRecommendationStartCorrectionOnManualScroll();
+      takeChatScrollControl();
     }
   };
 
@@ -146,6 +170,7 @@ export default function ChatScreen({
     const isRecommendationStart = isRecommendationStartAnchor(anchorId);
     if (isRecommendationStart) currentRecommendationStartAnchorRef.current = anchorId;
     else recommendationStartCorrectionRef.current = null;
+    manualScrollIntentRef.current = false;
     shouldStickToBottomRef.current = false;
     if (productSelectionScrollFrameRef.current !== null) window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
     productSelectionScrollFrameRef.current = window.requestAnimationFrame(() => {
@@ -216,7 +241,7 @@ export default function ChatScreen({
           onToggleActionsCollapsed={() => setAreActionsCollapsed((value) => !value)}
         />
 
-        <main ref={scrollContainerRef} onScroll={handleScroll} onWheel={cancelRecommendationStartCorrectionOnManualScroll} onPointerDown={cancelRecommendationStartCorrectionOnManualScroll} onTouchStart={cancelRecommendationStartCorrectionOnManualScroll} onKeyDown={cancelRecommendationStartCorrectionOnScrollKey} className="flex-1 overflow-y-auto p-5">
+        <main ref={scrollContainerRef} onScroll={handleScroll} onWheel={takeChatScrollControl} onPointerDown={takeChatScrollControl} onTouchStart={takeChatScrollControl} onKeyDown={cancelRecommendationStartCorrectionOnScrollKey} className="flex-1 overflow-y-auto p-5">
           <div className="mx-auto grid w-full max-w-4xl grid-cols-[minmax(0,1fr)] gap-4" aria-live="polite" data-chat-timeline-root>
             {item.parentCategory === "appliances" && (
               <ChatConversationTurn sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} />
