@@ -29,11 +29,12 @@ export default function SubCategoryButton({ item, onSelect }: SubCategoryButtonP
     <button
       type="button"
       onClick={() => onSelect(item)}
-      className="group flex min-h-[160px] w-full flex-col justify-between rounded-2xl border border-border bg-card p-5 text-left shadow-sm transition-all hover:border-accent/60 hover:bg-secondary/50 hover:shadow-md active:scale-[0.98]"
+      /* 💡 items-center, justify-center, text-center를 적용하여 카드 전체 및 텍스트를 중앙 정렬 */
+      className="group flex min-h-[180px] w-full flex-col items-center justify-center rounded-2xl border border-border bg-card p-5 text-center shadow-sm transition-all hover:border-accent/60 hover:bg-secondary/50 hover:shadow-md active:scale-[0.98]"
     >
       {/* 1. 상단 구역: 아이콘 위치 조절 Zone */}
       <div className="flex w-full justify-center">
-        {/* 상자 틀 자체는 h-20 w-20으로 동일하게 잡아 정렬 맞춤 */}
+        {/* 상자 틀 자체는 h-25 w-25로 동일하게 잡아 정렬 맞춤 */}
         <div className="flex h-25 w-25 shrink-0 items-center justify-center bg-transparent p-1">
           <img 
             src={item.iconPath || `/icons/${item.id}.png`} 
@@ -44,13 +45,13 @@ export default function SubCategoryButton({ item, onSelect }: SubCategoryButtonP
         </div>
       </div>
 
-      {/* 2. 하단 구역: 타이틀 & 서브텍스트 */}
-      <div className="mt-3 flex flex-col justify-end space-y-1.5">
+      {/* 2. 하단 구역: 타이틀 & 서브텍스트 (중앙 정렬) */}
+      <div className="mt-3 flex flex-col items-center justify-center space-y-1.5">
         <h4 className="text-base font-black text-primary transition-colors group-hover:text-accent">
           {item.title}
         </h4>
         
-        <p className="text-xs text-muted-foreground leading-relaxed break-keep">
+        <p className="text-xs text-muted-foreground leading-relaxed break-keep text-center">
           {(item as any).description || `${item.title} 진단 및 맞춤 추천`}
         </p>
       </div>

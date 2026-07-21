@@ -59,7 +59,7 @@ const opening: FlowStep[] = [
     next: "internet-carrier",
   },
 
-  // [Part 1 - 1번] 통신사 선택 (인사말과 질문을 분리하여 답변 후 다음 질문이 나오도록 유도)
+  // [Part 1 - 1번] 통신사 선택 (1차 목록 4개)
   {
     id: "internet-carrier",
     type: "single-choice",
@@ -67,13 +67,26 @@ const opening: FlowStep[] = [
     message: "현재 사용하는 인터넷 통신사를 선택해주세요.",
     answerKey: `${namespace}.commonCarrier`,
     options: [
-      { value: "SK", label: "SK 브로드밴드" },
-      { value: "KT", label: "KT 올레" },
-      { value: "LGU", label: "LG 유플러스" },
-      { value: "HELLOVISION", label: "LG 헬로비전" },
-      { value: "KTHCN", label: "KT HCN" },
-      { value: "SKYLIFE", label: "스카이라이프" },
-      { value: "DLIVE", label: "딜라이브" },
+      { value: "SK", label: "SK 브로드밴드(B tv)", next: "internet-fee" },
+      { value: "KT", label: "KT (지니 TV)", next: "internet-fee" },
+      { value: "LGU", label: "LG유플러스 (U+tv)", next: "internet-fee" },
+      { value: "cable", label: "케이블/지역인터넷", next: "internet-carrier-cable" },
+    ],
+    next: "internet-fee",
+  },
+
+  // [Part 1 - 1-1번] 케이블/지역인터넷 세부 선택 (2차 목록)
+  {
+    id: "internet-carrier-cable",
+    type: "single-choice",
+    layout: "inline",
+    message: "사용 중이신 케이블/지역인터넷 통신사를 선택해주세요.",
+    answerKey: `${namespace}.cableCarrier`,
+    options: [
+      { value: "DLIVE", label: "딜라이브", next: "internet-fee" },
+      { value: "KTHCN", label: "KT HCN", next: "internet-fee" },
+      { value: "HELLOVISION", label: "LG헬로비전", next: "internet-fee" },
+      { value: "SKYLIFE", label: "스카이라이프", next: "internet-fee" },
     ],
     next: "internet-fee",
   },
@@ -101,7 +114,7 @@ const opening: FlowStep[] = [
       { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "internet-custom-plan-input" },
     ],
     optionsResolver: (answers) => {
-      const carrier = answers[`internet.commonCarrier`] as string;
+      const carrier = (answers[`internet.cableCarrier`] || answers[`internet.commonCarrier`]) as string;
       const currentFee = answers[`internet.fee`] as number;
       
       prefetchPlans(carrier);
@@ -141,7 +154,7 @@ const opening: FlowStep[] = [
       { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "internet-contract-notice" }
     ],
     optionsResolver: (answers) => {
-      const carrier = answers[`internet.commonCarrier`] as string;
+      const carrier = (answers[`internet.cableCarrier`] || answers[`internet.commonCarrier`]) as string;
       const currentFee = answers[`internet.fee`] as number;
       
       prefetchPlans(carrier);
@@ -318,7 +331,7 @@ const specific: FlowStep[] = [
     answerKey: `${namespace}.selectedRecommendedPlan`,
     options: MOCK_RECOMMENDED_INTERNET_PLANS,
     optionsResolver: (answers) => {
-      const carrier = answers["internet.commonCarrier"] || "SK";
+      const carrier = answers["internet.cableCarrier"] || answers["internet.commonCarrier"] || "SK";
       const desiredSpeed = answers["internet.desiredSpeed"] || "500";
       const planContract = answers["internet.planContract"] || "discount3y";
       const recommendations = getRecommendedInternetPlans(carrier, desiredSpeed, planContract, answers);

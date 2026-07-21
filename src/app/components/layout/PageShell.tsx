@@ -33,7 +33,7 @@ export default function PageShell({
        - bg-background: 맨 뒤 바탕 배경색 👈 💡 [여기!] bg-[#F5F7FA] 나 bg-slate-50 등으로 교체하면 앱 전체 배경이 바뀝니다.
        - text-foreground: 기본 텍스트 색상
     */
-    <div className="h-screen w-screen overflow-y-auto bg-[#f5f7fa] text-foreground">
+    <div className="h-screen w-screen overflow-y-auto bg-[#f8fafc] text-foreground">
       
       {/* 🎨 [프론트엔드 수정 가능 Zone 2: 메인 컨테이너 최대 너비 및 바깥 여백]
          - max-w-[1440px]: 웹 화면 전체 최대 가로폭 (max-w-7xl, max-w-[1280px] 등)

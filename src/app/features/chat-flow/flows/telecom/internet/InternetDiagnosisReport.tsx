@@ -38,7 +38,7 @@ import { MOCK_ALL_INTERNET_PLANS, SK_INTERNET_PLANS, KT_INTERNET_PLANS, LGU_INTE
 export default function InternetDiagnosisReport({ result }: InternetDiagnosisReportProps) {
   const answers = result.metadata?.answers || {};
   
-  const carrier = answers["internet.commonCarrier"] || "KT";
+  const carrier = answers["internet.cableCarrier"] || answers["internet.commonCarrier"] || "KT";
   const currentFee = Number(answers["internet.fee"]) || 0;
 
   const confirmedPlanId = answers["internet.confirmedPlan"] || answers["internet.confirmedPlanList"] || "";
@@ -176,7 +176,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
     else if (KTHCN_INTERNET_PLANS.some(p => p.id === selectedPlanRaw)) selectedCarrierCode = "KTHCN";
     else if (DLIVE_INTERNET_PLANS.some(p => p.id === selectedPlanRaw)) selectedCarrierCode = "DLIVE";
   }
-  const linkUrl = carrierUrlMap[selectedCarrierCode || answers["internet.commonCarrier"] || ""] || "https://www.mvnohub.kr";
+  const linkUrl = carrierUrlMap[selectedCarrierCode || answers["internet.cableCarrier"] || answers["internet.commonCarrier"] || ""] || "https://www.mvnohub.kr";
 
   // ── Ollama AI 코멘트 ────────────────────────────────────────
   const [aiComment, setAiComment] = useState<string | null>(null);
