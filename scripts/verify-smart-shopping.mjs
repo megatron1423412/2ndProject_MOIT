@@ -144,6 +144,7 @@ try {
 
   const submit = (module, state, value, displayValue = String(value)) =>
     runtime.submitFlowAnswer(module, state, { value, displayValue });
+  const getRecommendationStartAnchor = (state) => state.messages.findLast(({ sender, text }) => sender === "user" && text === "추천 시작")?.metadata?.productSelectionAnchorId;
   const airModule = getFlowModule("air-conditioner");
   let airFlowState = runtime.createInitialFlowState(airModule);
   assert.equal(airFlowState.currentStepId, "ac-space", "에어컨 첫 질문은 설치 공간");
@@ -200,6 +201,7 @@ try {
   airFlowState = submit(airModule, airFlowState, "none", "예산 제한 없음");
   airFlowState = submit(airModule, airFlowState, true, "추천 시작");
   assert.equal(airFlowState.completed, true, "에어컨 질문 흐름 완료");
+  assert.match(getRecommendationStartAnchor(airFlowState), /^air-conditioner-recommendation-start-\d+$/, "에어컨 추천 시작 사용자 행에 고유 스크롤 앵커를 기록");
   assert.ok(airFlowState.result.recommendations.length > 0 && airFlowState.result.recommendations.every(({ product, verificationNeeded }) => product.source === "real" && !verificationNeeded), "실제 에어컨을 설치·환급 확인 후보로 분류하지 않음");
   assert.equal(airFlowState.answers["airConditioner.dailyUsage"], "4to8"); assert.equal(airFlowState.answers["airConditioner.valuePriority"], "balanced", "사용 시간·가성비 우선순위 state 보존");
   assert.equal(airFlowState.result.metadata.category, "air-conditioner", "에어컨 전용 결과 사용");
@@ -242,8 +244,12 @@ try {
   assert.equal(tvFlowState.currentStepId, "tv-budget"); assert.equal(tvFlowState.answers["tv.budget"], undefined, "TV 최종 확인 undo는 빈 예산 단계 복원");
   assert.equal(tvFlowState.messages.some(({ text }) => text?.startsWith("선택 조건")), false, "TV 예산 답에서 파생된 최종 요약 제거");
   tvFlowState = submit(tvModule, tvFlowState, "none", "예산 제한 없음");
+  const tvConfirmationState = tvFlowState;
   tvFlowState = submit(tvModule, tvFlowState, true, "추천 시작");
   assert.equal(tvFlowState.completed, true, "TV 질문 흐름 완료");
+  assert.match(getRecommendationStartAnchor(tvFlowState), /^tv-recommendation-start-\d+$/, "TV 추천 시작 사용자 행에 고유 스크롤 앵커를 기록");
+  const repeatedTvRecommendationStart = submit(tvModule, tvConfirmationState, true, "추천 시작");
+  assert.notEqual(getRecommendationStartAnchor(tvFlowState), getRecommendationStartAnchor(repeatedTvRecommendationStart), "추천을 다시 시작하면 가장 최근 사용자 행 전용 앵커를 새로 생성");
   assert.equal(tvFlowState.answers["tv.primaryUse"], "broadcast-streaming"); assert.equal(tvFlowState.answers["tv.dailyUsage"], "3to6"); assert.equal(tvFlowState.answers["tv.platformRequirement"], "other-allowed"); assert.equal(tvFlowState.answers["tv.valuePriority"], "balanced", "TV 용도·사용시간·플랫폼·가성비 state 보존");
   assert.strictEqual(runtime.undoLatestFlowAnswer(tvModule, tvFlowState), tvFlowState, "TV 추천 생성 뒤 undo 비활성");
   for (const id of ["air-conditioner", "tv", "refrigerator", "vacuum"]) assert.equal(getFlowModule(id).definition.enableConditionUndo, true, `${id} flow 공용 condition undo 활성`);
@@ -293,6 +299,7 @@ try {
   refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, "none", "예산 제한 없음");
   refrigeratorUndoState = submit(refrigeratorModule, refrigeratorUndoState, true, "추천 시작");
   assert.equal(refrigeratorUndoState.completed, true, "냉장고 질문 흐름 완료");
+  assert.match(getRecommendationStartAnchor(refrigeratorUndoState), /^refrigerator-recommendation-start-\d+$/, "냉장고 추천 시작 사용자 행에 고유 스크롤 앵커를 기록");
   assert.ok(refrigeratorUndoState.result.recommendations.length > 0, "새 냉장고 조건으로 실제 추천 생성");
   const refrigeratorVisibleRecommendationCopy = refrigeratorUndoState.result.recommendations.flatMap(({ recommendationReasons, matchedCoreCriteria, unmatchedOrUnknownCriteria }) => [...recommendationReasons, ...matchedCoreCriteria, ...unmatchedOrUnknownCriteria]).join("\n");
   assert.ok(!/four-door-value|freestanding|recommended|refrigerator\./.test(refrigeratorVisibleRecommendationCopy), "냉장고 추천 이유에도 내부 criteria 값 미노출");
@@ -339,6 +346,7 @@ try {
   vacuumUndoState = submit(vacuumFlowModule, vacuumUndoState, "none", "예산 제한 없음");
   vacuumUndoState = submit(vacuumFlowModule, vacuumUndoState, true, "추천 시작");
   assert.equal(vacuumUndoState.completed, true, "청소기 질문 흐름 완료");
+  assert.match(getRecommendationStartAnchor(vacuumUndoState), /^vacuum-recommendation-start-\d+$/, "청소기 추천 시작 사용자 행에 고유 스크롤 앵커를 기록");
   assert.ok(vacuumUndoState.result.recommendations.length > 0, "새 청소기 조건으로 실제 추천 생성");
   const vacuumVisibleRecommendationCopy = vacuumUndoState.result.recommendations.flatMap(({ recommendationReasons, matchedCoreCriteria, unmatchedOrUnknownCriteria }) => [...recommendationReasons, ...matchedCoreCriteria, ...unmatchedOrUnknownCriteria]).join("\n");
   assert.ok(!/wireless-value|wired-major|short-daily|hard-floor|suctionAw|suctionPa|H13|vacuum\./.test(vacuumVisibleRecommendationCopy), "청소기 추천 이유에 내부 필드·enum 미노출");
@@ -635,7 +643,8 @@ try {
   const smartShoppingTimelineSource = await readFile("src/app/features/smart-shopping/timeline/SmartShoppingTimeline.tsx", "utf8");
   const chatFlowInputSource = await readFile("src/app/components/features/chat/ChatFlowInput.tsx", "utf8");
   const chatConversationTurnSource = await readFile("src/app/components/features/chat/ChatConversationTurn.tsx", "utf8");
-  const { ChatScreenSmartShoppingTimeline } = await load("/src/app/components/features/chat/ChatScreen.tsx");
+  const recommendationViewSource = await readFile("src/app/features/smart-shopping/recommendation/RecommendationSelectionView.tsx", "utf8");
+  const { ChatScreenSmartShoppingTimeline, getProductSelectionScrollPosition, scrollContainerToProductSelectionAnchor, shouldCorrectRecommendationStartScroll, PRODUCT_SELECTION_SCROLL_OFFSET } = await load("/src/app/components/features/chat/ChatScreen.tsx");
   const { default: ChatConversationTurn } = await load("/src/app/components/features/chat/ChatConversationTurn.tsx");
   const { default: ChatTimelineRow } = await load("/src/app/components/features/chat/ChatTimelineRow.tsx");
   const assistantRailMarkup = renderToStaticMarkup(React.createElement(ChatTimelineRow, { kind: "assistant" }, React.createElement("span", null, "assistant")));
@@ -643,7 +652,7 @@ try {
   const wideRailMarkup = renderToStaticMarkup(React.createElement(ChatTimelineRow, { kind: "wide" }, React.createElement("span", null, "wide")));
   const alignmentTimeline = [
     { id: "assistant-before", type: "assistant-text", text: "상품을 골라볼게요.", timestamp: "오전 10:00" },
-    { id: "user-product", type: "user-action", text: "상품 선택", timestamp: "오전 10:01" },
+    { id: "user-product", type: "user-action", text: "상품 선택", timestamp: "오전 10:01", metadata: { productSelectionAnchorId: "test-product-selection" } },
     { id: "product-detail", type: "product-detail", snapshot: { categoryId: "tv", selected: { source: "internal", recommendation: tvResult.recommendations[0] }, internalRecommendations: tvResult.recommendations, showAlternative: false } },
     { id: "wide-action", type: "action-group", group: "detail", isActive: false },
     { id: "user-after", type: "user-action", text: "예상 세일 달 제안", timestamp: "오전 10:02" },
@@ -655,7 +664,7 @@ try {
     { id: "user-alternative", type: "user-action", text: "다른 제품 추천", timestamp: "오전 10:06" },
     { id: "assistant-alternative", type: "assistant-text", text: "대체 상품 답변", timestamp: "오전 10:07" },
     { id: "wide-action-alternative", type: "action-group", group: "detail", isActive: false },
-    { id: "user-return", type: "user-action", text: "목록 다시 보기", timestamp: "오전 10:08" },
+    { id: "user-return", type: "user-action", text: "목록 다시 보기", timestamp: "오전 10:08", metadata: { productSelectionAnchorId: "test-back-to-list" } },
     { id: "assistant-return", type: "assistant-text", text: "목록 복원 답변", timestamp: "오전 10:09" },
     { id: "recommendation-list", type: "recommendation-list", isActive: false, snapshot: { snapshotId: "restored-list", categoryId: "tv", recommendations: tvResult.recommendations, catalogSource: "mock", dummyProducts: [] } },
     { id: "user-question", type: "user-text", text: "직접 질문", timestamp: "오전 10:10" },
@@ -667,11 +676,67 @@ try {
   ];
   const timelineRailModel = { timeline: alignmentTimeline, showClosestOverBudget: false, onShowClosestOverBudget: () => {}, questionLoading: false, questionError: "", onSelectRecommendation: () => {}, onSelectDummyProduct: () => {}, onDetailAction: () => {}, onBackToList: () => {}, onNextStep: () => {}, onQuestionSubmit: () => {}, onQuestionRetry: () => {}, onQuestionCancel: () => {}, onNextAction: () => {}, onCancelPurchaseLink: () => {}, onSavePriceAlert: () => {}, onCancelPriceAlert: () => {}, isFavorite: () => false, onToggleFavorite: () => {} };
   const alignedTimelineMarkup = renderToStaticMarkup(React.createElement("div", { "data-chat-timeline-root": true }, React.createElement(ChatConversationTurn, { sender: "ai", text: "초기 조건 질문" }), React.createElement(ChatScreenSmartShoppingTimeline, { model: timelineRailModel })));
+  let selectionScrollOptions;
+  scrollContainerToProductSelectionAnchor({
+    container: { scrollTop: 180, getBoundingClientRect: () => ({ top: 100 }), scrollTo: (options) => { selectionScrollOptions = options; }, scrollHeight: 50_000, clientHeight: 500 },
+    anchor: { getBoundingClientRect: () => ({ top: 340 }) },
+    behavior: "smooth",
+  });
+  const recommendationStartAnchorId = getRecommendationStartAnchor(tvFlowState);
+  const mountedRecommendationStartCalls = [];
+  const recommendationStartTurn = ChatConversationTurn({
+    sender: "user",
+    text: "추천 시작",
+    selectionAnchorId: recommendationStartAnchorId,
+    onSelectionAnchorMount: (anchorId, anchor) => {
+      mountedRecommendationStartCalls.push(anchorId);
+      scrollContainerToProductSelectionAnchor({
+        container: { scrollTop: 64, getBoundingClientRect: () => ({ top: 100 }), scrollTo: (options) => { selectionScrollOptions = options; }, scrollHeight: 1_000, clientHeight: 500 },
+        anchor,
+        behavior: "smooth",
+      });
+    },
+  });
+  const recommendationStartRow = ChatTimelineRow(recommendationStartTurn.props);
+  recommendationStartRow.ref({ getBoundingClientRect: () => ({ top: 260 }) });
+  const initiallyClampedPosition = getProductSelectionScrollPosition({
+    container: { scrollTop: 220, scrollHeight: 600, clientHeight: 500, getBoundingClientRect: () => ({ top: 100 }) },
+    anchor: { getBoundingClientRect: () => ({ top: 480 }) },
+  });
+  let correctedRecommendationScrollOptions;
+  scrollContainerToProductSelectionAnchor({
+    container: { scrollTop: initiallyClampedPosition.targetScrollTop, scrollHeight: 1_100, clientHeight: 500, getBoundingClientRect: () => ({ top: 100 }), scrollTo: (options) => { correctedRecommendationScrollOptions = options; } },
+    anchor: { getBoundingClientRect: () => ({ top: 600 }) },
+    behavior: "smooth",
+  });
+  let shortRecommendationScrollOptions;
+  scrollContainerToProductSelectionAnchor({
+    container: { scrollTop: initiallyClampedPosition.targetScrollTop, scrollHeight: 660, clientHeight: 500, getBoundingClientRect: () => ({ top: 100 }), scrollTo: (options) => { shortRecommendationScrollOptions = options; } },
+    anchor: { getBoundingClientRect: () => ({ top: 600 }) },
+    behavior: "smooth",
+  });
   assert.ok(!diagnosisResultSource.includes("RecommendationSelectionView") && !diagnosisResultSource.includes("result.recommendations"), "스마트쇼핑 렌더 경로를 생활비 결과 컴포넌트에서 제거");
   assert.ok(diagnosisResultSource.includes("PhoneDiagnosisReport") && diagnosisResultSource.includes("InternetDiagnosisReport") && diagnosisResultSource.includes("IptvDiagnosisReport"), "생활비 전용 결과 화면 보존");
   assert.ok(chatScreenSource.includes("buildSmartShoppingGreeting") && chatScreenSource.includes("onCreatePriceAlert") && chatScreenSource.includes("onEndSmartShoppingChat"), "스마트쇼핑 인사·알람·종료 경계 연결");
   assert.ok(chatScreenSource.includes("smartShoppingResult && (") && chatScreenSource.includes("<RecommendationSelectionView") && chatScreenSource.includes("renderTimeline={(model) => <ChatScreenSmartShoppingTimeline model={model} />}") && chatScreenSource.includes("renderedResult && !isSmartShoppingResult") && chatScreenSource.includes('className="w-full self-start pl-11"'), "ChatScreen이 스마트쇼핑 컨트롤러와 outer 타임라인 렌더러를 직접 소유하고 생활비 결과 들여쓰기는 보존");
   assert.ok(chatScreenSource.includes("grid-cols-[minmax(0,1fr)]") && assistantRailMarkup.includes('data-chat-rail-track="shared"') && wideRailMarkup.includes('data-chat-rail-track="shared"'), "대화와 wide 행이 하나의 명시적 minmax(0,1fr) 최상위 트랙을 공유");
+  assert.deepEqual(mountedRecommendationStartCalls, [recommendationStartAnchorId], "추천 시작 메시지는 실제 공용 대화 행 ref 마운트에서 앵커 콜백을 한 번 호출");
+  assert.equal(recommendationStartRow.props["data-chat-timeline-row"], "user", "추천 시작 앵커는 오른쪽 사용자 대화 행에 부착");
+  assert.deepEqual(selectionScrollOptions, { top: 64 + 260 - 100 - PRODUCT_SELECTION_SCROLL_OFFSET, behavior: "smooth" }, "추천 시작도 페이지 끝이 아닌 내부 채팅 컨테이너에서 사용자 행 위치로 스크롤");
+  assert.deepEqual(initiallyClampedPosition, { currentScrollTop: 220, desiredScrollTop: 584, targetScrollTop: 100, scrollHeight: 600, clientHeight: 500, maxScrollTop: 100, wasClamped: true }, "추천 시작 즉시 스크롤은 실제 컨테이너 범위를 계산해 처음 클램프 여부를 기록");
+  assert.equal(shouldCorrectRecommendationStartScroll({ initialMaxScrollTop: 100, nextMaxScrollTop: 600, isCurrentAnchor: true, userScrolled: false, corrected: false }), true, "추천 결과 컨테이너가 스크롤 범위를 늘리면 같은 추천 시작 앵커만 한 번 보정");
+  assert.deepEqual(correctedRecommendationScrollOptions, { top: 584, behavior: "smooth" }, "보정 스크롤은 늘어난 범위 안에서 desiredScrollTop으로 이동");
+  assert.deepEqual(shortRecommendationScrollOptions, { top: 160, behavior: "smooth" }, "짧은 추천 목록이 조금만 늘어난 경우에도 보정은 가능한 최대 scrollTop에서 끝냄");
+  assert.equal(shouldCorrectRecommendationStartScroll({ initialMaxScrollTop: 100, nextMaxScrollTop: 160, isCurrentAnchor: true, userScrolled: false, corrected: true }), false, "짧은 목록의 최대 위치 보정도 한 번만 실행");
+  assert.equal(shouldCorrectRecommendationStartScroll({ initialMaxScrollTop: 100, nextMaxScrollTop: 100, isCurrentAnchor: true, userScrolled: false, corrected: false }), false, "짧은 추천 목록은 이미 가능한 최대 위치에서 추가 보정하지 않음");
+  assert.equal(shouldCorrectRecommendationStartScroll({ initialMaxScrollTop: 100, nextMaxScrollTop: 160, isCurrentAnchor: true, userScrolled: true, corrected: false }), false, "사용자가 수동 스크롤하면 추천 시작 보정을 취소");
+  assert.equal(shouldCorrectRecommendationStartScroll({ initialMaxScrollTop: 100, nextMaxScrollTop: 160, isCurrentAnchor: false, userScrolled: false, corrected: false }), false, "새 추천 시작 앵커가 생기면 이전 앵커는 보정하지 않음");
+  assert.equal(shouldCorrectRecommendationStartScroll({ initialMaxScrollTop: 100, nextMaxScrollTop: 160, isCurrentAnchor: true, userScrolled: false, corrected: true }), false, "성공한 추천 시작 보정은 반복하지 않음");
+  assert.ok(alignedTimelineMarkup.includes('data-product-selection-anchor="test-product-selection"') && alignedTimelineMarkup.includes('data-product-selection-anchor="test-back-to-list"') && chatTimelineRowSource.includes("onSelectionAnchorMount") && chatScreenSource.includes("requestAnimationFrame") && chatScreenSource.includes("scrollContainerRef"), "선택·목록 복귀 메시지 행의 앵커 마운트 직후 내부 채팅 컨테이너를 스크롤");
+  assert.ok(chatScreenSource.includes('message.metadata?.productSelectionAnchorId') && chatScreenSource.includes('selectionAnchorId={flowSelectionAnchorId}') && chatScreenSource.includes('onSelectionAnchorMount={scrollToProductSelectionAnchor}'), "추천 시작 사용자 행도 기존 ChatScreen 앵커 마운트·내부 스크롤 경로를 재사용");
+  assert.ok(chatScreenSource.indexOf("scrolledProductSelectionAnchorsRef.current.add(anchorId)") > chatScreenSource.indexOf("scrollContainerToProductSelectionAnchor({ container, anchor, behavior: reducedMotion"), "공용 앵커 가드는 실제 내부 컨테이너 스크롤 요청 이후에만 완료 처리");
+  assert.ok(recommendationViewSource.includes("useLayoutEffect") && recommendationViewSource.includes("hasRecommendationList") && chatScreenSource.includes("onRecommendationResultContainerMount={correctRecommendationStartScroll}"), "추천 결과 컨테이너가 마운트된 직후에만 클램프된 추천 시작 스크롤 보정 경로를 호출");
+  assert.ok(chatScreenSource.includes("scrolledProductSelectionAnchorsRef") && chatScreenSource.includes("shouldStickToBottomRef.current = false") && !chatScreenSource.includes("ResizeObserver"), "상세·이미지·차트의 후속 렌더는 스크롤을 반복 실행하거나 페이지 끝으로 끌고 가지 않음");
   assert.ok(chatScreenSource.includes("data-chat-timeline-root") && assistantRailMarkup.includes('data-chat-rail-width="outer"') && userRailMarkup.includes('data-chat-rail-width="outer"'), "초기·후속 대화가 동일한 최상위 폭 계약 사용");
   assert.ok(chatScreenSource.includes('<ChatConversationTurn sender="ai"') && /<ChatConversationTurn\r?\n\s+sender=\{message\.sender\}/.test(chatScreenSource) && chatScreenSource.includes('<ChatConversationTurn sender={isAssistant ? "ai" : "user"}'), "초기·조건·post-detail 대화가 정확히 같은 ChatConversationTurn 렌더러 사용");
   assert.ok(chatConversationTurnSource.includes("<ChatTimelineRow") && chatConversationTurnSource.includes("<ChatMessage {...props}") && !chatConversationTurnSource.includes('kind="wide"'), "공용 대화 턴은 assistant/user 행과 ChatMessage만 생성");
@@ -817,7 +882,7 @@ try {
   const productActionBarSource = await readFile("src/app/features/smart-shopping/product-detail/ProductDetailActionBar.tsx", "utf8");
   assert.ok(favoriteButtonSource.includes('aria-pressed={isFavorite}') && favoriteButtonSource.includes("즐겨찾기에 추가") && favoriteButtonSource.includes("즐겨찾기에서 삭제"), "별 버튼 접근성 상태·안내");
   assert.ok(favoriteButtonSource.includes("event.stopPropagation()") && optimizedListSource.includes("FavoriteToggleButton") && naverListSource.includes("FavoriteToggleButton") && productDetailViewSource.includes("FavoriteToggleButton"), "별 클릭과 내부·더미 상품 선택 이벤트 분리");
-  assert.ok(optimizedListSource.includes("onClick={() => onSelect(item)}") && naverListSource.includes("onClick={() => onSelect(item)}"), "내부·더미 상품 카드 상세 선택 연결 유지");
+  assert.ok(optimizedListSource.includes("onClick={() => onSelect(item)}") && naverListSource.includes("onClick={() => onSelect(item)}") && recommendationViewSource.includes("productSelectionAnchorId") && recommendationViewSource.includes('createConversationAnchorId("product-selection")') && recommendationViewSource.includes('createConversationAnchorId("back-to-list")') && recommendationViewSource.includes('if (action === "back-to-list") return backToList()') && timelineSource.includes("onBack={props.onBackToList}") && recommendationViewSource.includes("onSelectRecommendation: (recommendation) => selectProduct") && recommendationViewSource.includes("onSelectDummyProduct: (product) => selectProduct"), "AI 최적화·인기 상품 목록과 두 목록 복귀 진입점이 공통 앵커 스크롤 경로를 사용");
   assert.ok(optimizedListSource.includes("disabled={!isActive}") && !optimizedListSource.includes("<FavoriteToggleButton isFavorite={isFavorite(item)} disabled={!isActive}"), "AI 목록의 과거 읽기 전용 상품 선택과 전역 즐겨찾기 토글을 분리");
   assert.ok(productRecommendationCardSource.includes("recommendation.score") && productRecommendationCardSource.includes("FavoriteToggleButton") && productDetailViewSource.includes("<NaverProductDetail") && productDetailViewSource.includes("onToggleFavorite={props.onToggleFavorite}"), "상세 카드의 점수 배지를 보존하고 내부·네이버 별 버튼 연결");
   assert.ok(productRecommendationCardSource.includes("RecommendationReasonList") && !productRecommendationCardSource.includes('recommendationReasons.join(" · ")'), "상품 상세는 공용 구조화 추천 이유 컴포넌트만 사용");
@@ -868,7 +933,6 @@ try {
   assert.equal(shoppingSession.timeline.filter((item) => item.type === "assistant-text" && item.text === "예상 세일 달 제안 답변").length, 1, "목록 복귀 후 이전 후속 답변 유지");
   const refrigeratorSession = sessionModule.createSmartShoppingSession({ categoryId: "refrigerator", criteria: {} });
   assert.notEqual(shoppingSession.sessionId, refrigeratorSession.sessionId, "다른 소분류 세션 격리");
-  const recommendationViewSource = await readFile("src/app/features/smart-shopping/recommendation/RecommendationSelectionView.tsx", "utf8");
   assert.ok(recommendationViewSource.includes("SmartShoppingTimelineRenderModel") && recommendationViewSource.includes("session.recommendationSnapshot"), "컨트롤러가 타임라인 모델과 목록 스냅샷을 보존");
   assert.ok(recommendationViewSource.includes("return renderTimeline({") && !recommendationViewSource.includes("ChatTimelineRow") && !recommendationViewSource.includes("ChatMessage") && !recommendationViewSource.includes("SmartShoppingWideTimelineContent") && recommendationViewSource.includes('appendText("assistant-text", getUpcomingPromotionMessage') && recommendationViewSource.includes('appendText("assistant-text", buildPurchaseTipMessage') && recommendationViewSource.includes('appendText("assistant-text", alternatives.length') && recommendationViewSource.includes('appendText("assistant-text", response.answer') && recommendationViewSource.includes('appendText("assistant-text", "이전에 확인한 조건으로 상품 목록을 다시 보여드릴게요."') && recommendationViewSource.includes('appendText("assistant-text", "이 상품으로 무엇을 해볼까요?'), "컨트롤러는 모든 응답을 데이터로만 만들고 assistant/user DOM을 렌더링하지 않음");
   assert.ok(![recommendationViewSource, productActionBarSource, await readFile("src/app/features/smart-shopping/actions/productDetailActions.ts", "utf8"), await readFile("src/app/features/smart-shopping/next-actions/nextActionOptions.ts", "utf8")].join("\n").includes("목록으로 돌아가기"), "모든 스마트쇼핑 액션 경로에서 이전 목록 문구 제거");

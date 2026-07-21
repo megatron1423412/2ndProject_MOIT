@@ -36,6 +36,7 @@ export interface SmartShoppingTimelineBindings {
   onCancelPriceAlert: () => void;
   isFavorite: (product: SelectedShoppingProduct) => boolean;
   onToggleFavorite: (product: SelectedShoppingProduct) => void;
+  onProductSelectionAnchorMount?: (anchorId: string, element: HTMLDivElement | null) => void;
 }
 
 export interface SmartShoppingTimelineRenderModel extends SmartShoppingTimelineBindings {

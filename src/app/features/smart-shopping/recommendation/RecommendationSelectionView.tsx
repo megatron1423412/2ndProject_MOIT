@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { FlowAnswers, FlowResult } from "../../chat-flow/core/types";
 import type { ProductCategoryId, ProductRecommendation } from "../../product-catalog/core/types";
 import { catalogProducts, catalogSourceByCategory } from "../../product-catalog/data/productCatalog";
@@ -35,10 +35,12 @@ interface Props {
   userId: string;
   favorites: FavoriteProduct[];
   onToggleFavorite: (draft: FavoriteDraft) => void;
+  onProductSelectionAnchorMount?: (anchorId: string, element: HTMLDivElement | null) => void;
+  onRecommendationResultContainerMount?: () => void;
   renderTimeline: (model: SmartShoppingTimelineRenderModel) => React.ReactNode;
 }
 
-export default function RecommendationSelectionView({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId, favorites, onToggleFavorite, renderTimeline }: Props) {
+export default function RecommendationSelectionView({ result, onEndSmartShoppingChat, onCreatePriceAlert, onTimelineChange, userId, favorites, onToggleFavorite, onProductSelectionAnchorMount, onRecommendationResultContainerMount, renderTimeline }: Props) {
   const metadata = result.metadata as { category?: ProductCategoryId; answers?: FlowAnswers; overBudgetRecommendations?: ProductRecommendation[] } | undefined;
   const category = metadata?.category ?? "tv";
   const catalogSource = catalogSourceByCategory[category];
@@ -54,6 +56,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const [returnActionGroup, setReturnActionGroup] = useState<TimelineActionGroupKind>("next");
   const [showedOverBudget, setShowedOverBudget] = useState(false);
   const [activeRecommendations, setActiveRecommendations] = useState(result.recommendations ?? []);
+  const conversationAnchorSequence = useRef(0);
   const favoriteIdentities = useMemo(() => new Set(favorites.map(getFavoriteProductIdentity)), [favorites]);
 
   useEffect(() => { sessionDispatch({ type: "set-stage", stage: view.stage }); }, [view.stage]);
@@ -68,6 +71,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const appendRecommendation = useCallback((snapshot: RecommendationSnapshot) => {
     sessionDispatch({ type: "append-recommendation-list", item: createRecommendationListTimelineItem(session.sessionId, snapshot) });
   }, [session.sessionId]);
+  const createConversationAnchorId = useCallback((action: string) => `${session.sessionId}-${action}-${++conversationAnchorSequence.current}`, [session.sessionId]);
 
   const snapshotRecommendations = useCallback((recommendations: ProductRecommendation[]) => {
     appendRecommendation(createRecommendationSnapshot({
@@ -83,6 +87,11 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     snapshotRecommendations(activeRecommendations);
     dispatch({ type: "recommendations-settled" });
   }, [snapshotRecommendations]);
+
+  const hasRecommendationList = session.timeline.some((item) => item.type === "recommendation-list");
+  useLayoutEffect(() => {
+    if (hasRecommendationList) onRecommendationResultContainerMount?.();
+  }, [hasRecommendationList, onRecommendationResultContainerMount, session.timeline.length]);
 
   useEffect(() => {
     if (view.stage !== "grading-purchase") return;
@@ -118,9 +127,10 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     const name = product.source === "internal" ? product.recommendation.product.name : product.product.title;
     const productAlternative = getSelectedPriceRisePct(product);
     const productShowAlternative = productAlternative !== null && productAlternative >= PRODUCT_DETAIL_SETTINGS.alternativeRecommendationThresholdPct;
+    const selectionAnchorId = createConversationAnchorId("product-selection");
     sessionDispatch({ type: "deactivate-interactions" });
     sessionDispatch({ type: "select-product", product });
-    appendText("user-action", `${name} 상품 선택`);
+    appendText("user-action", `${name} 상품 선택`, { productSelectionAnchorId: selectionAnchorId });
     sessionDispatch({ type: "append", item: createProductDetailTimelineItem(session.sessionId, createProductDetailSnapshot({ categoryId: category, selected: product, internalRecommendations: activeRecommendations, showAlternative: productShowAlternative })) });
     appendActionGroup("detail", productShowAlternative);
     setQuestionError("");
@@ -129,8 +139,9 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
 
   const backToList = () => {
     resetQuestionSourceMode();
+    const actionAnchorId = createConversationAnchorId("back-to-list");
     sessionDispatch({ type: "deactivate-interactions" });
-    appendText("user-action", "목록 다시 보기");
+    appendText("user-action", "목록 다시 보기", { productSelectionAnchorId: actionAnchorId });
     appendText("assistant-text", "이전에 확인한 조건으로 상품 목록을 다시 보여드릴게요.");
     const reusableSnapshot = session.recommendationSnapshot ?? createRecommendationSnapshot({ categoryId: category, recommendations: activeRecommendations, catalogSource, dummyProducts: selectDummyNaverProducts(catalogProducts, category, activeRecommendations) });
     appendRecommendation(reusableSnapshot);
@@ -270,5 +281,6 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     onCancelPriceAlert: cancelPriceAlert,
     isFavorite: (selectedProduct) => favoriteIdentities.has(getFavoriteProductIdentity(favoriteDraftFor(selectedProduct))),
     onToggleFavorite: (selectedProduct) => onToggleFavorite(favoriteDraftFor(selectedProduct)),
+    onProductSelectionAnchorMount,
   });
 }

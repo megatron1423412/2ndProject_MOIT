@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { getSubCategoryById } from "../../../data/categories";
 import { useChatFlow } from "../../../features/chat-flow/engine/useChatFlow";
 import type { ConversationHistoryItem, SubCategory, SubCategoryId, TopActionState } from "../../../types/moit";
@@ -32,6 +32,53 @@ interface ChatScreenProps {
   onToggleFavorite?: (draft: FavoriteDraft) => void;
 }
 
+export const PRODUCT_SELECTION_SCROLL_OFFSET = 16;
+type ChatScrollContainer = Pick<HTMLElement, "scrollTop" | "scrollHeight" | "clientHeight" | "getBoundingClientRect" | "scrollTo">;
+
+export const getProductSelectionScrollPosition = ({ container, anchor }: {
+  container: Pick<ChatScrollContainer, "scrollTop" | "scrollHeight" | "clientHeight" | "getBoundingClientRect">;
+  anchor: Pick<HTMLElement, "getBoundingClientRect">;
+}) => {
+  const desiredScrollTop = container.scrollTop + anchor.getBoundingClientRect().top - container.getBoundingClientRect().top - PRODUCT_SELECTION_SCROLL_OFFSET;
+  const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+  const targetScrollTop = Math.min(Math.max(0, desiredScrollTop), maxScrollTop);
+  return {
+    currentScrollTop: container.scrollTop,
+    desiredScrollTop,
+    targetScrollTop,
+    scrollHeight: container.scrollHeight,
+    clientHeight: container.clientHeight,
+    maxScrollTop,
+    wasClamped: desiredScrollTop > maxScrollTop,
+  };
+};
+
+export const scrollContainerToProductSelectionAnchor = ({ container, anchor, behavior }: {
+  container: ChatScrollContainer;
+  anchor: Pick<HTMLElement, "getBoundingClientRect">;
+  behavior: ScrollBehavior;
+}) => {
+  const position = getProductSelectionScrollPosition({ container, anchor });
+  container.scrollTo({ top: position.targetScrollTop, behavior });
+  return position;
+};
+
+const isRecommendationStartAnchor = (anchorId: string) => anchorId.includes("-recommendation-start-");
+
+export const shouldCorrectRecommendationStartScroll = ({
+  initialMaxScrollTop,
+  nextMaxScrollTop,
+  isCurrentAnchor,
+  userScrolled,
+  corrected,
+}: {
+  initialMaxScrollTop: number;
+  nextMaxScrollTop: number;
+  isCurrentAnchor: boolean;
+  userScrolled: boolean;
+  corrected: boolean;
+}) => isCurrentAnchor && !userScrolled && !corrected && nextMaxScrollTop > initialMaxScrollTop;
+
 export default function ChatScreen({
   subCategoryId,
   onBack,
@@ -52,7 +99,21 @@ export default function ChatScreen({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
   const shouldStickToBottomRef = useRef(true);
+  const productSelectionScrollFrameRef = useRef<number | null>(null);
+  const scrolledProductSelectionAnchorsRef = useRef(new Set<string>());
+  const currentRecommendationStartAnchorRef = useRef<string | null>(null);
+  const recommendationStartCorrectionRef = useRef<{
+    anchorId: string;
+    anchor: HTMLDivElement;
+    initialMaxScrollTop: number;
+    userScrolled: boolean;
+    corrected: boolean;
+  } | null>(null);
   const [timelineRevision, setTimelineRevision] = useState(0);
+
+  useEffect(() => () => {
+    if (productSelectionScrollFrameRef.current !== null) window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
+  }, []);
 
   useEffect(() => {
     if (!shouldStickToBottomRef.current) return;
@@ -66,6 +127,63 @@ export default function ChatScreen({
     if (!container) return;
     shouldStickToBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 96;
   };
+
+  const cancelRecommendationStartCorrectionOnManualScroll = () => {
+    const correction = recommendationStartCorrectionRef.current;
+    if (correction) correction.userScrolled = true;
+  };
+
+  const cancelRecommendationStartCorrectionOnScrollKey = (event: React.KeyboardEvent<HTMLElement>) => {
+    if ([" ", "ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End"].includes(event.key)) {
+      cancelRecommendationStartCorrectionOnManualScroll();
+    }
+  };
+
+  const scrollToProductSelectionAnchor = useCallback((anchorId: string, anchor: HTMLDivElement | null) => {
+    if (!anchor || scrolledProductSelectionAnchorsRef.current.has(anchorId)) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const isRecommendationStart = isRecommendationStartAnchor(anchorId);
+    if (isRecommendationStart) currentRecommendationStartAnchorRef.current = anchorId;
+    else recommendationStartCorrectionRef.current = null;
+    shouldStickToBottomRef.current = false;
+    if (productSelectionScrollFrameRef.current !== null) window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
+    productSelectionScrollFrameRef.current = window.requestAnimationFrame(() => {
+      productSelectionScrollFrameRef.current = null;
+      if (!anchor.isConnected || !container.isConnected) return;
+      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      const position = scrollContainerToProductSelectionAnchor({ container, anchor, behavior: reducedMotion ? "auto" : "smooth" });
+      scrolledProductSelectionAnchorsRef.current.add(anchorId);
+      if (isRecommendationStart && position.wasClamped) {
+        recommendationStartCorrectionRef.current = {
+          anchorId,
+          anchor,
+          initialMaxScrollTop: position.maxScrollTop,
+          userScrolled: false,
+          corrected: false,
+        };
+      }
+    });
+  }, []);
+
+  const correctRecommendationStartScroll = useCallback(() => {
+    const correction = recommendationStartCorrectionRef.current;
+    const container = scrollContainerRef.current;
+    if (!correction || correction.corrected || correction.userScrolled || correction.anchorId !== currentRecommendationStartAnchorRef.current || !container || !correction.anchor.isConnected || !container.isConnected) return;
+
+    const position = getProductSelectionScrollPosition({ container, anchor: correction.anchor });
+    if (!shouldCorrectRecommendationStartScroll({
+      initialMaxScrollTop: correction.initialMaxScrollTop,
+      nextMaxScrollTop: position.maxScrollTop,
+      isCurrentAnchor: correction.anchorId === currentRecommendationStartAnchorRef.current,
+      userScrolled: correction.userScrolled,
+      corrected: correction.corrected,
+    })) return;
+
+    correction.corrected = true;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    scrollContainerToProductSelectionAnchor({ container, anchor: correction.anchor, behavior: reducedMotion ? "auto" : "smooth" });
+  }, []);
 
   if (!item) {
     return (
@@ -103,7 +221,7 @@ export default function ChatScreen({
           onToggleActionsCollapsed={() => setAreActionsCollapsed((value) => !value)}
         />
 
-        <main ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-5">
+        <main ref={scrollContainerRef} onScroll={handleScroll} onWheel={cancelRecommendationStartCorrectionOnManualScroll} onPointerDown={cancelRecommendationStartCorrectionOnManualScroll} onTouchStart={cancelRecommendationStartCorrectionOnManualScroll} onKeyDown={cancelRecommendationStartCorrectionOnScrollKey} className="flex-1 overflow-y-auto p-5">
           <div className="mx-auto grid w-full max-w-4xl grid-cols-[minmax(0,1fr)] gap-4" aria-live="polite" data-chat-timeline-root>
             {item.parentCategory === "appliances" && (
               <ChatConversationTurn sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} />
@@ -113,6 +231,9 @@ export default function ChatScreen({
               const isAi = message.sender === "ai";
               const renderedResult = message.result ?? flow.result;
               const isSmartShoppingResult = Boolean(renderedResult?.recommendations);
+              const flowSelectionAnchorId = message.sender === "user" && typeof message.metadata?.productSelectionAnchorId === "string"
+                ? message.metadata.productSelectionAnchorId
+                : undefined;
               
               // 선택형 단계이거나 완료 상태인 경우에만 인라인 선택지를 표시합니다.
               const isSelectionStep = flow.currentStep && ["single-choice", "multi-choice", "confirmation"].includes(flow.currentStep.type);
@@ -141,6 +262,8 @@ export default function ChatScreen({
                       isHistorical={!isLast}
                       answers={flow.answers}
                       onEndSmartShoppingChat={onEndSmartShoppingChat}
+                      selectionAnchorId={flowSelectionAnchorId}
+                      onSelectionAnchorMount={scrollToProductSelectionAnchor}
                     />
                   )}
                   {message.type === "result" && renderedResult && !isSmartShoppingResult && renderedResult.metadata?.category !== "completed-exit" && (
@@ -161,6 +284,8 @@ export default function ChatScreen({
                 userId={userProfile.id}
                 favorites={favorites ?? []}
                 onToggleFavorite={onToggleFavorite ?? (() => {})}
+                onProductSelectionAnchorMount={scrollToProductSelectionAnchor}
+                onRecommendationResultContainerMount={correctRecommendationStartScroll}
                 renderTimeline={(model) => <ChatScreenSmartShoppingTimeline model={model} />}
               />
             )}
@@ -230,11 +355,12 @@ export function ChatScreenSmartShoppingTimeline({ model }: { model: SmartShoppin
       {timeline.map((timelineItem) => {
         if (isSmartShoppingConversationItem(timelineItem)) {
           const isAssistant = timelineItem.type === "assistant-text";
+          const selectionAnchorId = timelineItem.type === "user-action" && typeof timelineItem.metadata?.productSelectionAnchorId === "string" ? timelineItem.metadata.productSelectionAnchorId : undefined;
           const alternatives = timelineItem.metadata?.alternatives as ProductRecommendation[] | undefined;
           const sources = isAssistant && Array.isArray(timelineItem.metadata?.usedSources) ? timelineItem.metadata.usedSources as ProductQuestionSource[] : [];
           return (
             <React.Fragment key={timelineItem.id}>
-              <ChatConversationTurn sender={isAssistant ? "ai" : "user"} text={timelineItem.text} timestamp={timelineItem.timestamp}>{sources.length ? <ProductQuestionSources sources={sources} /> : null}</ChatConversationTurn>
+              <ChatConversationTurn sender={isAssistant ? "ai" : "user"} text={timelineItem.text} timestamp={timelineItem.timestamp} selectionAnchorId={selectionAnchorId} onSelectionAnchorMount={bindings.onProductSelectionAnchorMount}>{sources.length ? <ProductQuestionSources sources={sources} /> : null}</ChatConversationTurn>
               {alternatives?.length ? <ChatTimelineRow kind="wide"><SmartShoppingAlternativeCards items={alternatives} /></ChatTimelineRow> : null}
             </React.Fragment>
           );

@@ -6,7 +6,7 @@ export const CHAT_ASSISTANT_AVATAR_WIDTH_CLASS = "w-8";
 export const CHAT_ASSISTANT_RAIL_GAP_CLASS = "gap-3";
 
 /** One shared rail contract for condition turns and post-recommendation turns. */
-export default function ChatTimelineRow({ kind, children }: { kind: ChatTimelineRowKind; children: React.ReactNode }) {
+export default function ChatTimelineRow({ kind, children, selectionAnchorId, onSelectionAnchorMount }: { kind: ChatTimelineRowKind; children: React.ReactNode; selectionAnchorId?: string; onSelectionAnchorMount?: (anchorId: string, element: HTMLDivElement | null) => void }) {
   if (kind === "wide") {
     return (
       <div
@@ -28,12 +28,14 @@ export default function ChatTimelineRow({ kind, children }: { kind: ChatTimeline
   const alignment = kind === "user" ? "justify-end" : "justify-start";
   return (
     <div
+      ref={selectionAnchorId ? (element) => onSelectionAnchorMount?.(selectionAnchorId, element) : undefined}
       className={`col-span-full flex w-full min-w-0 max-w-none ${alignment}`}
       data-chat-timeline-row={kind}
       data-chat-rail-width="outer"
       data-chat-rail-track="shared"
       data-chat-conversation-row={kind}
       data-chat-layout-owner="chat-screen"
+      data-product-selection-anchor={selectionAnchorId}
     >
       {children}
     </div>

@@ -13,6 +13,15 @@ const getTimeString = () => {
   return `${date.getHours()}:${date.getMinutes().toString().padStart(2, "0")}`;
 };
 
+const SMART_SHOPPING_FLOW_IDS = new Set(["air-conditioner", "tv", "refrigerator", "vacuum"]);
+let recommendationStartAnchorSequence = 0;
+
+const getRecommendationStartAnchorId = (module: ChatFlowModule, flowId: string, answer: SubmittedFlowAnswer) => {
+  if (!SMART_SHOPPING_FLOW_IDS.has(module.id) || answer.displayValue !== "추천 시작") return undefined;
+  recommendationStartAnchorSequence += 1;
+  return `${flowId}-recommendation-start-${recommendationStartAnchorSequence}`;
+};
+
 const appendMessage = (
   state: FlowRuntimeState,
   message: Omit<ChatFlowMessage, "id" | "timestamp">,
@@ -175,6 +184,8 @@ export const submitFlowAnswer = (
   const nextStepId = getNextStepId(step, answer, currentState.answers);
   if (!nextStepId) return { ...currentState, error: `step '${step.id}'의 다음 step이 없습니다.` };
 
+  const recommendationStartAnchorId = getRecommendationStartAnchorId(module, currentState.flowId, answer);
+
   const checkpoint = {
     id: `${currentState.flowId}-checkpoint-${currentState.checkpoints.length + 1}-${step.id}`,
     answeredStepId: step.id,
@@ -196,7 +207,12 @@ export const submitFlowAnswer = (
         ? [...currentState.checkpoints, checkpoint]
         : currentState.checkpoints,
     },
-    { sender: "user", text: answer.displayValue, type: "text" },
+    {
+      sender: "user",
+      text: answer.displayValue,
+      type: "text",
+      metadata: recommendationStartAnchorId ? { productSelectionAnchorId: recommendationStartAnchorId } : undefined,
+    },
   );
 
   if (nextStepId === "$restart") return createInitialFlowState(module);
