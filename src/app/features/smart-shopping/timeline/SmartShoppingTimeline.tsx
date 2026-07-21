@@ -7,6 +7,7 @@ import PurchaseLinkAction from "../next-actions/PurchaseLinkAction";
 import ProductDetailActionBar from "../product-detail/ProductDetailActionBar";
 import ProductQuestionInput from "../product-detail/ProductQuestionInput";
 import OptimizedRecommendationList from "../recommendation/OptimizedRecommendationList";
+import SelectableRecommendationCard from "../recommendation/SelectableRecommendationCard";
 import NaverLowestPriceList from "../recommendation/NaverLowestPriceList";
 import { createDummyCatalogRecommendation } from "../recommendation/selectDummyNaverProducts";
 import ProductDetailView from "../recommendation/ProductDetailView";
@@ -65,6 +66,6 @@ export function SmartShoppingWideTimelineContent({ item, ...props }: SmartShoppi
   return <PurchaseGradeResultCard input={item.input} result={item.result} />;
 }
 
-export function SmartShoppingAlternativeCards({ items }: { items: ProductRecommendation[] }) {
-  return <div className="grid gap-2 sm:grid-cols-3" data-chat-content="alternative-products">{items.map((item) => <div key={item.product.id} className="rounded-lg border border-border bg-card p-3"><p className="text-xs font-black text-primary">{item.product.name}</p><p className="mt-1 text-[11px] text-muted-foreground">{item.product.brand} · {item.product.modelNumber}</p><p className="mt-2 text-xs font-black text-accent">적합도 {item.score}점</p><p className="mt-1 text-xs text-primary">{item.product.currentPrice.toLocaleString("ko-KR")}원</p></div>)}</div>;
+export function SmartShoppingAlternativeCards({ items, onSelect, isFavorite, onToggleFavorite }: { items: ProductRecommendation[]; onSelect: (item: ProductRecommendation) => void; isFavorite: (item: ProductRecommendation) => boolean; onToggleFavorite: (item: ProductRecommendation) => void }) {
+  return <div className="flex w-full min-w-0 flex-col gap-3" data-chat-content="alternative-products">{items.map((item) => <SelectableRecommendationCard key={item.product.id} recommendation={item} onSelect={onSelect} isFavorite={isFavorite(item)} onToggleFavorite={() => onToggleFavorite(item)} />)}</div>;
 }

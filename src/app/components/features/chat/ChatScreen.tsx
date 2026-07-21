@@ -357,7 +357,7 @@ export function ChatScreenSmartShoppingTimeline({ model }: { model: SmartShoppin
           return (
             <React.Fragment key={timelineItem.id}>
               <ChatConversationTurn sender={isAssistant ? "ai" : "user"} text={timelineItem.text} timestamp={timelineItem.timestamp} selectionAnchorId={selectionAnchorId} onSelectionAnchorMount={bindings.onProductSelectionAnchorMount}>{sources.length ? <ProductQuestionSources sources={sources} /> : null}</ChatConversationTurn>
-              {alternatives?.length ? <ChatTimelineRow kind="wide"><SmartShoppingAlternativeCards items={alternatives} /></ChatTimelineRow> : null}
+              {alternatives?.length ? <ChatTimelineRow kind="wide"><SmartShoppingAlternativeCards items={alternatives} onSelect={bindings.onSelectRecommendation} isFavorite={(recommendation) => bindings.isFavorite({ source: "internal", recommendation })} onToggleFavorite={(recommendation) => bindings.onToggleFavorite({ source: "internal", recommendation })} /></ChatTimelineRow> : null}
             </React.Fragment>
           );
         }
