@@ -6,7 +6,7 @@ import PriceAlertForm from "../next-actions/PriceAlertForm";
 import PurchaseLinkAction from "../next-actions/PurchaseLinkAction";
 import ProductDetailActionBar from "../product-detail/ProductDetailActionBar";
 import ProductQuestionInput from "../product-detail/ProductQuestionInput";
-import OptimizedRecommendationList from "../recommendation/OptimizedRecommendationList";
+import OptimizedRecommendationList, { OPTIMIZED_RECOMMENDATION_CARD_LAYOUT } from "../recommendation/OptimizedRecommendationList";
 import SelectableRecommendationCard from "../recommendation/SelectableRecommendationCard";
 import NaverLowestPriceList from "../recommendation/NaverLowestPriceList";
 import { createDummyCatalogRecommendation } from "../recommendation/selectDummyNaverProducts";
@@ -67,5 +67,5 @@ export function SmartShoppingWideTimelineContent({ item, ...props }: SmartShoppi
 }
 
 export function SmartShoppingAlternativeCards({ items, onSelect, isFavorite, onToggleFavorite }: { items: ProductRecommendation[]; onSelect: (item: ProductRecommendation) => void; isFavorite: (item: ProductRecommendation) => boolean; onToggleFavorite: (item: ProductRecommendation) => void }) {
-  return <div className="flex w-full min-w-0 flex-col gap-3" data-chat-content="alternative-products">{items.map((item) => <SelectableRecommendationCard key={item.product.id} recommendation={item} onSelect={onSelect} isFavorite={isFavorite(item)} onToggleFavorite={() => onToggleFavorite(item)} />)}</div>;
+  return <div className="grid w-max max-w-none gap-3" style={{ gridTemplateColumns: `repeat(2, ${OPTIMIZED_RECOMMENDATION_CARD_LAYOUT.cardWidth})`, minWidth: OPTIMIZED_RECOMMENDATION_CARD_LAYOUT.twoColumnMinWidth }} data-chat-content="alternative-products">{items.map((item) => <SelectableRecommendationCard key={item.product.id} recommendation={item} onSelect={onSelect} isFavorite={isFavorite(item)} onToggleFavorite={() => onToggleFavorite(item)} />)}</div>;
 }
