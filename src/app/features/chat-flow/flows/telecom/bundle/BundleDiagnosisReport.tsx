@@ -18,9 +18,9 @@ const companyTypeMap: Record<string, string> = {
 };
 
 const speedMap: Record<string, string> = {
-  "~200Mbps": "~200Mbps(일상 실속)",
-  "~1Gbps": "~1Gbps(초고속)",
-  "~10Gbps": "~10Gbps(기업급)",
+  "~100Mbps": "100Mbps (웹서핑·유튜브)",
+  "~500Mbps": "500Mbps (고화질 영상·게임)",
+  "~1Gbps": "1Gbps (대용량 다운로드·방송)",
 };
 
 const dataMap: Record<string, string> = {
