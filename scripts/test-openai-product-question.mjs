@@ -116,7 +116,7 @@ try {
     readFile("src/app/features/smart-shopping/product-detail/ProductQuestionSources.tsx", "utf8"),
   ]);
   assert.ok(clientSource.includes('fetch("/api/ai/product-question"') && !clientSource.includes("OPENAI_API_KEY"), "브라우저는 기존 서버 endpoint만 호출");
-  assert.ok(inputSource.includes('menuOpen ? "V" : ">"') && inputSource.includes('role="menuitemradio"') && inputSource.includes('event.key !== "Escape"'), "선택기 열림 표시·접근성·Escape 닫기 구현");
+  assert.ok(inputSource.includes('aria-expanded={menuOpen}') && inputSource.includes('<SidebarAccordionChevron isOpen={menuOpen} size={13} />') && inputSource.includes('role="menuitemradio"') && inputSource.includes('event.key !== "Escape"'), "선택기 셰브론 방향·접근성·Escape 닫기 구현");
   assert.match(inputSource, /onSourceModeChange\(mode\); setMenuOpen\(false\);/, "옵션 선택은 입력값을 건드리지 않고 메뉴만 닫음");
   assert.ok(viewSource.includes('useState<QuestionSourceMode>("auto")') && viewSource.includes('setQuestionSourceMode("auto")') && viewSource.includes("[category, selectedProductKey, session.sessionId, resetQuestionSourceMode]"), "기본값과 새 대화·상품·카테고리 리셋은 자동");
   assert.ok(viewSource.includes("sourceMode: submittedMode") && viewSource.includes("requestedMode: submittedMode") && viewSource.includes("questionScopeRef.current !== requestScope"), "제출 시 모드를 메시지별 캡처하고 stale 응답 차단");

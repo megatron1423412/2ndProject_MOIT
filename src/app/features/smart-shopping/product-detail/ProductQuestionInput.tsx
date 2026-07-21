@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Send } from "lucide-react";
+import SidebarAccordionChevron from "../../../components/features/chat/SidebarAccordionChevron";
 import { QUESTION_SOURCE_MODE_LABELS, QUESTION_SOURCE_MODES, type QuestionSourceMode } from "./questionSourceMode";
 
 interface Props {
@@ -57,8 +58,9 @@ export default function ProductQuestionInput({ isLoading, errorMessage, sourceMo
     <div className="rounded-lg border border-border bg-muted/20 p-3">
       <div className="flex items-center gap-2">
         <div ref={selectorRef} className="relative shrink-0">
-          <button ref={triggerRef} type="button" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="rounded-md border border-border bg-card px-2 py-1 text-xs font-black text-primary outline-none hover:bg-muted focus:ring-2 focus:ring-accent/40">
-            {menuOpen ? "V" : ">"} {QUESTION_SOURCE_MODE_LABELS[sourceMode]}
+          <button ref={triggerRef} type="button" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)} className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1 text-xs font-black text-primary outline-none hover:bg-muted focus:ring-2 focus:ring-accent/40">
+            <SidebarAccordionChevron isOpen={menuOpen} size={13} />
+            <span>{QUESTION_SOURCE_MODE_LABELS[sourceMode]}</span>
           </button>
           {menuOpen && (
             <div role="menu" aria-label="질문 출처 선택" className="absolute left-0 top-full z-30 mt-1 min-w-36 overflow-hidden rounded-lg border border-border bg-card p-1 shadow-lg">
