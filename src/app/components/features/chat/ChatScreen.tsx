@@ -65,6 +65,11 @@ export default function ChatScreen({
     shouldStickToBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 96;
   };
 
+  /* 🎨 [프론트엔드 수정 가능 Zone 1: 예외/에러 화면 UI]
+     - flex h-screen w-screen: 전체 중앙 정렬 방식
+     - bg-background / text-primary: 배경색 및 문구 색상
+     - 텍스트/경고 아이콘 추가 가능
+  */
   if (!item) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background text-primary">
@@ -84,6 +89,10 @@ export default function ChatScreen({
   };
 
   return (
+    /* 🎨 [프론트엔드 수정 가능 Zone 2: 전체 애플리케이션 프레임/레이아웃]
+       - bg-background / text-foreground: 챗봇 전체 테마 색상 설정
+       - flex h-screen w-screen: 화면 꽉 채움 레이아웃
+    */
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
       <ChatSidebar
         activeSubCategoryId={subCategoryId}
@@ -101,7 +110,16 @@ export default function ChatScreen({
           onToggleActionsCollapsed={() => setAreActionsCollapsed((value) => !value)}
         />
 
+        {/* 🎨 [프론트엔드 수정 가능 Zone 3: 대화 메인 영역 패딩 & 스크롤 영역]
+           - p-5: 대화창 내부 패딩 여백 (p-4, p-6 등으로 변경)
+           - overflow-y-auto: 스크롤 동작 속성
+        */}
         <main ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-5">
+          
+          {/* 🎨 [프론트엔드 수정 가능 Zone 4: 메시지 타임라인 컨테이너 (너비 및 간격)]
+             - max-w-4xl: 메시지 영역의 최대 너비 (max-w-3xl, max-w-5xl 등)
+             - gap-4: 메시지 카드/말풍선 간의 상하 간격 (gap-3, gap-5 등)
+          */}
           <div className="mx-auto grid w-full max-w-4xl grid-cols-[minmax(0,1fr)] gap-4" aria-live="polite" data-chat-timeline-root>
             {item.parentCategory === "appliances" && (
               <ChatConversationTurn sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} />
@@ -142,6 +160,10 @@ export default function ChatScreen({
                     />
                   )}
                   {message.type === "result" && renderedResult && !isSmartShoppingResult && renderedResult.metadata?.category !== "completed-exit" && (
+                    /* 🎨 [프론트엔드 수정 가능 Zone 5: 일반 진단 결과 카드 들여쓰기/너비]
+                       - pl-11: AI 메시지 로고 옆 결과 카드 들여쓰기 여백
+                       - w-full: 결과 카드 너비
+                    */
                     <div className="w-full self-start pl-11">
                       <DiagnosisResultCard result={renderedResult} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} onTimelineChange={() => setTimelineRevision((value) => value + 1)} userId={userProfile.id} />
                     </div>
@@ -162,6 +184,11 @@ export default function ChatScreen({
                 renderTimeline={(model) => <ChatScreenSmartShoppingTimeline model={model} />}
               />
             )}
+            
+            {/* 🎨 [프론트엔드 수정 가능 Zone 6: 에러 메시지 바 경고창 UI]
+               - rounded-lg / border-destructive/30 / bg-destructive/10 / text-destructive
+               - 에러 발생 시 노출되는 빨간색 경고 상자 스타일링
+            */}
             {flow.error && (
               <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm font-bold text-destructive">
                 {flow.error}
@@ -171,6 +198,10 @@ export default function ChatScreen({
           </div>
         </main>
 
+        {/* 🎨 [프론트엔드 수정 가능 Zone 7: 하단 입력창(Footer) 레이아웃 & 테두리]
+           - border-t border-border bg-card p-4: 하단 고정 입력 영역 스타일
+           - max-w-4xl: 입력 영역 최대 너비
+        */}
         {/* 입력형 단계(number-input, text-input)인 경우에만 화면 하단에 입력창을 노출 */}
         {flow.currentStep && ["number-input", "text-input"].includes(flow.currentStep.type) && (
           <footer className="flex-shrink-0 border-t border-border bg-card p-4">
@@ -204,6 +235,11 @@ export default function ChatScreen({
 
       </div>
 
+      {/* 🎨 [프론트엔드 수정 가능 Zone 8: 플로팅 알림(Toast Notice) 팝업 UI]
+         - fixed bottom-5 left-1/2 -translate-x-1/2: 화면 하단 중앙 정렬 위치
+         - rounded-lg / border / bg-card / shadow-lg: 토스트 팝업 그림자 및 카드 모양
+         - text-sm / font-bold / text-primary: 토스트 글자 스타일
+      */}
       {notice && (
         <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-bold text-primary shadow-lg">
           {notice}
@@ -218,6 +254,10 @@ export function ChatScreenSmartShoppingTimeline({ model }: { model: SmartShoppin
   const { timeline, showClosestOverBudget, onShowClosestOverBudget, ...bindings } = model;
   return (
     <>
+      {/* 🎨 [프론트엔드 수정 가능 Zone 9: 스마트 쇼핑 '예산 초과 상품 보기' 버튼 UI]
+         - rounded-lg / border-accent / bg-card / text-accent / shadow-sm
+         - hover:bg-secondary / focus:ring-2: 버튼 반응 효과 및 색상
+      */}
       {showClosestOverBudget && (
         <ChatTimelineRow kind="wide">
           <button type="button" onClick={onShowClosestOverBudget} className="rounded-lg border border-accent bg-card px-4 py-2.5 text-sm font-black text-accent shadow-sm transition hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-accent/40">

@@ -1,6 +1,7 @@
 import React from "react";
 import type { FlowResult } from "../../../core/types";
 import PurchaseGradeShareButton from "../../../../smart-shopping/share/PurchaseGradeShareButton";
+import { SK_INTERNET_PLANS, KT_INTERNET_PLANS, LGU_INTERNET_PLANS, HELLOVISION_INTERNET_PLANS, SKYLIFE_INTERNET_PLANS, KTHCN_INTERNET_PLANS, DLIVE_INTERNET_PLANS } from "./mockData";
 
 interface InternetGradeReportProps {
   result: FlowResult;
@@ -34,8 +35,18 @@ export default function InternetGradeReport({ result, onEndChat }: InternetGrade
     ? manualSelectedPlan
     : (selectedRecommendedPlan || manualSelectedPlan || "rec-internet-1");
 
+  const foundPlan = SK_INTERNET_PLANS.find(p => p.id === finalPlan) ||
+                    KT_INTERNET_PLANS.find(p => p.id === finalPlan) ||
+                    LGU_INTERNET_PLANS.find(p => p.id === finalPlan) ||
+                    HELLOVISION_INTERNET_PLANS.find(p => p.id === finalPlan) ||
+                    SKYLIFE_INTERNET_PLANS.find(p => p.id === finalPlan) ||
+                    KTHCN_INTERNET_PLANS.find(p => p.id === finalPlan) ||
+                    DLIVE_INTERNET_PLANS.find(p => p.id === finalPlan);
+
   let selectedSpeed = 500; // 기본값 500Mbps
-  if (finalPlan === "rec-internet-2" || finalPlan === "plan-internet-3") {
+  if (foundPlan) {
+    selectedSpeed = foundPlan.speedMbps;
+  } else if (finalPlan === "rec-internet-2" || finalPlan === "plan-internet-3") {
     selectedSpeed = 1000;
   } else if (finalPlan === "plan-internet-1") {
     selectedSpeed = 100;
