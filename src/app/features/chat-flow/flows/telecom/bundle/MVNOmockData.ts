@@ -1,4 +1,9 @@
 // src/app/features/chat-flow/flows/telecom/bundle/MVNOmockData.ts
+// bundle/
+// ├── mockData.ts      # 3사 결합 데이터
+// └── MVNOmockData.ts  # 알뜰 결합 데이터
+
+
 
 // ----------------------------------------------------
 // 진단 결과 메타 데이터 (알뜰 결합 vs 이야기 3사 연동 결합)

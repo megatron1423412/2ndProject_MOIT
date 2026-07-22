@@ -1,4 +1,8 @@
 // src/app/features/chat-flow/flows/telecom/bundle/mockData.ts
+// bundle/
+// ├── mockData.ts      # 3사 결합 데이터
+// └── MVNOmockData.ts  # 알뜰 결합 데이터
+
 
 export const BUNDLE_MOCK_RESULT = {
   title: "결합상품 요금 비교·추천 솔루션",

@@ -97,10 +97,32 @@ function resolveRecommendedBundlePlans(
   answerPrefix: string,
   isMobileOnly: boolean = false
 ): BundlePlan[] {
-  const carrierVal =
+  let carrierVal =
     (answers[`${namespace}.${answerPrefix}Carrier`] as string) ||
+    (answers[`${namespace}.${answerPrefix}MobileCarrier`] as string) ||
+    (answers[`${namespace}.allCarrier`] as string) ||
+    (answers[`${namespace}.diffCarrier`] as string) ||
+    (answers[`${namespace}.diffMobileCarrier`] as string) ||
+    (answers[`${namespace}.ptaCarrier`] as string) ||
+    (answers[`${namespace}.ptbCarrier`] as string) ||
+    (answers[`${namespace}.ptcCarrier`] as string) ||
+    (answers[`${namespace}.newACarrier`] as string) ||
+    (answers[`${namespace}.newBCarrier`] as string) ||
+    (answers[`${namespace}.mobileCarrier`] as string) ||
     (answers[`${namespace}.commonCarrier`] as string) ||
     "";
+
+  if (!carrierVal) {
+    for (const key of Object.keys(answers)) {
+      if (key.endsWith("Carrier")) {
+        const val = answers[key];
+        if (typeof val === "string" && val.trim() !== "") {
+          carrierVal = val;
+          break;
+        }
+      }
+    }
+  }
 
   const feeVal =
     answers[`${namespace}.${answerPrefix}Fee`] ??
@@ -111,6 +133,23 @@ function resolveRecommendedBundlePlans(
   const currentFee = Number(feeVal) || 0;
   const lowerCarrier = carrierVal.toLowerCase();
 
+  let targetCarrier = "";
+  if (lowerCarrier.includes("skt") || lowerCarrier.includes("sk")) {
+    targetCarrier = "SK";
+  } else if (lowerCarrier.includes("kt")) {
+    targetCarrier = "KT";
+  } else if (lowerCarrier.includes("lg") || lowerCarrier.includes("u+")) {
+    targetCarrier = "LGU";
+  } else if (
+    lowerCarrier.includes("알뜰") ||
+    lowerCarrier.includes("스카이") ||
+    lowerCarrier.includes("skylife") ||
+    lowerCarrier.includes("hello") ||
+    lowerCarrier.includes("헬로")
+  ) {
+    targetCarrier = "SKYLIFE";
+  }
+
   // 모바일 관련 질문인 경우 기존 로직 수행
   const isMobileQuery =
     isMobileOnly ||
@@ -119,15 +158,94 @@ function resolveRecommendedBundlePlans(
     ["all", "pta", "ptb", "ptc", "diff", "newA", "newB"].includes(answerPrefix);
 
   if (isMobileQuery) {
-    let targetCarrier = "";
-    if (carrierVal.includes("SK")) {
-      targetCarrier = "SK";
-    } else if (carrierVal.includes("KT")) {
-      targetCarrier = "KT";
-    } else if (carrierVal.includes("LG") || carrierVal.includes("U+")) {
-      targetCarrier = "LGU";
-    } else if (carrierVal.includes("알뜰") || carrierVal.includes("스카이")) {
-      targetCarrier = "SKYLIFE";
+    const isMvno =
+      lowerCarrier.includes("알뜰") ||
+      lowerCarrier.includes("스카이") ||
+      lowerCarrier.includes("mvno") ||
+      lowerCarrier.includes("헬로") ||
+      lowerCarrier.includes("이야기") ||
+      lowerCarrier.includes("케이블") ||
+      (!carrierVal && isMobileQuery);
+
+    if (isMvno) {
+      // 🟢 MVNOmockData.ts에서 알뜰 모바일 데이터 추출
+      const skyPlans: BundlePlan[] = mockMvnoMobilePlans.map((p) => ({
+        id: p.id,
+        name: `[KT 스카이라이프] ${p.mobilePlanName}`,
+        price: p.price,
+        carrier: "SKYLIFE",
+        services: ["mobile"],
+      }));
+
+      const eyagiSktPlans: BundlePlan[] = mockEyagiSktMobilePlans.map((p) => ({
+        id: p.id,
+        name: `[이야기모바일(SKT)] ${p.mobilePlanName}`,
+        price: p.price,
+        carrier: "SKYLIFE",
+        services: ["mobile"],
+      }));
+
+      const eyagiLguPlans: BundlePlan[] = mockEyagiLguMobilePlans.map((p) => ({
+        id: p.id,
+        name: `[이야기모바일(LGU+)] ${p.mobilePlanName}`,
+        price: p.price,
+        carrier: "SKYLIFE",
+        services: ["mobile"],
+      }));
+
+      const helloSeen = new Set<string>();
+      const helloPlans: BundlePlan[] = [];
+      mockLgHelloBundles.forEach((b, idx) => {
+        if (!helloSeen.has(b.mobilePlanName)) {
+          helloSeen.add(b.mobilePlanName);
+          helloPlans.push({
+            id: `hello-mob-${idx}`,
+            name: `[LG 헬로비전] ${b.mobilePlanName}`,
+            price: b.mobileFee,
+            carrier: "SKYLIFE",
+            services: ["mobile"],
+          });
+        }
+      });
+
+      // 🟢 1. 4대 알뜰 통신사 브랜드별 그룹화 (MVNOmockData.ts 기반)
+      const brandGroups: { [brand: string]: BundlePlan[] } = {
+        hello: helloPlans,
+        sky: skyPlans,
+        eyagi_skt: eyagiSktPlans,
+        eyagi_lgu: eyagiLguPlans,
+      };
+
+      // 🟢 2. 브랜드별 ±10,000원 필터링 및 각 그룹 내 최저가 순 정렬
+      const brandKeys = ["hello", "sky", "eyagi_skt", "eyagi_lgu"];
+      brandKeys.forEach((b) => {
+        let list = brandGroups[b] || [];
+        if (currentFee > 0) {
+          const range = list.filter((p) => Math.abs(p.price - currentFee) <= 10000);
+          if (range.length > 0) list = range;
+        }
+        list.sort((a, b) => a.price - b.price);
+        brandGroups[b] = list;
+      });
+
+      // 🟢 3. 4개 알뜰 통신사 브랜드가 골고루 출력되도록 라운드별로 1개씩 수집 후, 각 라운드(4개 브랜드 세트) 내에서 최저가 순으로 정렬
+      const shuffledBrandKeys = [...brandKeys].sort(() => 0.5 - Math.random());
+      const interleaved: BundlePlan[] = [];
+      const maxLength = Math.max(...Object.values(brandGroups).map((g) => g.length), 0);
+
+      for (let i = 0; i < maxLength; i++) {
+        const roundBatch: BundlePlan[] = [];
+        shuffledBrandKeys.forEach((b) => {
+          if (brandGroups[b] && brandGroups[b][i]) {
+            roundBatch.push(brandGroups[b][i]);
+          }
+        });
+        // 🟢 4. 라운드별(4대 브랜드 세트) 수집된 알뜰 요금제들을 최저가 순으로 정렬하여 추가
+        roundBatch.sort((a, b) => a.price - b.price);
+        interleaved.push(...roundBatch);
+      }
+
+      return interleaved;
     }
 
     let basePlans = apiPlansCache && apiPlansCache.length > 0 ? apiPlansCache : mockBundlePlans;
@@ -478,7 +596,7 @@ function resolveRecommendedBundlePlans(
   const eyagiSktHomePlans: BundlePlan[] = mockSktHomeBundles.map((h) => ({
     id: `eyagi-skt-${h.id}`,
     carrier: "SKYLIFE",
-    name: `[이야기모바일] ${h.internetName} + ${h.tvName}`,
+    name: `[이야기모바일(SKT)] ${h.internetName} + ${h.tvName}`,
     price: h.bundleMonthlyFee,
     services: ["internet", "iptv"],
   }));
@@ -486,12 +604,132 @@ function resolveRecommendedBundlePlans(
   const eyagiLguHomePlans: BundlePlan[] = mockLguHomeBundles.map((h) => ({
     id: `eyagi-lgu-${h.id}`,
     carrier: "SKYLIFE",
-    name: `[이야기모바일] ${h.internetName} + ${h.tvName}`,
+    name: `[이야기모바일(LGU+)] ${h.internetName} + ${h.tvName}`,
     price: h.bundleMonthlyFee,
     services: ["internet", "iptv"],
   }));
 
   const mvnoHomePlans = [...skyHomePlans, ...helloHomePlans, ...eyagiSktHomePlans, ...eyagiLguHomePlans];
+
+  // 🟢 알뜰폰 선택 시 이전 모바일 요금제 선택 단계에서 선택한 실제 요금제 ID (control value 제외) 감지
+  let selectedMvnoBrand = "";
+
+  const isTargetPlanId = (val: unknown): val is string => {
+    if (typeof val !== "string") return false;
+    const v = val.trim();
+    if (!v || v === "direct-choose" || v === "none-of-them") return false;
+    return true;
+  };
+
+  const candidatePlanKeys = [
+    `${namespace}.allPlanCheckList`,
+    `${namespace}.allPlanCheck`,
+    `${namespace}.diffPlanCheckList`,
+    `${namespace}.diffPlanCheck`,
+    `${namespace}.ptaPlanCheckList`,
+    `${namespace}.ptaPlanCheck`,
+    `${namespace}.ptbPlanCheckList`,
+    `${namespace}.ptbPlanCheck`,
+    `${namespace}.ptcPlanCheckList`,
+    `${namespace}.ptcPlanCheck`,
+    `${namespace}.mobilePlanCheckList`,
+    `${namespace}.mobilePlanCheck`,
+    `${namespace}.manualSelectedPlan`,
+    `${namespace}.selectedRecommendedPlan`,
+  ];
+
+  let selectedPlanId = "";
+  for (const k of candidatePlanKeys) {
+    const val = answers[k];
+    if (isTargetPlanId(val)) {
+      selectedPlanId = val;
+      break;
+    }
+  }
+
+  if (!selectedPlanId) {
+    for (const key of Object.keys(answers)) {
+      const val = answers[key];
+      if (isTargetPlanId(val)) {
+        selectedPlanId = val;
+        if (
+          val.startsWith("mvno-spec-") ||
+          val.includes("이야기") ||
+          val.includes("스카이") ||
+          val.includes("헬로")
+        ) {
+          break;
+        }
+      }
+    }
+  }
+
+  if (selectedPlanId) {
+    const str = selectedPlanId.toLowerCase();
+    if (
+      str.startsWith("sky-") ||
+      str.includes("스카이라이프") ||
+      str.includes("skylife") ||
+      str.includes("스카이")
+    ) {
+      selectedMvnoBrand = "sky";
+    } else if (
+      str.startsWith("hello-") ||
+      str.includes("헬로비전") ||
+      str.includes("hellovision") ||
+      str.includes("헬로")
+    ) {
+      selectedMvnoBrand = "hello";
+    } else if (
+      str.startsWith("eyagi-skt-") ||
+      str.includes("이야기모바일(skt)") ||
+      str.includes("이야기(skt)") ||
+      str.includes("이야기 skt")
+    ) {
+      selectedMvnoBrand = "eyagi_skt";
+    } else if (
+      str.startsWith("eyagi-lgu-") ||
+      str.includes("이야기모바일(lgu+)") ||
+      str.includes("이야기(lgu+)") ||
+      str.includes("이야기 lgu+")
+    ) {
+      selectedMvnoBrand = "eyagi_lgu";
+    } else if (str.includes("이야기") || str.startsWith("eyagi-")) {
+      if (str.includes("lgu") || str.includes("lg") || str.includes("u+")) {
+        selectedMvnoBrand = "eyagi_lgu";
+      } else {
+        selectedMvnoBrand = "eyagi_skt";
+      }
+    }
+  }
+
+  // 🟢 selectedPlanId로 감지되지 않은 경우, answers 전체 검색을 통해 선택된 MVNO 브랜드 감지
+  if (!selectedMvnoBrand) {
+    for (const key of Object.keys(answers)) {
+      const val = String(answers[key] || "").toLowerCase();
+      if (!val || val === "direct-choose" || val === "none-of-them") continue;
+      if (val.startsWith("sky-") || val.includes("스카이라이프") || val.includes("스카이")) {
+        selectedMvnoBrand = "sky";
+        break;
+      } else if (val.startsWith("hello-") || val.includes("헬로비전") || val.includes("헬로")) {
+        selectedMvnoBrand = "hello";
+        break;
+      } else if (val.startsWith("eyagi-skt-") || val.includes("이야기모바일(skt)") || val.includes("이야기 skt")) {
+        selectedMvnoBrand = "eyagi_skt";
+        break;
+      } else if (val.startsWith("eyagi-lgu-") || val.includes("이야기모바일(lgu+)") || val.includes("이야기 lgu+")) {
+        selectedMvnoBrand = "eyagi_lgu";
+        break;
+      } else if (val.includes("이야기")) {
+        if (val.includes("lgu") || val.includes("lg") || val.includes("u+")) {
+          selectedMvnoBrand = "eyagi_lgu";
+        } else {
+          selectedMvnoBrand = "eyagi_skt";
+        }
+        break;
+      }
+    }
+  }
 
   if (
     lowerCarrier.includes("알뜰") ||
@@ -501,7 +739,19 @@ function resolveRecommendedBundlePlans(
     lowerCarrier.includes("헬로") ||
     lowerCarrier.includes("이야기")
   ) {
-    homePlans = mvnoHomePlans;
+    if (selectedMvnoBrand === "sky") {
+      homePlans = skyHomePlans;
+    } else if (selectedMvnoBrand === "hello") {
+      homePlans = helloHomePlans;
+    } else if (selectedMvnoBrand === "eyagi_skt") {
+      homePlans = eyagiSktHomePlans;
+    } else if (selectedMvnoBrand === "eyagi_lgu") {
+      homePlans = eyagiLguHomePlans;
+    } else if (selectedMvnoBrand === "eyagi") {
+      homePlans = [...eyagiSktHomePlans, ...eyagiLguHomePlans];
+    } else {
+      homePlans = mvnoHomePlans;
+    }
   } else if (lowerCarrier.includes("sk") || lowerCarrier.includes("b tv")) {
     homePlans = sktHomePlans;
   } else if (lowerCarrier.includes("kt")) {
@@ -589,7 +839,13 @@ function PlanCheckMethod(args: {
     type: "single-choice",
     message: args.message,
     answerKey: args.answerKey,
-    options: [],
+    options: [
+      {
+        value: "direct-choose",
+        label: "직접 고를래요(리스트 보기)",
+        next: listStepId,
+      },
+    ],
     optionsResolver: (answers) => {
       const isMobile = !!args.isMobile;
       const plans = resolveRecommendedBundlePlans(answers, args.answerPrefix, isMobile);
@@ -649,18 +905,22 @@ function PlanCheckMethod(args: {
       // 입력 금액 기준 ±10,000원 범위 이내 필터링
       let rangePlans = plans;
       if (currentFee > 0) {
-        rangePlans = plans.filter((p) => Math.abs(p.price - currentFee) <= 10000);
+        const filtered = plans.filter((p) => Math.abs(p.price - currentFee) <= 10000);
+        if (filtered.length > 0) {
+          rangePlans = filtered;
+        }
       }
 
-      if (rangePlans.length === 0) {
-        rangePlans = plans;
+      // 모바일 요금제인 경우 4개 알뜰 브랜드가 골고루 구성된 최저가순 목록을 유지하여 상위 10개 추출
+      let displayPlans = rangePlans;
+      if (args.isMobile) {
+        displayPlans = rangePlans.slice(0, 10);
+      } else {
+        displayPlans =
+          rangePlans.length > 10
+            ? [...rangePlans].sort(() => 0.5 - Math.random()).slice(0, 10)
+            : rangePlans;
       }
-
-      // 통신사/상품별 랜덤 10개 정도 추출
-      const displayPlans =
-        rangePlans.length > 10
-          ? [...rangePlans].sort(() => 0.5 - Math.random()).slice(0, 10)
-          : rangePlans;
 
       if (displayPlans.length === 0) {
         return [
@@ -865,8 +1125,9 @@ function buildInternetFlow(args: {
   isCombo: boolean;
   nextForNoPenalty: string;
   nextForPenalty: string;
+  skipCarrierSelect?: boolean;
 }): FlowStep[] {
-  const { prefix, answerPrefix, isCombo, nextForNoPenalty, nextForPenalty } = args;
+  const { prefix, answerPrefix, isCombo, nextForNoPenalty, nextForPenalty, skipCarrierSelect } = args;
 
   const carrierOptions = isCombo
     ? [
@@ -906,14 +1167,20 @@ function buildInternetFlow(args: {
     ? "유선 상품의 예상 위약금 금액을 입력해 주세요."
     : "인터넷의 예상 위약금 금액을 입력해 주세요.";
 
-  return [
-    CarrierSelect({
-      id: `${prefix}1`,
-      message: carrierMessage,
-      answerKey: `${namespace}.${answerPrefix}Carrier`,
-      options: carrierOptions,
-      next: `${prefix}2`,
-    }),
+  const steps: FlowStep[] = [];
+  if (!skipCarrierSelect) {
+    steps.push(
+      CarrierSelect({
+        id: `${prefix}1`,
+        message: carrierMessage,
+        answerKey: `${namespace}.${answerPrefix}Carrier`,
+        options: carrierOptions,
+        next: `${prefix}2`,
+      })
+    );
+  }
+
+  steps.push(
     MonthlyFeeInput({
       id: `${prefix}2`,
       message: feeMessage,
@@ -949,8 +1216,10 @@ function buildInternetFlow(args: {
       message: penaltyInputMessage,
       answerKey: `${namespace}.${answerPrefix}Penalty`,
       next: nextForPenalty,
-    }),
-  ];
+    })
+  );
+
+  return steps;
 }
 
 function buildTvFlow(args: {
@@ -1412,8 +1681,18 @@ const steps: FlowStep[] = [
   ...buildMobileFlow({
     prefix: "Q_ALL_M",
     answerPrefix: "all",
+    nextForNoPenalty: "Q_ALL_I2",
+    nextForPenalty: "Q_ALL_I2",
+  }),
+
+  // 전부 같아요 유선(인터넷+TV) 입력 6단계
+  ...buildInternetFlow({
+    prefix: "Q_ALL_I",
+    answerPrefix: "allCombo",
+    isCombo: true,
     nextForNoPenalty: "Q_P2_1",
     nextForPenalty: "Q_P2_1",
+    skipCarrierSelect: true,
   }),
 
   // 🟡 [일부만 같아요 패스]
@@ -1703,7 +1982,13 @@ const steps: FlowStep[] = [
     type: "single-choice",
     message: "고객님의 조건을 분석하여 선정한 최적의 추천 요금제 리스트입니다.",
     answerKey: `${namespace}.selectedRecommendedPlan`,
-    options: [],
+    options: [
+      {
+        value: "direct-choose",
+        label: "직접 고를래요 (전체 리스트 보기)",
+        next: "bundle-all-plans-select",
+      },
+    ],
     optionsResolver: (answers) => {
       const companyType = getAnswerValue(answers, "desiredCompanyType", "any");
 

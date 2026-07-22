@@ -2,8 +2,149 @@
 
 import type { FlowResult } from "../../../core/types";
 import { createTelecomMockResult } from "../../../shared/telecom/resultHelpers";
-import { BUNDLE_MOCK_RESULT, mockBundlePlans } from "./mockData";
+import { BUNDLE_MOCK_RESULT, mockBundlePlans, MOCK_PLAN_COMBINATIONS } from "./mockData";
 import { apiPlansCache } from "./flow";
+import {
+  mockMvnoMobilePlans,
+  mockMvnoHomeBundles,
+  mockLgHelloBundles,
+  mockEyagiSktMobilePlans,
+  mockSktHomeBundles,
+  mockEyagiLguMobilePlans,
+  mockLguHomeBundles,
+} from "./MVNOmockData";
+
+function resolveSelectedBundlePlan(chosenPlanId: string) {
+  if (!chosenPlanId) return null;
+
+  // 1. LG HelloVision check
+  const helloItem = mockLgHelloBundles.find((b) => b.id === chosenPlanId);
+  if (helloItem) {
+    return {
+      id: helloItem.id,
+      name: `[LG 헬로비전] ${helloItem.mobilePlanName} + ${helloItem.internetName}`,
+      price: helloItem.totalMonthlyFee,
+      carrier: "LG 헬로비전",
+      mobilePlan: helloItem.mobilePlanName,
+      internetPlan: helloItem.internetName,
+      tvPlan: helloItem.tvName,
+      isPart2Selected: true,
+    };
+  }
+
+  // 2. Combo ID check with underscore (e.g. mobId_homeId)
+  if (chosenPlanId.includes("_")) {
+    const parts = chosenPlanId.split("_");
+    const mobId = parts[0];
+    const homeId = parts[1];
+
+    // SkyLife check
+    const skyMob = mockMvnoMobilePlans.find((m) => m.id === mobId);
+    const skyHome = mockMvnoHomeBundles.find((h) => h.id === homeId);
+    if (skyMob && skyHome) {
+      return {
+        id: chosenPlanId,
+        name: `[KT 스카이라이프] ${skyMob.mobilePlanName} + ${skyHome.internetName}`,
+        price: skyMob.price + skyHome.bundleMonthlyFee,
+        carrier: "KT 스카이라이프",
+        mobilePlan: skyMob.mobilePlanName,
+        internetPlan: skyHome.internetName,
+        tvPlan: skyHome.tvName,
+        isPart2Selected: true,
+      };
+    }
+
+    // Eyagi SKT check
+    const eyagiSktMob = mockEyagiSktMobilePlans.find((m) => m.id === mobId);
+    const sktHome = mockSktHomeBundles.find((h) => h.id === `skt-home-${homeId}` || h.id === homeId);
+    if (eyagiSktMob && sktHome) {
+      const discount = 4400;
+      return {
+        id: chosenPlanId,
+        name: `[이야기모바일(SKT)] ${eyagiSktMob.mobilePlanName} + ${sktHome.internetName}`,
+        price: eyagiSktMob.price + sktHome.bundleMonthlyFee - discount,
+        carrier: "이야기모바일(SKT)",
+        mobilePlan: eyagiSktMob.mobilePlanName,
+        internetPlan: sktHome.internetName,
+        tvPlan: sktHome.tvName,
+        isPart2Selected: true,
+      };
+    }
+
+    // Eyagi LGU+ check
+    const eyagiLguMob = mockEyagiLguMobilePlans.find((m) => m.id === mobId);
+    const lguHome = mockLguHomeBundles.find((h) => h.id === `lgu-home-${homeId}` || h.id === homeId);
+    if (eyagiLguMob && lguHome) {
+      return {
+        id: chosenPlanId,
+        name: `[이야기모바일(LGU+)] ${eyagiLguMob.mobilePlanName} + ${lguHome.internetName}`,
+        price: eyagiLguMob.price + lguHome.bundleMonthlyFee,
+        carrier: "이야기모바일(LGU+)",
+        mobilePlan: eyagiLguMob.mobilePlanName,
+        internetPlan: lguHome.internetName,
+        tvPlan: lguHome.tvName,
+        isPart2Selected: true,
+      };
+    }
+  }
+
+  // 3. MOCK_PLAN_COMBINATIONS check
+  const combo = MOCK_PLAN_COMBINATIONS.find((c) => c.id === chosenPlanId);
+  if (combo) {
+    const mobilePlan = combo.mobilePlan.replace(/\s*\([\d,]+원\)/g, "").trim();
+    const tvPlan = combo.tvPlan
+      .replace(/\s*\(인터넷\+TV 결합:\s*[\d,]+원\)/g, "")
+      .replace(/\s*\(인터넷결합\)/g, "")
+      .replace(/\s*\([\d,]+원\)/g, "")
+      .trim();
+    return {
+      id: combo.id,
+      name: `[${combo.carrier}] ${mobilePlan} + ${combo.internetPlan}`,
+      price: combo.totalPrice,
+      carrier: combo.carrier,
+      mobilePlan,
+      internetPlan: combo.internetPlan,
+      tvPlan,
+      isPart2Selected: true,
+    };
+  }
+
+  // 4. Check label format if string option label was stored
+  if (chosenPlanId.includes("모바일:") && chosenPlanId.includes("인터넷+TV:")) {
+    const carrierMatch = chosenPlanId.match(/\[(.*?)\]/);
+    const carrier = carrierMatch ? carrierMatch[1] : "추천 통신사";
+    const mobMatch = chosenPlanId.match(/모바일:\s*([^|]+)/);
+    const homeMatch = chosenPlanId.match(/인터넷\+TV:\s*([^\(]+)/);
+    const priceMatch = chosenPlanId.match(/월\s*([\d,]+)원/);
+
+    const mobilePlan = mobMatch ? mobMatch[1].trim() : "맞춤 모바일 요금제";
+    let internetPlan = "초고속 인터넷";
+    let tvPlan = "IPTV 서비스";
+    if (homeMatch) {
+      const parts = homeMatch[1].split("+");
+      if (parts.length >= 2) {
+        internetPlan = parts[0].trim();
+        tvPlan = parts.slice(1).join("+").trim();
+      } else {
+        internetPlan = homeMatch[1].trim();
+      }
+    }
+    const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, ""), 10) : 55000;
+
+    return {
+      id: chosenPlanId,
+      name: `[${carrier}] ${mobilePlan} + ${internetPlan}`,
+      price,
+      carrier,
+      mobilePlan,
+      internetPlan,
+      tvPlan,
+      isPart2Selected: true,
+    };
+  }
+
+  return null;
+}
 
 export const buildBundleResult = (answers: Record<string, any>): FlowResult => {
   const finalAnswers = answers;
@@ -151,12 +292,20 @@ export const buildBundleResult = (answers: Record<string, any>): FlowResult => {
 
   const chosenPlanId = finalAnswers["bundle.selectedRecommendedPlan"] || finalAnswers["bundle.manualSelectedPlan"];
   if (chosenPlanId) {
-    const allAvailable = apiPlansCache && apiPlansCache.length > 0 ? apiPlansCache : mockBundlePlans;
-    const found = allAvailable.find((p) => p.id === chosenPlanId) || mockBundlePlans.find((p) => p.id === chosenPlanId);
-    if (found) {
-      selectedPlan = found;
-      if (found.carrier) {
-        recommendedCarrier = found.carrier;
+    const resolved = resolveSelectedBundlePlan(chosenPlanId);
+    if (resolved) {
+      selectedPlan = resolved;
+      if (resolved.carrier) {
+        recommendedCarrier = resolved.carrier;
+      }
+    } else {
+      const allAvailable = apiPlansCache && apiPlansCache.length > 0 ? apiPlansCache : mockBundlePlans;
+      const found = allAvailable.find((p) => p.id === chosenPlanId) || mockBundlePlans.find((p) => p.id === chosenPlanId);
+      if (found) {
+        selectedPlan = found;
+        if (found.carrier) {
+          recommendedCarrier = found.carrier;
+        }
       }
     }
   }
@@ -201,6 +350,7 @@ export const buildBundleResult = (answers: Record<string, any>): FlowResult => {
       knowPenalty,
       selectedPlan,
       recommendedCarrier,
+      chosenPlanId,
     },
   };
 };

@@ -204,7 +204,40 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
   const selectedPlanName = selectedPlan.name || "맞춤 추천 결합 요금제";
   const selectedPrice = selectedPlan.price || 55000;
   const recommendedCarrier = metadata.recommendedCarrier || "SK";
-  const recommendedCarrierLabel = recommendedCarrier === "SKYLIFE" ? "스카이라이프" : `${recommendedCarrier}브로드밴드`;
+  const getCarrierLabel = (carrier: string) => {
+    const c = (carrier || "").trim().toLowerCase();
+    if (c.includes("헬로비전") || c.includes("hello")) return "LG 헬로비전";
+    if (c.includes("스카이라이프") || c.includes("skylife")) return "KT 스카이라이프";
+    if (c.includes("이야기")) return carrier;
+    if (c.includes("skt") || c.includes("sk")) return "SKT";
+    if (c.includes("lgu") || c.includes("lg u") || c.includes("lg")) return "LGU+";
+    if (c.includes("kt")) return "KT";
+    return carrier;
+  };
+  const recommendedCarrierLabel = getCarrierLabel(recommendedCarrier);
+
+  const getCarrierLinkUrl = (carrierName: string) => {
+    const c = (carrierName || "").trim().toLowerCase();
+    if (c.includes("헬로비전") || c.includes("hello")) {
+      return "https://www.lghellovision.net/product/internetTvCombine/internetTvPriceList.do";
+    }
+    if (c.includes("스카이라이프") || c.includes("skylife")) {
+      return "https://www.skylife.co.kr/product/combi/Main";
+    }
+    if (c.includes("이야기")) {
+      return "https://www.eyagi.co.kr/shop/service/internet-tv-combine.php";
+    }
+    if (c.includes("lgu") || c.includes("lg u") || c.includes("lg")) {
+      return "https://www.lguplus.com/internet-iptv/internet-iptv-package/plan";
+    }
+    if (c.includes("kt")) {
+      return "https://www.kt.com/";
+    }
+    if (c.includes("skt") || c.includes("sk")) {
+      return "https://www.tworld.co.kr/web/product/wire/submain";
+    }
+    return "https://www.kt.com/";
+  };
 
   const desiredCompanyTypeLabel = companyTypeMap[answers["bundle.desiredCompanyType"] as string] || "상관없음";
   const desiredSpeedLabel = speedMap[answers["bundle.desiredSpeed"] as string] || "일반 가정용(500M)";
@@ -676,7 +709,7 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
       {/* 4. 부가서비스 링크 버튼 */}
       <div className="flex flex-col gap-2.5">
         <a
-          href="https://www.moit.co.kr"
+          href={getCarrierLinkUrl(recommendedCarrier)}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 rounded-xl bg-brand-surface py-3 text-xs font-black text-brand-surface-foreground shadow-sm transition-all hover:bg-brand-surface/90 hover:scale-[1.01] active:scale-[0.99]"
