@@ -240,9 +240,8 @@ const readPageSnapshot = (send) => evaluate(send, `(() => ({
 const tagConversationByText = (send, { role, text, entryId, stage, action }) => evaluate(send, `(() => {
   const role = ${JSON.stringify(role)};
   const expected = ${JSON.stringify(text)};
-  const bubbleSelector = '[data-chat-bubble="' + (role === 'assistant' ? 'assistant' : 'user') + '"]';
   const rows = [...document.querySelectorAll('[data-chat-timeline-row="' + role + '"]')];
-  const row = rows.find((candidate) => candidate.querySelector(bubbleSelector)?.innerText.includes(expected));
+  const row = rows.find((candidate) => candidate.innerText.includes(expected));
   if (!row) return null;
   row.setAttribute('data-chat-role', role);
   row.setAttribute('data-chat-entry-id', ${JSON.stringify(entryId)});
@@ -250,7 +249,7 @@ const tagConversationByText = (send, { role, text, entryId, stage, action }) => 
   if (${JSON.stringify(action ?? null)}) row.setAttribute('data-chat-action', ${JSON.stringify(action ?? null)});
   row.setAttribute('data-chat-part', 'row');
   const logo = row.querySelector('[data-chat-assistant-logo]');
-  const bubble = row.querySelector(bubbleSelector);
+  const bubble = row.querySelector('[data-chat-turn] p')?.parentElement ?? row.querySelector('[data-chat-turn]');
   const timestamp = row.querySelector('[data-chat-turn] > div > span');
   if (logo) logo.setAttribute('data-chat-part', 'logo');
   if (bubble) bubble.setAttribute('data-chat-part', 'bubble');
@@ -284,6 +283,25 @@ async function completeAirConditionerConditions(send) {
   await waitFor(send, "!document.body.innerText.includes('네이버 쇼핑 가격을 불러오는 중이에요')", "settled recommendation snapshot", 20_000);
 }
 
+async function assertLatestAnchorAligned(send, anchorToken, label) {
+  const alignedExpression = `(() => {
+    const main = document.querySelector('main');
+    const anchor = [...document.querySelectorAll('[data-product-selection-anchor]')].filter((row) => row.getAttribute('data-product-selection-anchor')?.includes(${JSON.stringify(anchorToken)})).at(-1);
+    if (!main || !anchor) return false;
+    const offset = anchor.getBoundingClientRect().top - main.getBoundingClientRect().top;
+    const maxScrollTop = Math.max(0, main.scrollHeight - main.clientHeight);
+    return Math.abs(offset - 16) <= 2 || Math.abs(main.scrollTop - maxScrollTop) <= 2;
+  })()`;
+  await waitFor(send, alignedExpression, `${label} anchor alignment`, 10_000);
+  const anchorState = await evaluate(send, `(() => {
+    const main = document.querySelector('main');
+    const anchor = [...document.querySelectorAll('[data-product-selection-anchor]')].filter((row) => row.getAttribute('data-product-selection-anchor')?.includes(${JSON.stringify(anchorToken)})).at(-1);
+    return { id: anchor?.getAttribute('data-product-selection-anchor') ?? null, offset: anchor && main ? anchor.getBoundingClientRect().top - main.getBoundingClientRect().top : null, scrollTop: main?.scrollTop ?? null, maxScrollTop: main ? Math.max(0, main.scrollHeight - main.clientHeight) : null };
+  })()`);
+  assert.ok(anchorState.id?.includes(anchorToken), `${label} unique anchor`);
+  return anchorState;
+}
+
 async function selectFirstInternalRecommendation(send) {
   const clicked = await evaluate(send, `(() => {
     const section = [...document.querySelectorAll('section')].filter((item) => item.innerText.includes('AI 최적화 재정렬') && [...item.querySelectorAll('button')].some((button) => !button.disabled && !button.hasAttribute('aria-pressed'))).at(-1);
@@ -295,6 +313,18 @@ async function selectFirstInternalRecommendation(send) {
   if (!clicked && process.env.MOIT_CDP_DEBUG === "1") console.error(JSON.stringify(await readPageSnapshot(send), null, 2));
   assert.equal(clicked, true, "first internal recommendation");
   await waitFor(send, "document.querySelector('[data-product-action-toolbar]') !== null", "product detail action toolbar", 10_000);
+}
+
+async function selectFirstNaverRecommendation(send) {
+  const clicked = await evaluate(send, `(() => {
+    const section = [...document.querySelectorAll('section')].filter((item) => item.innerText.includes('NAVER 검색어 기반 DUMMY 상품 리스트')).at(-1);
+    const button = section ? [...section.querySelectorAll('button')].find((item) => !item.disabled && !item.hasAttribute('aria-pressed')) : null;
+    if (!button) return false;
+    button.click();
+    return true;
+  })()`);
+  assert.equal(clicked, true, "first Naver dummy recommendation");
+  await waitFor(send, "[...document.querySelectorAll('[data-product-action-toolbar]')].some((toolbar) => !toolbar.querySelector('button:not(:disabled)') === false)", "Naver product detail action toolbar", 10_000);
 }
 
 const assistantCount = (send) => evaluate(send, "document.querySelectorAll('[data-chat-timeline-row=\"assistant\"]').length");
@@ -328,7 +358,7 @@ async function clickActionAndWaitForAssistant(send, label, requestedAction) {
     row.setAttribute('data-chat-entry-id', ${JSON.stringify(entryId)});
     row.setAttribute('data-chat-part', 'row');
     const logo = row.querySelector('[data-chat-assistant-logo]');
-    const bubble = row.querySelector('[data-chat-bubble="assistant"]');
+    const bubble = row.querySelector('[data-chat-turn] p')?.parentElement ?? row.querySelector('[data-chat-turn]');
     const timestamp = row.querySelector('[data-chat-turn] > div > span');
     if (logo) logo.setAttribute('data-chat-part', 'logo');
     if (bubble) bubble.setAttribute('data-chat-part', 'bubble');
@@ -509,6 +539,7 @@ try {
   await send("Emulation.setDeviceMetricsOverride", { width: viewportWidth, height: viewportHeight, deviceScaleFactor, mobile: false });
   await send("Page.navigate", { url: appUrl });
   await waitFor(send, "document.readyState === 'complete'", "page load");
+  await evaluate(send, `(() => { window.__moitRuntimeErrors = []; window.addEventListener('error', (event) => window.__moitRuntimeErrors.push(event.error?.stack ?? event.message)); window.addEventListener('unhandledrejection', (event) => window.__moitRuntimeErrors.push(event.reason?.stack ?? String(event.reason))); return true; })()`);
 
   if (mode === "inspect" || mode === "flow-inspect") {
     if (mode === "flow-inspect") {
@@ -527,7 +558,9 @@ try {
     process.exitCode = 0;
   } else {
     await completeAirConditionerConditions(send);
+    const recommendationStartAnchor = await assertLatestAnchorAligned(send, "recommendation-start", "recommendation start");
     await selectFirstInternalRecommendation(send);
+    const internalSelectionAnchor = await assertLatestAnchorAligned(send, "product-selection", "internal product selection");
     const saleTag = await clickActionAndWaitForAssistant(send, "구매 최적기 제안");
     const alternativeTag = await clickActionAndWaitForAssistant(send, "다른 제품 추천");
     const repeatedSaleTag = await clickActionAndWaitForAssistant(send, "구매 최적기 제안", "sale-month-repeat");
@@ -535,6 +568,13 @@ try {
     const screenshot = await send("Page.captureScreenshot", { format: "png", fromSurface: true, captureBeyondViewport: false });
     const screenshotBuffer = Buffer.from(screenshot.data, "base64");
     const screenshotSize = pngDimensions(screenshotBuffer);
+    assert.equal(await clickButton(send, "목록 다시 보기"), true, "detail back-to-list action");
+    await waitFor(send, "[...document.querySelectorAll('[data-chat-timeline-row=\"assistant\"]')].some((row) => row.innerText.includes('이전에 확인한 조건으로 상품 목록을 다시 보여드릴게요.'))", "back-to-list assistant response", 10_000);
+    const backToListAnchor = await assertLatestAnchorAligned(send, "back-to-list", "back to list");
+    await selectFirstNaverRecommendation(send);
+    const naverSelectionAnchor = await assertLatestAnchorAligned(send, "product-selection", "Naver product selection");
+    const runtimeErrors = await evaluate(send, "window.__moitRuntimeErrors");
+    assert.deepEqual(runtimeErrors, [], "Smart Shopping rendered action path has no runtime exception");
     const evidenceView = await prepareCompactEvidenceView(send);
     const evidenceScreenshot = await send("Page.captureScreenshot", { format: "png", fromSurface: true, captureBeyondViewport: false });
     const evidenceScreenshotBuffer = Buffer.from(evidenceScreenshot.data, "base64");
@@ -558,6 +598,8 @@ try {
       chromeLaunchArguments: connection.launchArguments ?? [],
       applicationCommand: vite?.command ?? "external application server",
       selectedMessages: { condition: { id: measurement.condition.entryId, text: measurement.condition.text }, saleMonth: saleTag, alternativeProduct: alternativeTag, repeatedSaleMonth: repeatedSaleTag },
+      anchorStates: { recommendationStart: recommendationStartAnchor, internalSelection: internalSelectionAnchor, backToList: backToListAnchor, naverSelection: naverSelectionAnchor },
+      runtimeErrors,
       screenshotSize,
       evidenceView,
       measurement,

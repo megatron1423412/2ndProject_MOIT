@@ -595,6 +595,12 @@ try {
   assert.equal((ordinaryActionMarkup.match(/<button/g) ?? []).length, 5, "다섯 일반 액션은 하나의 왼쪽 그룹");
   assert.ok(productActionWithoutPriceSignalMarkup.includes("다른 제품 추천"), "다른 제품 추천은 가격 이력 상태와 무관하게 공용 툴바에 유지");
   assert.ok(ordinaryActionMarkup.includes("목록 다시 보기") && ordinaryActionMarkup.includes("text-primary") && !ordinaryActionMarkup.includes("text-muted-foreground"), "목록 다시 보기는 다른 일반 액션과 동일한 활성 스타일");
+  let detailBackRequested = false;
+  const detailActionTree = ProductDetailActionBar({ showAlternative: true, isQuestionLoading: false, onAction: () => {}, onBack: () => { detailBackRequested = true; }, onNext: () => {} });
+  const [ordinaryDetailActions] = React.Children.toArray(detailActionTree.props.children);
+  const detailBackButton = React.Children.toArray(ordinaryDetailActions.props.children).find((button) => button.props.children === "목록 다시 보기");
+  detailBackButton.props.onClick();
+  assert.equal(detailBackRequested, true, "상세 액션의 목록 다시 보기는 공용 backToList 바인딩을 직접 호출");
   assert.ok(productActionMarkup.indexOf('data-product-action-group="ordinary"') < productActionMarkup.indexOf('data-product-progress-action="true"') && productActionMarkup.includes("flex-1"), "일반 그룹이 남는 공간을 사용하고 진행 액션은 맨 오른쪽 독립 요소로 렌더링");
   const detailViewSource = await readFile("src/app/features/smart-shopping/recommendation/ProductDetailView.tsx", "utf8");
   const detailSectionsSource = await readFile("src/app/features/smart-shopping/product-detail/ProductDetailDataSections.tsx", "utf8");
@@ -826,6 +832,13 @@ try {
   assert.ok(NEXT_ACTION_OPTIONS[0].description && NEXT_ACTION_OPTIONS[0].primary, "구매등급진단 강조 설명");
   const { getVisibleNextActionOptions } = await load("/src/app/features/smart-shopping/next-actions/nextActionOptions.ts");
   assert.deepEqual(getVisibleNextActionOptions(false).map((item) => item.label), ["구매 링크 연결", "최저가 알람 설정", "목록 다시 보기", "채팅 종료하기"], "등급 완료 후 공통 후속 액션 순서");
+  const { default: NextActionSelection } = await load("/src/app/features/smart-shopping/next-actions/NextActionSelection.tsx");
+  let nextActionBackRequest;
+  const nextActionTree = NextActionSelection({ onSelect: (action) => { nextActionBackRequest = action; }, showPurchaseGrade: false });
+  const nextActionButtons = React.Children.toArray(nextActionTree.props.children).at(-1);
+  const nextActionBackButton = React.Children.toArray(nextActionButtons.props.children).find((button) => button.props.children === "목록 다시 보기");
+  nextActionBackButton.props.onClick();
+  assert.equal(nextActionBackRequest, "back-to-list", "다음 단계의 목록 다시 보기는 동일한 back-to-list 액션을 전달");
   const gradeResultSource = await readFile("src/app/features/smart-shopping/grade/PurchaseGradeResultCard.tsx", "utf8");
   assert.ok(!gradeResultSource.includes("채팅 종료하기"), "등급 결과의 단독 종료 버튼 제거");
   assert.ok(gradeResultSource.includes("PurchaseGradeShareButton"), "등급 결과 카드 공유 버튼 연결");
@@ -916,7 +929,7 @@ try {
   assert.ok(favoriteButtonSource.includes('aria-pressed={isFavorite}') && favoriteButtonSource.includes("즐겨찾기에 추가") && favoriteButtonSource.includes("즐겨찾기에서 삭제"), "별 버튼 접근성 상태·안내");
   assert.ok(favoriteButtonSource.includes("event.stopPropagation()") && selectableRecommendationCardSource.includes("FavoriteToggleButton") && naverListSource.includes("FavoriteToggleButton") && productDetailViewSource.includes("FavoriteToggleButton"), "별 클릭과 내부·더미·대체 상품 선택 이벤트 분리");
   assert.ok(optimizedListSource.includes("SelectableRecommendationCard") && selectableRecommendationCardSource.includes("onClick={() => onSelect(recommendation)}") && naverListSource.includes("onClick={() => onSelect(item)}") && recommendationViewSource.includes("productSelectionAnchorId") && recommendationViewSource.includes('createConversationAnchorId("product-selection")') && recommendationViewSource.includes('createConversationAnchorId("back-to-list")') && recommendationViewSource.includes('if (action === "back-to-list") return backToList()') && timelineSource.includes("onBack={props.onBackToList}") && timelineSource.includes("SmartShoppingAlternativeCards") && timelineSource.includes("SelectableRecommendationCard") && chatScreenSource.includes("SmartShoppingAlternativeCards items={alternatives} onSelect={bindings.onSelectRecommendation}") && recommendationViewSource.includes("onSelectRecommendation: (recommendation) => selectProduct") && recommendationViewSource.includes("onSelectDummyProduct: (product) => selectProduct"), "AI 최적화·대체·더미 상품 목록은 공통 canonical 선택과 앵커 스크롤·상세 경로를 사용");
-  assert.ok(optimizedListSource.includes('cardWidth: "25.5rem"') && optimizedListSource.includes('twoColumnMinWidth: "51.75rem"') && timelineSource.includes("OPTIMIZED_RECOMMENDATION_CARD_LAYOUT") && timelineSource.includes("gridTemplateColumns: `repeat(2, ${OPTIMIZED_RECOMMENDATION_CARD_LAYOUT.cardWidth})`") && timelineSource.includes("minWidth: OPTIMIZED_RECOMMENDATION_CARD_LAYOUT.twoColumnMinWidth") && timelineSource.includes('className="grid w-max max-w-none gap-3" data-chat-content="alternative-products"'), "대체 상품 목록은 최적화 카드 폭을 재사용한 고정 2열이며 한 개도 늘어나지 않고 세 번째부터 왼쪽 다음 행에 배치");
+  assert.ok(optimizedListSource.includes('cardWidth: "25.5rem"') && optimizedListSource.includes('twoColumnMinWidth: "51.75rem"') && timelineSource.includes("OPTIMIZED_RECOMMENDATION_CARD_LAYOUT") && timelineSource.includes("gridTemplateColumns: `repeat(2, ${OPTIMIZED_RECOMMENDATION_CARD_LAYOUT.cardWidth})`") && timelineSource.includes("minWidth: OPTIMIZED_RECOMMENDATION_CARD_LAYOUT.twoColumnMinWidth") && timelineSource.includes('className="grid w-max max-w-none gap-3"') && timelineSource.includes('data-chat-content="alternative-products"'), "대체 상품 목록은 최적화 카드 폭을 재사용한 고정 2열이며 한 개도 늘어나지 않고 세 번째부터 왼쪽 다음 행에 배치");
   assert.ok(!timelineSource.includes('md:grid-cols-1') && !timelineSource.includes('sm:grid-cols-1') && !timelineSource.includes('grid-cols-1'), "대체 상품 목록은 반응형 한 열 전환이나 가변 1fr 열을 사용하지 않음");
   assert.ok(selectableRecommendationCardSource.includes('className="relative w-full"') && selectableRecommendationCardSource.includes('className="flex w-full items-start gap-3 rounded-lg border border-border bg-card') && selectableRecommendationCardSource.includes('className="min-w-0 flex-1"') && selectableRecommendationCardSource.includes('break-keep font-black text-primary') && selectableRecommendationCardSource.includes('flex items-center justify-between text-xs'), "공유 추천 카드는 전체 폭·공용 카드 표면·자연스러운 상품명 줄바꿈·조건/가격 하단 배치를 유지");
   assert.ok(optimizedListSource.includes('rank={index + 1}') && selectableRecommendationCardSource.includes('rank !== undefined'), "AI 최적화 카드의 순위 배지와 적합도 점수 배치를 보존");
@@ -932,6 +945,21 @@ try {
   toggleFavoriteWithoutSelecting({ stopPropagation: () => { propagationStopped = true; } }, () => { favoriteToggled = true; });
   assert.equal(propagationStopped, true, "별 클릭 이벤트 전파 차단"); assert.equal(favoriteToggled, true, "별 클릭 토글 실행");
   const { default: SelectableRecommendationCard } = await load("/src/app/features/smart-shopping/recommendation/SelectableRecommendationCard.tsx");
+  const { default: OptimizedRecommendationList } = await load("/src/app/features/smart-shopping/recommendation/OptimizedRecommendationList.tsx");
+  const { default: NaverLowestPriceList } = await load("/src/app/features/smart-shopping/recommendation/NaverLowestPriceList.tsx");
+  let selectedOptimized;
+  const optimizedTree = OptimizedRecommendationList({ items: tvResult.recommendations.slice(0, 1), catalogSource: "mock", onSelect: (recommendation) => { selectedOptimized = recommendation; }, isFavorite: () => false, onToggleFavorite: () => {} });
+  const [, optimizedItems] = React.Children.toArray(optimizedTree.props.children);
+  const [optimizedCard] = React.Children.toArray(optimizedItems.props.children);
+  optimizedCard.props.onSelect(optimizedCard.props.recommendation);
+  assert.strictEqual(selectedOptimized, tvResult.recommendations[0], "AI 최적화 목록 선택은 canonical ProductRecommendation을 전달");
+  let selectedDummy;
+  const naverTree = NaverLowestPriceList({ items: dummyItems.slice(0, 1), onSelect: (product) => { selectedDummy = product; }, isFavorite: () => false, onToggleFavorite: () => {} });
+  const naverListContainer = React.Children.toArray(naverTree.props.children).at(-1);
+  const [naverItem] = React.Children.toArray(naverListContainer.props.children);
+  const [naverSelectButton] = React.Children.toArray(naverItem.props.children);
+  naverSelectButton.props.onClick();
+  assert.strictEqual(selectedDummy, dummyItems[0], "NAVER DUMMY 목록 선택은 canonical CatalogProduct를 전달");
   let selectedAlternative;
   const alternativeCard = SelectableRecommendationCard({ recommendation: tvResult.recommendations[0], isFavorite: false, onToggleFavorite: () => {}, onSelect: (recommendation) => { selectedAlternative = recommendation; } });
   const [alternativeSelectButton] = React.Children.toArray(alternativeCard.props.children);
@@ -942,9 +970,10 @@ try {
   assert.ok(alternativeCardMarkup.includes(alternativeProduct.name) && alternativeCardMarkup.includes(alternativeProduct.modelNumber) && alternativeCardMarkup.includes(`${tvResult.recommendations[0].score}점`) && alternativeCardMarkup.includes(`${alternativeProduct.currentPrice.toLocaleString("ko-KR")}원`) && selectableRecommendationCardSource.includes("ProductImage"), "대체 카드가 기존 이미지 fallback·이름·모델·적합도·가격과 조건 태그 구조를 유지");
   const { SmartShoppingAlternativeCards } = await load("/src/app/features/smart-shopping/timeline/SmartShoppingTimeline.tsx");
   const alternativeGridFor = (items) => SmartShoppingAlternativeCards({ items, onSelect: () => {}, isFavorite: () => false, onToggleFavorite: () => {} });
-  const oneAlternativeGrid = alternativeGridFor(tvResult.recommendations.slice(0, 1));
-  const twoAlternativeGrid = alternativeGridFor(tvResult.recommendations.slice(0, 2));
-  const threeAlternativeGrid = alternativeGridFor(tvResult.recommendations.slice(0, 3));
+  const alternativeLayoutFixtures = [0, 1, 2].map((index) => ({ ...tvResult.recommendations[0], product: { ...tvResult.recommendations[0].product, id: `${tvResult.recommendations[0].product.id}-layout-${index}` } }));
+  const oneAlternativeGrid = alternativeGridFor(alternativeLayoutFixtures.slice(0, 1));
+  const twoAlternativeGrid = alternativeGridFor(alternativeLayoutFixtures.slice(0, 2));
+  const threeAlternativeGrid = alternativeGridFor(alternativeLayoutFixtures);
   for (const grid of [oneAlternativeGrid, twoAlternativeGrid, threeAlternativeGrid]) {
     assert.equal(grid.props.style.gridTemplateColumns, "repeat(2, 25.5rem)", "대체 상품은 결과 수와 무관하게 고정 폭 2열을 사용");
     assert.equal(grid.props.style.minWidth, "51.75rem", "대체 목록 부모는 최적화 카드 두 장과 기존 간격을 수용");
@@ -952,6 +981,12 @@ try {
   assert.equal(React.Children.count(oneAlternativeGrid.props.children), 1, "대체 상품 1개는 왼쪽 고정 카드 한 장만 렌더");
   assert.equal(React.Children.count(twoAlternativeGrid.props.children), 2, "대체 상품 2개는 같은 고정 2열에 렌더");
   assert.equal(React.Children.count(threeAlternativeGrid.props.children), 3, "대체 상품 3개는 세 번째 카드부터 다음 행 왼쪽에 배치");
+  let selectedFromAlternativeGrid;
+  const selectableAlternativeGrid = SmartShoppingAlternativeCards({ items: alternativeLayoutFixtures.slice(0, 1), onSelect: (recommendation) => { selectedFromAlternativeGrid = recommendation; }, isFavorite: () => false, onToggleFavorite: () => {} });
+  const [selectableAlternativeGridCard] = React.Children.toArray(selectableAlternativeGrid.props.children);
+  selectableAlternativeGridCard.props.onSelect(selectableAlternativeGridCard.props.recommendation);
+  assert.strictEqual(selectedFromAlternativeGrid, alternativeLayoutFixtures[0], "대체 상품 grid 선택도 canonical ProductRecommendation을 상세 경로로 전달");
+  assert.doesNotThrow(() => renderToStaticMarkup(selectableAlternativeGrid), "대체 상품 grid는 이미지·점수·가격·태그·즐겨찾기 바인딩과 함께 예외 없이 렌더");
   const { endSmartShoppingChat } = await load("/src/app/features/smart-shopping/next-actions/endSmartShoppingChat.ts");
   let didEndChat = false; endSmartShoppingChat(() => { didEndChat = true; }); assert.equal(didEndChat, true, "동일 종료 함수 재사용");
 

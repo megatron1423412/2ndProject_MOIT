@@ -55,6 +55,8 @@ try {
   const phoneProgressed = runtime.submitFlowAnswer(phoneModule, phoneInitial, firstAnswer(phoneStep, phoneInitial.answers));
   assert.equal(phoneProgressed.flowId, "phone", "생활비 진단 flow identity 유지");
   assert.notEqual(phoneProgressed.currentStepId, phoneInitial.currentStepId, "생활비 진단이 정상 시작·진행");
+  assert.ok(phoneProgressed.messages.some(({ sender }) => sender === "user") && phoneProgressed.messages.some(({ sender }) => sender === "ai"), "생활비 진단 진행 중 user·assistant timeline 유지");
+  assert.ok(Object.keys(phoneProgressed.answers).length > 0, "생활비 진단 단계 이동 후 제출 상태 유지");
   assert.equal(completedByCategory.get("tv").flowId, "tv", "Smart Shopping 상태가 Living Cost 전환으로 오염되지 않음");
   assert.equal(phoneInitial.answers && Object.keys(phoneInitial.answers).length, 0, "Living Cost 초기 상태가 Smart Shopping 조건을 상속하지 않음");
 
@@ -70,7 +72,7 @@ try {
   assert.ok(markup.includes("AI 최적화 재정렬") && markup.includes("NAVER 검색어 기반 DUMMY 상품 리스트"), "Smart Shopping timeline 계약으로 추천 양쪽 패널 렌더링");
 
   const [chatScreenSource, diagnosisSource] = await Promise.all([readFile("src/app/components/features/chat/ChatScreen.tsx", "utf8"), readFile("src/app/components/features/chat/DiagnosisResultCard.tsx", "utf8")]);
-  assert.ok(chatScreenSource.includes("smartShoppingResult") && chatScreenSource.includes("favorites={favorites ?? []}") && chatScreenSource.includes("renderTimeline={(model) => <ChatScreenSmartShoppingTimeline"), "이전 실패 props와 timeline renderer를 ChatScreen이 완전하게 제공");
+  assert.ok(chatScreenSource.includes('message.type === "result" && renderedResult && isSmartShoppingResult') && chatScreenSource.includes("favorites={favorites ?? []}") && chatScreenSource.includes("onProductSelectionAnchorMount={scrollToProductSelectionAnchor}") && chatScreenSource.includes("onRecommendationResultContainerMount={correctRecommendationStartScroll}") && chatScreenSource.includes("onRestartConditionSearch={flow.restartConditionSearch}") && chatScreenSource.includes("renderTimeline={(model) => <ChatScreenSmartShoppingTimeline"), "Smart Shopping 결과는 메시지 위치에서 공용 timeline·anchor 계약을 완전하게 제공");
   assert.ok(!diagnosisSource.includes("RecommendationSelectionView") && ["PhoneDiagnosisReport", "InternetDiagnosisReport", "IptvDiagnosisReport", "BundleDiagnosisReport"].every((name) => diagnosisSource.includes(name)), "Living Cost 결과 라우팅은 유지하고 Smart Shopping 중복 소유만 제거");
   console.log("merged service integration regression checks: passed");
 } finally {
