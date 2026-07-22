@@ -54,23 +54,23 @@ export default function IptvGradeReport({ result, onEndChat }: IptvGradeReportPr
   let gradeReason = "현재 이용 요금에 대비하여 실질 월 이득이 부족하거나, 채널 손실이 커 필수 채널 구성이 유지되지 않았습니다. 기존 요금제를 지키시는 것을 권장합니다.";
   let gradeTheme = { bg: "bg-muted/30", text: "text-muted-foreground", border: "border-border/60", ring: "ring-muted" };
 
-  if (isRequiredChannelsMaintained && (netBenefit >= 10000 || savingRate >= 0.3)) {
+  if (saving >= 10000 || netBenefit >= 10000 || savingRate >= 0.30) {
     grade = "Gold";
     gradeLabel = "골드 등급";
     gradeEmoji = "🏆";
-    gradeReason = `필수 TV 채널 스펙을 안전하게 지키면서도 월 실질 이득 ${fmt(netBenefit)}원 상당의 뛰어난 통신 지출을 절감하셨습니다! 매우 합리적인 IPTV 소비 상태입니다.`;
+    gradeReason = `월 ${fmt(saving > 0 ? saving : netBenefit)}원(${Math.round(savingRate * 100)}%) 상당의 뛰어난 통신 지출을 절감하셨습니다! 매우 합리적인 IPTV 소비 상태입니다.`;
     gradeTheme = { bg: "bg-amber-500/5", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20", ring: "ring-amber-500/30" };
-  } else if (isRequiredChannelsMaintained && (netBenefit >= 5000 || savingRate >= 0.15)) {
+  } else if (saving >= 5000 || netBenefit >= 5000 || savingRate >= 0.15) {
     grade = "Silver";
     gradeLabel = "실버 등급";
     gradeEmoji = "🥈";
-    gradeReason = `주요 선호 및 예능·드라마 채널을 그대로 유지하면서 월 실질 이득 ${fmt(netBenefit)}원(${Math.round(savingRate * 100)}%) 가량의 고정비를 아꼈습니다. 현명한 지출 제어 패턴입니다.`;
+    gradeReason = `월 ${fmt(saving > 0 ? saving : netBenefit)}원(${Math.round(savingRate * 100)}%) 가량의 고정비를 아꼈습니다. 현명한 지출 제어 패턴입니다.`;
     gradeTheme = { bg: "bg-slate-500/5", text: "text-slate-600 dark:text-slate-400", border: "border-slate-500/20", ring: "ring-slate-500/30" };
-  } else if (netBenefit >= 2000 || savingRate >= 0.05) {
+  } else if (saving >= 2000 || netBenefit >= 2000 || savingRate >= 0.05) {
     grade = "Bronze";
     gradeLabel = "브론즈 등급";
     gradeEmoji = "🥉";
-    gradeReason = `월 실질 이득 ${fmt(netBenefit)}원 수준의 고정비를 확보하셨으나, 채널 수 변동이 있으므로 자주 안 보는 선호 채널 리스트와 맞춤 비교를 추천드립니다.`;
+    gradeReason = `월 ${fmt(saving > 0 ? saving : netBenefit)}원(${Math.round(savingRate * 100)}%) 수준의 고정비를 확보하셨습니다. 자주 안 보는 선호 채널 리스트와 맞춤 비교를 추천드립니다.`;
     gradeTheme = { bg: "bg-orange-500/5", text: "text-orange-600 dark:text-orange-400", border: "border-orange-500/20", ring: "ring-orange-500/30" };
   }
 

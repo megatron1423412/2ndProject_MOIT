@@ -21,23 +21,23 @@ export default function PhoneGradeReport({ result, onEndChat }: PhoneGradeReport
   let gradeReason = "현재 이용 중인 요금제와 추천 요금제 간의 금액 차이가 크지 않습니다. 이미 사용량 패턴에 맞춰 알맞게 잘 쓰고 계신 상태입니다.";
   let gradeTheme = { bg: "bg-muted/30", text: "text-muted-foreground", border: "border-border/60", ring: "ring-muted" };
 
-  if (savingRate >= 0.3 || saving >= 20000) {
+  if (saving >= 20000 || savingRate >= 0.30) {
     grade = "Gold";
     gradeLabel = "골드 등급";
     gradeEmoji = "🏆";
-    gradeReason = `기존 요금 대비 ${Math.round(savingRate * 100)}%(${fmt(saving)}원)의 상당한 금액을 성공적으로 절감하셨습니다! 통신 고정비를 극한으로 낮추는 매우 우수한 소비 패턴을 보여주고 계십니다.`;
+    gradeReason = `월 ${fmt(saving)}원(${Math.round(savingRate * 100)}%)의 상당한 금액을 성공적으로 절감하셨습니다! 통신 고정비를 극한으로 낮추는 매우 우수한 소비 패턴을 보여주고 계십니다.`;
     gradeTheme = { bg: "bg-amber-500/5", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20", ring: "ring-amber-500/30" };
-  } else if (savingRate >= 0.15 || saving >= 10000) {
+  } else if (saving >= 10000 || savingRate >= 0.15) {
     grade = "Silver";
     gradeLabel = "실버 등급";
     gradeEmoji = "🥈";
-    gradeReason = `기존 요금 대비 ${Math.round(savingRate * 100)}%(${fmt(saving)}원)의 알찬 고정 지출을 줄이셨습니다. 생활비 낭비를 적절히 통제하여 건강한 소비 습관을 구축하고 계십니다.`;
+    gradeReason = `월 ${fmt(saving)}원(${Math.round(savingRate * 100)}%)의 알찬 고정 지출을 줄이셨습니다. 생활비 낭비를 적절히 통제하여 건강한 소비 습관을 구축하고 계십니다.`;
     gradeTheme = { bg: "bg-slate-500/5", text: "text-slate-600 dark:text-slate-400", border: "border-slate-500/20", ring: "ring-slate-500/30" };
-  } else if (savingRate >= 0.05 || saving >= 3000) {
+  } else if (saving >= 3000 || savingRate >= 0.05) {
     grade = "Bronze";
     gradeLabel = "브론즈 등급";
     gradeEmoji = "🥉";
-    gradeReason = `기존 요금 대비 ${Math.round(savingRate * 100)}%(${fmt(saving)}원) 수준의 고정비를 확보하셨습니다. 조금 더 요령 있게 결합 할인 혜택을 챙기시면 한 단계 위 등급을 얻을 수 있습니다!`;
+    gradeReason = `월 ${fmt(saving)}원(${Math.round(savingRate * 100)}%) 수준의 고정비를 확보하셨습니다. 조금 더 요령 있게 결합 할인 혜택을 챙기시면 한 단계 위 등급을 얻을 수 있습니다!`;
     gradeTheme = { bg: "bg-orange-500/5", text: "text-orange-600 dark:text-orange-400", border: "border-orange-500/20", ring: "ring-orange-500/30" };
   }
 

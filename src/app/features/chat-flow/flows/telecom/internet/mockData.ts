@@ -758,31 +758,148 @@ export const isPlanAvailableInRegion = (plan: InternetPlanData, answers: Record<
   return districts.includes(detail);
 };
 
-// 동적 추천 요금제 리스트 생성 함수
-export const getRecommendedInternetPlans = (carrier: string, desiredSpeed: string, contractKey: string, answers?: Record<string, any>) => {
-  let speedVal = 500;
-  const cleanSpeed = String(desiredSpeed).replace(/[^0-9]/g, "");
-  if (cleanSpeed === "100" || cleanSpeed === "200") speedVal = 100;
-  else if (cleanSpeed === "500") speedVal = 500;
-  else if (cleanSpeed === "1" || cleanSpeed === "1000") speedVal = 1000;
-  else if (cleanSpeed === "2" || cleanSpeed === "25" || cleanSpeed === "2500") speedVal = 2500;
-  else if (cleanSpeed === "5" || cleanSpeed === "5000") speedVal = 5000;
-  else if (cleanSpeed === "10" || cleanSpeed === "10000") speedVal = 10000;
+export interface ScoredInternetPlan {
+  plan: InternetPlanData;
+  carrierCode: string;
+  price: number;
+  carrierScore: number;
+  speedMatchTier: number;
+  speedDistance: number;
+  hasExactContractPrice: number;
+  priceDiff: number;
+}
 
-  const carriers = ["SK", "KT", "LGU", "HELLOVISION", "KTSKY", "KTHCN", "SKYLIFE", "DLIVE"];
-  
-  const getCarrierDatabase = (c: string) => {
-    switch (c) {
-      case "KT": return KT_INTERNET_PLANS;
-      case "LGU": return LGU_INTERNET_PLANS;
-      case "HELLOVISION": return HELLOVISION_INTERNET_PLANS;
-      case "KTSKY":
-      case "SKYLIFE": return SKYLIFE_INTERNET_PLANS;
-      case "KTHCN": return KTHCN_INTERNET_PLANS;
-      case "DLIVE": return DLIVE_INTERNET_PLANS;
-      default: return SK_INTERNET_PLANS;
+export const scoreAndRankInternetPlans = (
+  contractKey: string,
+  answers: Record<string, any> = {}
+): ScoredInternetPlan[] => {
+  const rawCarrier = String(answers["internet.cableCarrier"] || answers["internet.commonCarrier"] || answers["carrier"] || "SK").toUpperCase();
+  const desiredSpeedRaw = answers["internet.desiredSpeed"] || answers["desiredSpeed"] || "500Mbps";
+  const currentFee = Number(answers["internet.fee"] || answers["fee"] || 0);
+
+  // Normalize target speed & range
+  // 100Mbps: 100이상 ~ 500미만 (100 ~ 499)
+  // 500Mbps: 500이상 ~ 1000미만 (500 ~ 999)
+  // 1Gbps: 1000이상 (1000+)
+  let targetSpeed = 500;
+  let minSpeed = 500;
+  let maxSpeed = 999;
+
+  const speedStr = String(desiredSpeedRaw).toLowerCase();
+  if (speedStr.includes("100")) {
+    targetSpeed = 100;
+    minSpeed = 100;
+    maxSpeed = 499;
+  } else if (speedStr.includes("500")) {
+    targetSpeed = 500;
+    minSpeed = 500;
+    maxSpeed = 999;
+  } else if (speedStr.includes("1g") || speedStr.includes("1000") || speedStr.includes("1gbps")) {
+    targetSpeed = 1000;
+    minSpeed = 1000;
+    maxSpeed = Infinity;
+  }
+
+  const carrierDBs: { code: string; plans: InternetPlanData[] }[] = [
+    { code: "SK", plans: SK_INTERNET_PLANS },
+    { code: "KT", plans: KT_INTERNET_PLANS },
+    { code: "LGU", plans: LGU_INTERNET_PLANS },
+    { code: "HELLOVISION", plans: HELLOVISION_INTERNET_PLANS },
+    { code: "SKYLIFE", plans: SKYLIFE_INTERNET_PLANS },
+    { code: "KTHCN", plans: KTHCN_INTERNET_PLANS },
+    { code: "DLIVE", plans: DLIVE_INTERNET_PLANS },
+  ];
+
+  const scoredList: ScoredInternetPlan[] = [];
+
+  for (const { code, plans } of carrierDBs) {
+    // 1. Carrier match score
+    let carrierScore = 0;
+    if (rawCarrier === code) {
+      carrierScore = 2;
+    } else if (rawCarrier === "CABLE" && ["HELLOVISION", "SKYLIFE", "KTSKY", "KTHCN", "DLIVE"].includes(code)) {
+      carrierScore = 2;
+    } else if (rawCarrier === "SK" && code === "SK") {
+      carrierScore = 2;
+    } else if (rawCarrier === "KT" && (code === "KT" || code === "KTSKY")) {
+      carrierScore = 2;
+    } else if (rawCarrier === "LGU" && (code === "LGU" || code === "HELLOVISION")) {
+      carrierScore = 2;
     }
-  };
+
+    const availablePlans = plans.filter(p => isPlanAvailableInRegion(p, answers));
+
+    for (const plan of availablePlans) {
+      // 2. Speed matching (range + ±150 distance)
+      const inRange = plan.speedMbps >= minSpeed && plan.speedMbps <= maxSpeed;
+      const speedDist = Math.abs(plan.speedMbps - targetSpeed);
+      const within150 = speedDist <= 150;
+
+      let speedMatchTier = 0;
+      if (inRange && within150) {
+        speedMatchTier = 3;
+      } else if (inRange) {
+        speedMatchTier = 2;
+      } else if (within150) {
+        speedMatchTier = 1;
+      }
+
+      // 3. Contract period price match
+      const hasExactContractPrice = plan.prices[contractKey as keyof typeof plan.prices] !== undefined ? 1 : 0;
+      const price = plan.prices[contractKey as keyof typeof plan.prices] ?? plan.prices.discount3y;
+
+      // 4. Payment fee closeness
+      const priceDiff = currentFee > 0 ? Math.abs(price - currentFee) : price;
+
+      scoredList.push({
+        plan,
+        carrierCode: code,
+        price,
+        carrierScore,
+        speedMatchTier,
+        speedDistance: speedDist,
+        hasExactContractPrice,
+        priceDiff,
+      });
+    }
+  }
+
+  // Priority sorting comparator
+  scoredList.sort((a, b) => {
+    // (1) Carrier match
+    if (a.carrierScore !== b.carrierScore) {
+      return b.carrierScore - a.carrierScore;
+    }
+    // (2) Speed range & ±150 match
+    if (a.speedMatchTier !== b.speedMatchTier) {
+      return b.speedMatchTier - a.speedMatchTier;
+    }
+    if (a.speedDistance !== b.speedDistance) {
+      return a.speedDistance - b.speedDistance;
+    }
+    // (3) Contract period price match
+    if (a.hasExactContractPrice !== b.hasExactContractPrice) {
+      return b.hasExactContractPrice - a.hasExactContractPrice;
+    }
+    // (4) Fee closeness
+    if (a.priceDiff !== b.priceDiff) {
+      return a.priceDiff - b.priceDiff;
+    }
+    return a.price - b.price;
+  });
+
+  return scoredList;
+};
+
+// 동적 추천 요금제 리스트 생성 함수 (4순위 우선순위 적용)
+export const getRecommendedInternetPlans = (carrier: string, desiredSpeed: string, contractKey: string, answers: Record<string, any> = {}) => {
+  const contract = contractKey || "discount3y";
+  const contractLabel = contract === "discount2y" ? "2년 약정"
+                      : contract === "discount1y" ? "1년 약정"
+                      : contract === "noDiscount" ? "무약정"
+                      : "3년 약정";
+
+  const ranked = scoreAndRankInternetPlans(contract, answers);
 
   const getCarrierLabel = (c: string) => {
     switch (c) {
@@ -798,84 +915,9 @@ export const getRecommendedInternetPlans = (carrier: string, desiredSpeed: strin
     }
   };
 
-  const cheapestByCarrier: { plan: InternetPlanData; carrierCode: string; price: number }[] = [];
-  const contract = (contractKey || "discount3y") as keyof InternetPlanData["prices"];
+  const top4 = ranked.slice(0, 4);
 
-  carriers.forEach(c => {
-    const database = getCarrierDatabase(c);
-    let matchedPlans = database.filter(p => {
-      if (speedVal === 100 && p.speedMbps <= 200) return true;
-      if (speedVal === 500 && p.speedMbps > 200 && p.speedMbps <= 500) return true;
-      if (speedVal === 1000 && p.speedMbps > 500 && p.speedMbps <= 1000) return true;
-      if (speedVal === 2500 && p.speedMbps > 1000) return true;
-      return false;
-    });
-
-    if (matchedPlans.length === 0) {
-      matchedPlans = database.filter(p => p.speedMbps === 500);
-    }
-
-    if (answers) {
-      matchedPlans = matchedPlans.filter(p => isPlanAvailableInRegion(p, answers));
-    }
-
-    let cheapestPlan: InternetPlanData | null = null;
-    let cheapestPrice = Infinity;
-
-    matchedPlans.forEach(plan => {
-      const price = plan.prices[contract] ?? plan.prices.discount3y;
-      if (price > 0 && price < cheapestPrice) {
-        cheapestPrice = price;
-        cheapestPlan = plan;
-      }
-    });
-
-    if (cheapestPlan) {
-      cheapestByCarrier.push({ plan: cheapestPlan, carrierCode: c, price: cheapestPrice });
-    }
-  });
-
-  const majorList = cheapestByCarrier.filter(item => ["SK", "KT", "LGU"].includes(item.carrierCode));
-  const mvnoList = cheapestByCarrier.filter(item => !["SK", "KT", "LGU"].includes(item.carrierCode));
-
-  majorList.sort((a, b) => a.price - b.price);
-  mvnoList.sort((a, b) => a.price - b.price);
-
-  const selected: typeof cheapestByCarrier = [];
-  
-  // 3대 대형 통신사에서 최대 2개 선택
-  const majorCount = Math.min(2, majorList.length);
-  for (let i = 0; i < majorCount; i++) {
-    selected.push(majorList[i]);
-  }
-
-  // 알뜰/케이블 통신사에서 최대 2개 선택
-  const mvnoCount = Math.min(2, mvnoList.length);
-  for (let i = 0; i < mvnoCount; i++) {
-    selected.push(mvnoList[i]);
-  }
-
-  // 부족한 수량이 있다면 남은 것 중 저렴한 순으로 추가 채움
-  if (selected.length < 4) {
-    const remainingMajor = majorList.slice(majorCount);
-    const remainingMvno = mvnoList.slice(mvnoCount);
-    const combinedRemaining = [...remainingMajor, ...remainingMvno].sort((a, b) => a.price - b.price);
-    const need = 4 - selected.length;
-    for (let i = 0; i < Math.min(need, combinedRemaining.length); i++) {
-      selected.push(combinedRemaining[i]);
-    }
-  }
-
-  // 가격이 저렴한 순서로 표시되도록 정렬
-  selected.sort((a, b) => a.price - b.price);
-
-  const contractLabel = contractKey === "discount2y" ? "2년 약정"
-                      : contractKey === "discount1y" ? "1년 약정"
-                      : contractKey === "noDiscount" ? "무약정"
-                      : "3년 약정";
-
-  // 최종 추천 4종 리스트 매핑
-  return selected.map((item, index) => {
+  return top4.map((item, index) => {
     const carrierLabel = getCarrierLabel(item.carrierCode);
     return {
       value: item.plan.id,
@@ -922,21 +964,9 @@ export const MOCK_ALL_INTERNET_PLANS = [
   }))
 ];
 
-export const getFilteredAllInternetPlans = (contractKey: string, answers: Record<string, any>) => {
-  const carriers = ["SK", "KT", "LGU", "HELLOVISION", "KTSKY", "KTHCN", "SKYLIFE", "DLIVE"];
-  
-  const getCarrierDatabase = (c: string) => {
-    switch (c) {
-      case "KT": return KT_INTERNET_PLANS;
-      case "LGU": return LGU_INTERNET_PLANS;
-      case "HELLOVISION": return HELLOVISION_INTERNET_PLANS;
-      case "KTSKY":
-      case "SKYLIFE": return SKYLIFE_INTERNET_PLANS;
-      case "KTHCN": return KTHCN_INTERNET_PLANS;
-      case "DLIVE": return DLIVE_INTERNET_PLANS;
-      default: return SK_INTERNET_PLANS;
-    }
-  };
+export const getFilteredAllInternetPlans = (contractKey: string, answers: Record<string, any> = {}) => {
+  const contract = contractKey || "discount3y";
+  const ranked = scoreAndRankInternetPlans(contract, answers);
 
   const getCarrierLabel = (c: string) => {
     switch (c) {
@@ -966,30 +996,11 @@ export const getFilteredAllInternetPlans = (contractKey: string, answers: Record
     }
   };
 
-  const resolved = [];
-  for (const c of carriers) {
-    const db = getCarrierDatabase(c);
-    const filtered = db.filter(p => isPlanAvailableInRegion(p, answers));
-    for (const plan of filtered) {
-      const price = plan.prices[contractKey as keyof typeof plan.prices] ?? plan.prices.discount3y;
-      resolved.push({
-        value: plan.id,
-        label: `[${getCarrierLabel(c)}] ${getCarrierName(c)} ${plan.name} (${plan.speed}, 월 ${price.toLocaleString("ko-KR")}원)`,
-        price,
-        next: "internet-result"
-      });
-    }
-  }
-
-  // 가격 기준 오름차순 정렬
-  resolved.sort((a, b) => a.price - b.price);
-
-  // 최대 15개로 제한
-  const sliced = resolved.slice(0, 15);
+  const sliced = ranked.slice(0, 15);
 
   return sliced.map(item => ({
-    value: item.value,
-    label: item.label,
-    next: item.next
+    value: item.plan.id,
+    label: `[${getCarrierLabel(item.carrierCode)}] ${getCarrierName(item.carrierCode)} ${item.plan.name} (${item.plan.speed}, 월 ${item.price.toLocaleString("ko-KR")}원)`,
+    next: "internet-result"
   }));
 };

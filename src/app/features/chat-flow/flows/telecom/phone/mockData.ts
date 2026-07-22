@@ -25,9 +25,13 @@ export const fetchPlansFromApi = (carrier: string, currentFee: number) => {
   if (carrier === "skt") {
     return [
       { value: "plan-api-skt-1", label: `[SKT] 5G 레귤러 · 월 69,000원 · 110GB (소진 시 5Mbps) · 5G`, price: 69000 },
-      { value: "plan-api-skt-2", label: `[SKT] 5G 언택트 62 · 월 62,000원 · 무제한 (200GB + 5Mbps) · 5G`, price: 62000 },
+      { value: "plan-api-skt-2", label: `[SKT] 5G 언택트 62 · 월 62,000원 · 200GB (소진 시 5Mbps) · 5G`, price: 62000 },
       { value: "plan-api-skt-3", label: `[SKT] 5G 레귤러플러스 · 월 79,000원 · 250GB (소진 시 5Mbps) · 5G`, price: 79000 },
       { value: "plan-api-skt-4", label: `[SKT] 5G 슬림 · 월 55,000원 · 11GB (소진 시 1Mbps) · 5G`, price: 55000 },
+      { value: "plan-api-skt-5", label: `[SKT] T플랜 에센스 · 월 69,000원 · 100GB (소진 시 5Mbps) · LTE`, price: 69000 },
+      { value: "plan-api-skt-6", label: `[SKT] T플랜 안심4G · 월 50,000원 · 4GB (소진 시 1Mbps) · LTE`, price: 50000 },
+      { value: "plan-api-skt-7", label: `[SKT] 5G 맞춤 24GB · 월 59,000원 · 24GB (소진 시 1Mbps) · 5G`, price: 59000 },
+      { value: "plan-api-skt-8", label: `[SKT] 5G 맞춤 54GB · 월 65,000원 · 54GB (소진 시 1Mbps) · 5G`, price: 65000 },
     ];
   }
 
@@ -35,7 +39,12 @@ export const fetchPlansFromApi = (carrier: string, currentFee: number) => {
     return [
       { value: "plan-api-kt-1", label: `[KT] 5G 심플 110GB · 월 69,000원 · 110GB (소진 시 5Mbps) · 5G`, price: 69000 },
       { value: "plan-api-kt-2", label: `[KT] 5G 슬림 14GB · 월 55,000원 · 14GB (소진 시 1Mbps) · 5G`, price: 55000 },
-      { value: "plan-api-kt-3", label: `[KT] 5G 베이직 무제한 · 월 80,000원 · 무제한 (소진 시 5Mbps) · 5G`, price: 80000 },
+      { value: "plan-api-kt-3", label: `[KT] 5G 베이직 무제한 · 월 80,000원 · 200GB (소진 시 5Mbps) · 5G`, price: 80000 },
+      { value: "plan-api-kt-4", label: `[KT] LTE 데이터 ON 비디오 · 월 69,000원 · 100GB (소진 시 5Mbps) · LTE`, price: 69000 },
+      { value: "plan-api-kt-5", label: `[KT] LTE 데이터 ON 톡 · 월 49,000원 · 3GB (소진 시 1Mbps) · LTE`, price: 49000 },
+      { value: "plan-api-kt-6", label: `[KT] Y덤 5G 슬림 21GB · 월 55,000원 · 21GB (소진 시 1Mbps) · 5G`, price: 55000 },
+      { value: "plan-api-kt-7", label: `[KT] 5G 세미 심플 50GB · 월 63,000원 · 50GB (소진 시 1Mbps) · 5G`, price: 63000 },
+      { value: "plan-api-kt-8", label: `[KT] LTE Y베이직 30GB · 월 65,800원 · 30GB (소진 시 3Mbps) · LTE`, price: 65800 },
     ];
   }
 
@@ -43,13 +52,22 @@ export const fetchPlansFromApi = (carrier: string, currentFee: number) => {
     return [
       { value: "plan-api-lgu-1", label: `[LGU+] 5G 레귤러 · 월 63,000원 · 95GB (소진 시 3Mbps) · 5G`, price: 63000 },
       { value: "plan-api-lgu-2", label: `[LGU+] 5G 라이트+ · 월 55,000원 · 12GB (소진 시 1Mbps) · 5G`, price: 55000 },
-      { value: "plan-api-lgu-3", label: `[LGU+] 5G 프리미어 레귤러 · 월 95,000원 · 무제한 (소진 시 5Mbps) · 5G`, price: 95000 },
+      { value: "plan-api-lgu-3", label: `[LGU+] 5G 프리미어 레귤러 · 월 95,000원 · 250GB (소진 시 5Mbps) · 5G`, price: 95000 },
+      { value: "plan-api-lgu-4", label: `[LGU+] 추가 에센셜 150GB · 월 69,000원 · 150GB (소진 시 5Mbps) · 5G`, price: 69000 },
+      { value: "plan-api-lgu-5", label: `[LGU+] LTE 추가 마음껏 69 · 월 69,000원 · 100GB (소진 시 5Mbps) · LTE`, price: 69000 },
+      { value: "plan-api-lgu-6", label: `[LGU+] LTE 데이터 33 · 월 33,000원 · 1.5GB (소진 시 400kbps) · LTE`, price: 33000 },
+      { value: "plan-api-lgu-7", label: `[LGU+] 5G 심플+ 50GB · 월 61,000원 · 50GB (소진 시 1Mbps) · 5G`, price: 61000 },
+      { value: "plan-api-lgu-8", label: `[LGU+] LTE 데이터 49 30GB · 월 49,000원 · 30GB (소진 시 1Mbps) · LTE`, price: 49000 },
     ];
   }
 
   return [
     { value: "plan-api-mvno-1", label: `[이야기모바일(SKT)] 이야기 5G 100GB · 월 38,200원 · 100GB (소진 시 5Mbps) · 5G`, price: 38200 },
     { value: "plan-api-mvno-2", label: `[티플러스(SKT)] 티플러스 5G 110GB · 월 42,000원 · 110GB (소진 시 5Mbps) · 5G`, price: 42000 },
+    { value: "plan-api-mvno-3", label: `[스노우맨(KT)] 스노우맨 LTE 30GB · 월 24,200원 · 30GB · LTE`, price: 24200 },
+    { value: "plan-api-mvno-4", label: `[이야기모바일(LGU+)] 이야기 LTE 15GB · 월 17,600원 · 15GB · LTE`, price: 17600 },
+    { value: "plan-api-mvno-5", label: `[KT스카이라이프] 5G 모두다 110GB · 월 38,000원 · 110GB · 5G`, price: 38000 },
+    { value: "plan-api-mvno-6", label: `[헬로모바일(LGU+)] 5G 슬림 12GB · 월 28,000원 · 12GB · 5G`, price: 28000 },
   ];
 };
 
@@ -193,56 +211,134 @@ export const getPlanSpec = (
     return PLAN_SPECS_TABLE[planIdOrName];
   }
 
-  const carrierLabel = carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : carrier === "mvno" ? "알뜰폰" : carrier;
+  const cleanName = (planIdOrName || "")
+    .replace(/^plan-api\|/, "")
+    .replace(/^\[추천\s*\d+순위\]\s*/, "")
+    .trim();
 
-  let dataStr = "15GB (소진 시 400kbps)";
-  let dataMB = 15360;
-  let qosSpeed = "400kbps";
-  let hasQos = true;
+  // 메이저 3사 태그([SKT], [KT], [LGU+])가 있으면 MVNO 매칭을 건너뜀 (오탐 방지)
+  const isMajorCarrierLabel = /^\[(SKT|KT|LGU\+)\]/.test(cleanName);
 
-  const val = (dataVolume || "").toLowerCase();
-  if (val === "unlimited" || val.includes("100gb") || val.includes("over")) {
-    dataStr = "무제한 (100GB + 5Mbps)";
-    dataMB = 102400;
-    qosSpeed = "5Mbps";
-  } else if (val === "high" || val.includes("50gb")) {
-    dataStr = "75GB (소진 시 1Mbps)";
-    dataMB = 76800;
-    qosSpeed = "1Mbps";
-  } else if (val === "low" || val.includes("under") || val.includes("less") || val.includes("미만")) {
-    dataStr = "5GB (소진 시 400kbps)";
-    dataMB = 5120;
-    qosSpeed = "400kbps";
+  // 1. ALL_MVNO_PLAN_SPECS 데이터셋에서 정확한 요금제 명칭 또는 브랜드+명칭 매칭 탐색
+  const mvnoMatch = isMajorCarrierLabel ? undefined : ALL_MVNO_PLAN_SPECS.find(p =>
+    cleanName.includes(p.name) ||
+    cleanName.includes(`[${p.mvnoCarrier}] ${p.name}`) ||
+    (p.mvnoCarrier && cleanName.includes(p.mvnoCarrier) && cleanName.includes(p.data))
+  );
+
+  if (mvnoMatch) {
+    return {
+      carrier: mvnoMatch.mvnoCarrier || mvnoMatch.carrier,
+      name: mvnoMatch.name.startsWith("[") ? mvnoMatch.name : `[${mvnoMatch.mvnoCarrier}] ${mvnoMatch.name}`,
+      price: mvnoMatch.price || currentFee,
+      ageLimit: mvnoMatch.ageLimit || "제한 없음",
+      signUpMethod: mvnoMatch.signUpMethod || "온라인 전용",
+      data: mvnoMatch.data,
+      dataValueMB: mvnoMatch.dataValueMB,
+      hasQos: mvnoMatch.hasQos,
+      qosSpeed: mvnoMatch.qosSpeed,
+      voice: mvnoMatch.voice,
+      voiceMin: mvnoMatch.voiceMin,
+      sms: mvnoMatch.sms,
+      smsCount: mvnoMatch.smsCount,
+      link: mvnoMatch.link || "https://www.mvnohub.kr",
+    };
   }
 
-  const priceVal = typeof currentFee === "number" ? currentFee : 0;
-  let planName = planIdOrName && planIdOrName.trim() ? planIdOrName : `기존 요금제 (월 ${priceVal.toLocaleString()}원)`;
-  if (planIdOrName === "plan-api-1") {
-    planName = `${carrierLabel} T플랜 에센스`;
-    if (carrier === "kt") planName = `${carrierLabel} 데이터 ON 비디오`;
-    if (carrier === "lgu") planName = `${carrierLabel} 추가 걱정 없는 데이터 69`;
-    if (carrier === "mvno") planName = `${carrierLabel} 유심 데이터 11GB+`;
+  // 2. 전달된 라벨 문자열 자체에서 데이터/음성/문자/통신사/가격 정보 파싱
+  const carrierMatch = cleanName.match(/\[(.*?)\]/);
+  const carrierLabel = carrierMatch
+    ? carrierMatch[1]
+    : carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : carrier === "mvno" ? "알뜰폰" : carrier;
+
+  const priceMatch = cleanName.match(/월\s*([\d,]+)원/);
+  const parsedPrice = priceMatch ? parseInt(priceMatch[1].replace(/,/g, ""), 10) : (currentFee || 0);
+
+  // 데이터 용량 파싱 (7GB, 6GB, 100GB, 110GB 등)
+  let dataStr = "";
+  let dataMB = 10240;
+
+  const gbMatch = cleanName.match(/(\d+(?:\.\d+)?)\s*GB/i);
+  const mbMatch = cleanName.match(/(\d+)\s*MB/i);
+  if (gbMatch) {
+    const valGB = parseFloat(gbMatch[1]);
+    dataMB = Math.round(valGB * 1024);
+    if (cleanName.includes("소진 시") || cleanName.includes("QoS")) {
+      const qosMatch = cleanName.match(/(\d+(?:Mbps|kbps))/);
+      dataStr = `${valGB}GB (소진 시 ${qosMatch ? qosMatch[1] : "1Mbps"})`;
+    } else {
+      dataStr = `${valGB}GB`;
+    }
+  } else if (mbMatch) {
+    dataMB = parseInt(mbMatch[1], 10);
+    dataStr = `${dataMB}MB`;
+  } else if (cleanName.includes("무제한") || cleanName.includes("무한")) {
+    dataMB = 102400;
+    dataStr = "무제한";
+  } else {
+    const val = (dataVolume || "").toLowerCase();
+    if (val === "unlimited" || val.includes("100gb") || val.includes("over")) {
+      dataStr = "무제한 (100GB + 5Mbps)";
+      dataMB = 102400;
+    } else if (val === "high" || val.includes("50gb")) {
+      dataStr = "75GB (소진 시 1Mbps)";
+      dataMB = 76800;
+    } else {
+      dataStr = "15GB (소진 시 400kbps)";
+      dataMB = 15360;
+    }
+  }
+
+  // 음성 및 문자 제공량 파싱
+  let voiceMin = 9999;
+  let voiceStr = "기본제공 (무제한)";
+  const voiceMatch = cleanName.match(/(\d+)\s*분/);
+  if (voiceMatch) {
+    voiceMin = parseInt(voiceMatch[1], 10);
+    voiceStr = `${voiceMin}분`;
+  } else if (cleanName.includes("기본") || cleanName.includes("무제한")) {
+    voiceMin = 9999;
+    voiceStr = "기본제공 (무제한)";
+  }
+
+  let smsCount = 9999;
+  let smsStr = "기본제공 (무제한)";
+  const smsMatch = cleanName.match(/(\d+)\s*건/);
+  if (smsMatch) {
+    smsCount = parseInt(smsMatch[1], 10);
+    smsStr = `${smsCount}건`;
   }
 
   let officialLink = "https://www.tworld.co.kr";
-  if (carrierLabel === "KT") officialLink = "https://shop.kt.com";
-  if (carrierLabel === "LGU+") officialLink = "https://www.lguplus.com";
-  if (carrierLabel === "알뜰폰") officialLink = "https://www.mvnohub.kr";
+  if (carrierLabel.includes("KT")) officialLink = "https://shop.kt.com";
+  if (carrierLabel.includes("LGU") || carrierLabel.includes("유플러스")) officialLink = "https://www.lguplus.com";
+  if (carrierLabel.includes("알뜰") || carrierLabel.includes("이야기") || carrierLabel.includes("스카이")) officialLink = "https://www.mvnohub.kr";
+
+  // 새 포맷: "[KT] 월 90,000원 · 데이터 90GB (KT 초이스 90 · LTE)" → 괄호 안 요금제명 추출
+  // 구 포맷: "[KT] KT 초이스 90 · 월 90,000원 · 90GB · LTE" → 기존 패턴으로 추출
+  const parenMatch = cleanName.match(/\(([^)]+)\)$/);
+  let displayName: string;
+  if (parenMatch) {
+    // 괄호 안의 내용 (예: "KT 초이스 90 · LTE") 에서 요금제명만 추출
+    displayName = parenMatch[1].replace(/\s*·\s*(LTE|5G|4G)\s*$/i, "").trim();
+  } else {
+    displayName = cleanName.replace(/\[.*?\]\s*/, "").replace(/\s*·\s*월.*$/, "").trim() || cleanName;
+  }
 
   return {
     carrier: carrierLabel,
-    name: planName,
-    price: priceVal,
+    name: displayName.startsWith("[") ? displayName : `[${carrierLabel}] ${displayName}`,
+    price: parsedPrice,
     ageLimit: "제한 없음",
     signUpMethod: "온·오프라인 가능",
     data: dataStr,
     dataValueMB: dataMB,
-    hasQos,
-    qosSpeed,
-    voice: "기본 제공",
-    voiceMin: 200,
-    sms: "기본 제공",
-    smsCount: 50,
+    hasQos: cleanName.includes("소진 시") || cleanName.includes("QoS"),
+    qosSpeed: "1Mbps",
+    voice: voiceStr,
+    voiceMin,
+    sms: smsStr,
+    smsCount,
     link: officialLink,
   };
 };

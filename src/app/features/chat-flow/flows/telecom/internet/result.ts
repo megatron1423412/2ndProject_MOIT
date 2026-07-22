@@ -14,9 +14,16 @@ export const buildInternetResult = (answers: Record<string, any>): FlowResult =>
     ? manualSelectedPlan
     : (selectedRecommendedPlan || manualSelectedPlan || "rec-internet-1");
 
-  const contractKey = answers["internet.planContract"] || "discount3y";
-  const recommendedPrice = getInternetPlanPrice(finalPlan, contractKey);
-  const saving = currentFee - recommendedPrice;
+  let recommendedPrice = 0;
+  const priceMatch = String(finalPlan).match(/월\s*([\d,]+)원/);
+  if (priceMatch) {
+    recommendedPrice = parseInt(priceMatch[1].replace(/,/g, ""), 10);
+  } else {
+    const contractKey = answers["internet.planContract"] || "discount3y";
+    recommendedPrice = getInternetPlanPrice(finalPlan, contractKey);
+  }
+
+  const saving = currentFee > 0 ? Math.max(0, currentFee - recommendedPrice) : 0;
   const savingRate = currentFee > 0 ? (saving / currentFee) : 0;
 
   const isExit = answers["internet.exitRestart"] === "exit" || answers["internet.askGrade"] === "no";

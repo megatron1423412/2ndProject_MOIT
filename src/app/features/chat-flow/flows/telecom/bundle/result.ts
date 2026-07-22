@@ -331,7 +331,7 @@ export const buildBundleResult = (answers: Record<string, any>): FlowResult => {
   // Let's show saving relative to the average standard price (65000) for new starts so they see the discount, 
   // or comparison relative to their previous bill if they had one.
   const isNewStart = startState === "new_start";
-  const saving = isNewStart ? Math.max(0, 65000 - selectedPrice) : currentFee - selectedPrice;
+  const saving = isNewStart ? Math.max(0, 65000 - selectedPrice) : Math.max(0, currentFee - selectedPrice);
   const savingRate = isNewStart ? (65000 > 0 ? saving / 65000 : 0) : (currentFee > 0 ? saving / currentFee : 0);
 
   const isExit = finalAnswers["bundle.exitRestart"] === "exit" || finalAnswers["bundle.askGrade"] === "no";

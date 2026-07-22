@@ -60,12 +60,19 @@ function parseDataGB(label: string): number {
     return parseFloat(match[1]);
   }
 
-  const mbMatch = cleanLabel.match(/(\d+)\s*MB/i);
+  const mbMatch = cleanLabel.match(/(\d+(?:\.\d+)?)\s*MB/i);
   if (mbMatch) {
     return parseFloat(mbMatch[1]) / 1024;
   }
 
-  // 2. 숫자가 명시되지 않고 '무제한' 단어가 들어간 경우
+  // 3. 단위 없이 5자리 이상 숫자만 나열된 MB값 파싱 (예: · 51200 · 또는 · 30720 ·)
+  const rawNumMatch = cleanLabel.match(/·\s*(\d{4,6})\s*·/);
+  if (rawNumMatch) {
+    const rawVal = parseFloat(rawNumMatch[1]);
+    if (rawVal >= 1024) return rawVal / 1024;
+  }
+
+  // 4. 숫자가 명시되지 않고 '무제한' 단어가 들어간 경우
   if (cleanLabel.includes("무제한") || cleanLabel.includes("데이터 무한")) {
     return 100;
   }
@@ -235,6 +242,17 @@ export const getPhonePlanLookupFee = (answers: FlowAnswers): number => {
 export const resolvePhoneCurrentPlanOptions = (answers: FlowAnswers): FlowChoiceOption[] => {
   const carrier = answers[`${namespace}.carrier`] as string;
   const currentFee = getPhonePlanLookupFee(answers);
+  const existingConfirmed = answers[`${namespace}.confirmedPlan`] as string;
+
+  // 이미 선택한 상태라면 다음 스텝 진입 시 다른 요금제로 변하지 않도록 선택 요금제 고정
+  if (existingConfirmed && existingConfirmed.startsWith("plan-api|")) {
+    const rawLabel = existingConfirmed.split("|")[1] || existingConfirmed;
+    return [
+      { value: existingConfirmed, label: rawLabel, next: "phone-contract-period" },
+      { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "phone-current-plans-list" },
+      { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "phone-custom-plan-input" },
+    ];
+  }
 
   // 1순위: 스마트 초이스 API 키 데이터 (planCache 또는 allPlans에서 가져옴)
   let apiPlans = planCache[carrier] || [];
@@ -247,7 +265,13 @@ export const resolvePhoneCurrentPlanOptions = (answers: FlowAnswers): FlowChoice
     );
     apiPlans = filtered.map(p => {
       const netType = p.planName.includes("5G") || p.planName.includes("5g") ? "5G" : "LTE";
-      const fullLabel = `[${p.telecom}] ${p.planName} · 월 ${p.monthlyFee.toLocaleString("ko-KR")}원 · ${p.data || "기본제공"} · ${netType}`;
+      let dataStr = p.data || "기본제공";
+      if (dataStr && /^\d+$/.test(dataStr.trim())) {
+        const mb = parseInt(dataStr.trim(), 10);
+        dataStr = mb >= 99999 ? "무제한" : mb >= 1024 ? `${Math.round(mb / 1024)}GB` : `${mb}MB`;
+      }
+      // 통신사, 금액, 데이터 강조 & 요금제명/네트워크는 서브로 표기
+      const fullLabel = `[${p.telecom}] 월 ${p.monthlyFee.toLocaleString("ko-KR")}원 · 데이터 ${dataStr} (${p.planName} · ${netType})`;
       return {
         value: `plan-api|${fullLabel}`,
         label: fullLabel,
@@ -283,10 +307,20 @@ export const resolvePhoneCurrentPlanOptions = (answers: FlowAnswers): FlowChoice
   // SKT/KT/LGU+의 경우 API 데이터가 아직 없거나 매칭이 안 된 경우, 해당 메이저 통신사 전용 요금제만 생성 (알뜰폰 섞임 방지)
   if (matchedOptions.length === 0) {
     const apiPlansFallback = fetchPlansFromApi(carrier, currentFee);
-    matchedOptions = apiPlansFallback.map(p => ({
-      value: `plan-api|${p.label}`,
-      label: p.label,
-    }));
+    const sortedFallback = [...apiPlansFallback].sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee));
+    const topFallback = sortedFallback[0] || apiPlansFallback[0];
+    if (topFallback) {
+      const tag = carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : "알뜰폰";
+      const netType = topFallback.label.includes("5G") || topFallback.label.includes("5g") ? "5G" : "LTE";
+      const planNameOnly = topFallback.label.replace(/\[.*?\]\s*/, "").replace(/\s*·\s*월.*$/, "").trim();
+      const dataStr = topFallback.label.match(/·\s*([^·]+?)\s*·\s*(?:5G|LTE)/)?.[1]?.trim() || "기본제공";
+      const formattedLabel = `[${tag}] 월 ${topFallback.price.toLocaleString("ko-KR")}원 · 데이터 ${dataStr} (${planNameOnly} · ${netType})`;
+
+      matchedOptions = [{
+        value: `plan-api|${formattedLabel}`,
+        label: formattedLabel,
+      }];
+    }
   }
 
   return [
@@ -296,121 +330,220 @@ export const resolvePhoneCurrentPlanOptions = (answers: FlowAnswers): FlowChoice
   ];
 };
 
-export const resolvePhoneRecommendations = (answers: FlowAnswers): FlowChoiceOption[] => {
-  const carrier = answers[`${namespace}.carrier`] as string;
-  const desiredNetwork = answers[`${namespace}.desiredNetwork`] as string;
-  const dataVolume = answers[`${namespace}.dataVolume`] as string;
-  const targetNetwork = desiredNetwork === "5g" ? "5G" : desiredNetwork === "lte" ? "LTE" : null;
+export interface PhonePlanCandidate {
+  value: string;
+  label: string;
+  price: number;
+  carrier: string;
+  telecomTag: string;
+  dataGB: number;
+  networkType: "5G" | "LTE";
+}
 
-  // 1. 메이저 3사 (SKT, KT, LGU+) API 키 데이터에서 조건에 맞는 요금제 3개 수집
-  let majorApiCandidates: { value: string; label: string; price: number }[] = [];
+function getAllCandidatePhonePlans(userCarrier: string, currentFee: number): PhonePlanCandidate[] {
+  const candidates: PhonePlanCandidate[] = [];
+  const seenLabels = new Set<string>();
 
-  if (allPlans && allPlans.length > 0) {
-    // SKT, KT, LGU+ 3사 데이터 추출
-    const majorPlans = allPlans.filter(p => p.telecom === "SKT" || p.telecom === "KT" || p.telecom === "LGU+");
+  const addCandidate = (label: string, price: number, telecomTag: string, carrierKey: string) => {
+    if (seenLabels.has(label)) return;
+    seenLabels.add(label);
 
-    // 네트워크(5G/LTE) 및 선택한 데이터 사용량(dataVolume) 필터 적용
-    let filteredMajor = majorPlans.filter(p => {
-      if (targetNetwork) {
-        const is5g = p.planName.includes("5G") || p.planName.includes("5g");
-        if (targetNetwork === "5G" && !is5g) return false;
-        if (targetNetwork === "LTE" && is5g) return false;
-      }
-      const dataLabel = `${p.planName} ${p.data || ""}`;
-      return matchesDataVolumeFilter(dataLabel, dataVolume);
-    });
+    const netType: "5G" | "LTE" = label.includes("5G") || label.includes("5g") ? "5G" : "LTE";
+    const dataGB = parseDataGB(label);
 
-    if (filteredMajor.length < 3) {
-      filteredMajor = majorPlans.filter(p => {
-        if (targetNetwork) {
-          const is5g = p.planName.includes("5G") || p.planName.includes("5g");
-          if (targetNetwork === "5G" && !is5g) return false;
-          if (targetNetwork === "LTE" && is5g) return false;
-        }
-        return true;
-      });
+    let formattedLabel = label;
+    if (!label.startsWith("[")) {
+      formattedLabel = `[${telecomTag}] ${label}`;
     }
 
-    // 최저가 순 정렬 및 중복 제거
-    filteredMajor.sort((a, b) => a.monthlyFee - b.monthlyFee);
-    const seenNames = new Set<string>();
-    filteredMajor.forEach(p => {
-      if (!seenNames.has(p.planName)) {
-        seenNames.add(p.planName);
-        const netType = p.planName.includes("5G") || p.planName.includes("5g") ? "5G" : "LTE";
-        const fullLabel = `[${p.telecom}] ${p.planName} · 월 ${p.monthlyFee.toLocaleString("ko-KR")}원 · ${p.data || "기본제공"} · ${netType}`;
-        majorApiCandidates.push({
-          value: `plan-api|${fullLabel}`,
-          label: fullLabel,
-          price: p.monthlyFee
-        });
-      }
+    candidates.push({
+      value: `plan-api|${formattedLabel}`,
+      label: formattedLabel,
+      price,
+      carrier: carrierKey,
+      telecomTag,
+      dataGB,
+      networkType: netType,
     });
-  }
+  };
 
-  // API 수량이 부족한 경우 통신사별 Fallback 생성 (SKT, KT, LGU+ 메이저 3사만)
-  if (majorApiCandidates.length < 3) {
-    const majorCarriers = ["skt", "kt", "lgu"];
-    majorCarriers.forEach(c => {
-      const fallback = fetchPlansFromApi(c, 55000);
-      fallback.forEach(fb => {
-        if (!majorApiCandidates.some(m => m.label === fb.label)) {
-          majorApiCandidates.push({
-            value: `plan-api|${fb.label}`,
-            label: fb.label,
-            price: 55000
-          });
+  // 1. Smart Choice API plans (allPlans)
+  if (allPlans && allPlans.length > 0) {
+    allPlans.forEach(p => {
+      const carrierKey = p.telecom === "SKT" ? "skt" : p.telecom === "KT" ? "kt" : p.telecom === "LGU+" ? "lgu" : "mvno";
+      const netType = p.planName.includes("5G") || p.planName.includes("5g") ? "5G" : "LTE";
+
+      let dataStr = p.data || "기본제공";
+      if (dataStr && /^\d+$/.test(dataStr.trim())) {
+        const mb = parseInt(dataStr.trim(), 10);
+        if (mb >= 99999) {
+          dataStr = "무제한";
+        } else if (mb >= 1024) {
+          dataStr = `${Math.round(mb / 1024)}GB`;
+        } else {
+          dataStr = `${mb}MB`;
         }
-      });
+      }
+
+      const label = `[${p.telecom}] ${p.planName} · 월 ${p.monthlyFee.toLocaleString("ko-KR")}원 · ${dataStr} · ${netType}`;
+      addCandidate(label, p.monthlyFee, p.telecom, carrierKey);
     });
   }
 
-  // 메이저 3사 API 요금제 최저가 순 상위 3개 확정 (비율: 3)
-  // 2. mockData.ts (ALL_MVNO_PLAN_SPECS)에서 알뜰폰 요금제 1개 수집 (네트워크 & 데이터 범위 일치, 비율: 1)
-  let mvnoCandidates = ALL_MVNO_MAPPED.filter(plan => {
-    if (targetNetwork && plan.networkType !== targetNetwork) return false;
-    return matchesDataVolumeFilter(plan.label, dataVolume);
+  // 2. Major carrier fallback plans
+  ["skt", "kt", "lgu"].forEach(c => {
+    const tag = c === "skt" ? "SKT" : c === "kt" ? "KT" : "LGU+";
+    const list = fetchPlansFromApi(c, currentFee);
+    list.forEach(p => {
+      addCandidate(p.label, p.price, tag, c);
+    });
   });
 
-  if (mvnoCandidates.length === 0) {
-    mvnoCandidates = ALL_MVNO_MAPPED.filter(plan =>
-      targetNetwork ? plan.networkType === targetNetwork : true
-    );
+  // 3. MVNO mock plans
+  ALL_MVNO_MAPPED.forEach(p => {
+    const brandMatch = p.label.match(/\[(.*?)\]/);
+    const tag = brandMatch ? brandMatch[1] : "알뜰폰";
+    addCandidate(p.label, p.price, tag, "mvno");
+  });
+
+  return candidates;
+}
+
+function isStrictUserCarrierMatch(planCarrier: string, planTelecomTag: string, userCarrier: string): boolean {
+  const normUser = (userCarrier || "").toLowerCase().trim();
+  const normTag = (planTelecomTag || "").toUpperCase().trim();
+  const normCarrier = (planCarrier || "").toLowerCase().trim();
+
+  const isMvnoBrand = normTag.includes("이야기") ||
+                     normTag.includes("티플러스") ||
+                     normTag.includes("스노우") ||
+                     normTag.includes("헬로") ||
+                     normTag.includes("스카이") ||
+                     normTag.includes("알뜰") ||
+                     normCarrier === "mvno";
+
+  if (normUser === "skt") {
+    if (isMvnoBrand) return false;
+    return normCarrier === "skt" || normTag === "SKT";
   }
-  if (mvnoCandidates.length === 0) {
-    mvnoCandidates = ALL_MVNO_MAPPED;
+
+  if (normUser === "kt") {
+    if (isMvnoBrand) return false;
+    return normCarrier === "kt" || normTag === "KT";
   }
 
-  mvnoCandidates = interleaveMvnoPlans(mvnoCandidates);
-  mvnoCandidates.sort((a, b) => a.price - b.price);
+  if (normUser === "lgu" || normUser === "lgu+") {
+    if (isMvnoBrand) return false;
+    return normCarrier === "lgu" || normTag === "LGU+" || normTag.includes("유플러스");
+  }
 
-  const mvnoRecommendationCandidates = mvnoCandidates.map(p => ({
-    value: `plan-api|${p.label}`,
-    label: p.label,
-    price: p.price
-  }));
+  if (normUser === "mvno") {
+    return isMvnoBrand || (normTag !== "SKT" && normTag !== "KT" && normTag !== "LGU+");
+  }
 
-  // 3. 메이저 3사 API (3) : 알뜰폰 Mock (1) 비율로 4개 결합 후 전체 가격 낮은 순 정렬
-  const preferredCarrier = carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : "";
-  const preferredCandidates = carrier === "mvno"
-    ? mvnoRecommendationCandidates
-    : majorApiCandidates.filter(plan => plan.label.includes(preferredCarrier));
-  const otherCandidates = carrier === "mvno"
-    ? majorApiCandidates
-    : [
-        ...majorApiCandidates.filter(plan => !plan.label.includes(preferredCarrier)),
-        ...mvnoRecommendationCandidates,
-      ];
+  return false;
+}
 
-  const pool = [
-    ...[...preferredCandidates].sort((a, b) => a.price - b.price),
-    ...[...otherCandidates].sort((a, b) => a.price - b.price),
-  ]
-    .filter((plan, index, plans) => plans.findIndex(candidate => candidate.value === plan.value) === index)
-    .slice(0, 4);
+function rankPhonePlanCandidates(
+  candidates: PhonePlanCandidate[],
+  answers: FlowAnswers,
+  restrictToUserCarrierOnly: boolean = false
+): PhonePlanCandidate[] {
+  const userCarrier = (answers[`${namespace}.carrier`] as string) || "skt";
+  const desiredNetwork = (answers[`${namespace}.desiredNetwork`] as string) || "5g";
+  const dataVolume = (answers[`${namespace}.dataVolume`] as string) || "100GB_over";
+  const currentFee = getPhonePlanLookupFee(answers) || 66750;
 
-  // 4. 가격 순으로 [추천 1순위] ~ [추천 4순위] 라벨링하여 반환
-  const finalOptions: FlowChoiceOption[] = pool.map((p, idx) => ({
+  const targetNetwork = desiredNetwork === "5g" ? "5G" : desiredNetwork === "lte" ? "LTE" : null;
+  const { minGB, maxGB } = parseDataVolumeRange(dataVolume);
+
+  let filteredPool = candidates;
+  if (restrictToUserCarrierOnly) {
+    filteredPool = candidates.filter(p => isStrictUserCarrierMatch(p.carrier, p.telecomTag, userCarrier));
+
+    if (filteredPool.length === 0) {
+      const fallbackList = fetchPlansFromApi(userCarrier, currentFee);
+      const tag = userCarrier === "skt" ? "SKT" : userCarrier === "kt" ? "KT" : userCarrier === "lgu" ? "LGU+" : "알뜰폰";
+      filteredPool = fallbackList.map(p => ({
+        value: `plan-api|${p.label}`,
+        label: p.label,
+        price: p.price,
+        carrier: userCarrier,
+        telecomTag: tag,
+        dataGB: parseDataGB(p.label),
+        networkType: p.label.includes("5G") || p.label.includes("5g") ? "5G" : "LTE",
+      }));
+    }
+  }
+
+  const scored = filteredPool.map(plan => {
+    let score = 0;
+
+    // 1. Carrier match (Same carrier = +1,000,000 pts)
+    const isSameCarrier = isStrictUserCarrierMatch(plan.carrier, plan.telecomTag, userCarrier);
+
+    if (isSameCarrier) {
+      score += 1000000;
+    }
+
+    // 2. Data Volume match (Crucial: 10GB~30GB range gets +500,000 pts, plans > maxGB get -500,000 pts penalty)
+    const bufferedMin = Math.max(0, minGB - 10);
+    const bufferedMax = maxGB >= 9999 ? 9999 : maxGB + 10;
+
+    if (minGB >= 50 && maxGB >= 9999) {
+      if (plan.dataGB >= 50 || plan.label.includes("무제한") || plan.label.includes("일5GB") || plan.label.includes("일 5GB")) {
+        score += 500000;
+      } else if (plan.dataGB >= 40) {
+        score += 200000;
+      } else {
+        score -= 500000;
+      }
+    } else {
+      if (plan.dataGB >= minGB && plan.dataGB <= maxGB) {
+        score += 500000; // Perfect match within selected range (e.g. 10GB~30GB)
+      } else if (plan.dataGB >= bufferedMin && plan.dataGB <= bufferedMax) {
+        score += 200000; // Buffered match
+      } else {
+        score -= 500000; // Heavy penalty for data volume out of range (e.g., 50GB/100GB when 10GB~30GB requested)
+      }
+    }
+
+    // 3. Plan Fee match (±25,000원 allowance)
+    const feeDiff = Math.abs(plan.price - currentFee);
+    if (feeDiff <= 25000) {
+      score += 10000;
+    }
+
+    // 4. Network match (5G vs LTE)
+    if (targetNetwork && plan.networkType === targetNetwork) {
+      score += 1000;
+    }
+
+    return { plan, score, feeDiff };
+  });
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    // 조건(통신사, 데이터 범위) 만족 시 더 저렴한 요금제(월 절감액이 큰 요금제)를 1순위 추천!
+    return a.plan.price - b.plan.price;
+  });
+
+  return scored.map(s => s.plan);
+}
+
+export const resolvePhoneRecommendations = (answers: FlowAnswers): FlowChoiceOption[] => {
+  const contractPeriod = (answers[`${namespace}.contractPeriod`] as string) || "expired";
+  const userFee = getPhonePlanLookupFee(answers) || 55000;
+  const userCarrier = (answers[`${namespace}.carrier`] as string) || "skt";
+
+  const isContractRemaining = contractPeriod === "remaining";
+
+  const allCandidates = getAllCandidatePhonePlans(userCarrier, userFee);
+  const ranked = rankPhonePlanCandidates(allCandidates, answers, isContractRemaining);
+
+  const top4 = ranked.slice(0, 4);
+
+  const finalOptions: FlowChoiceOption[] = top4.map((p, idx) => ({
     value: p.value,
     label: `[추천 ${idx + 1}순위] ${p.label}`,
     next: "phone-result"
@@ -423,79 +556,15 @@ export const resolvePhoneRecommendations = (answers: FlowAnswers): FlowChoiceOpt
 };
 
 export const resolvePhoneAllPlans = (answers: FlowAnswers): FlowChoiceOption[] => {
-  const desiredNetwork = answers[`${namespace}.desiredNetwork`] as string;
-  const dataVolume = answers[`${namespace}.dataVolume`] as string;
-  const targetNetwork = desiredNetwork === "5g" ? "5G" : desiredNetwork === "lte" ? "LTE" : null;
+  const userFee = getPhonePlanLookupFee(answers) || 55000;
+  const userCarrier = (answers[`${namespace}.carrier`] as string) || "skt";
 
-  // 메이저 3사 API 키 데이터 수집 (최대 9개)
-  let majorApiCandidates: { value: string; label: string; price: number }[] = [];
-  if (allPlans && allPlans.length > 0) {
-    const majorPlans = allPlans.filter(p => p.telecom === "SKT" || p.telecom === "KT" || p.telecom === "LGU+");
-    let filteredMajor = majorPlans.filter(p => {
-      if (targetNetwork) {
-        const is5g = p.planName.includes("5G") || p.planName.includes("5g");
-        if (targetNetwork === "5G" && !is5g) return false;
-        if (targetNetwork === "LTE" && is5g) return false;
-      }
-      const dataLabel = `${p.planName} ${p.data || ""}`;
-      return matchesDataVolumeFilter(dataLabel, dataVolume);
-    });
-    if (filteredMajor.length < 3) {
-      filteredMajor = majorPlans.filter(p => {
-        if (targetNetwork) {
-          const is5g = p.planName.includes("5G") || p.planName.includes("5g");
-          if (targetNetwork === "5G" && !is5g) return false;
-          if (targetNetwork === "LTE" && is5g) return false;
-        }
-        return true;
-      });
-    }
-    filteredMajor.sort((a, b) => a.monthlyFee - b.monthlyFee);
-    const seenNames = new Set<string>();
-    filteredMajor.forEach(p => {
-      if (!seenNames.has(p.planName)) {
-        seenNames.add(p.planName);
-        const netType = p.planName.includes("5G") || p.planName.includes("5g") ? "5G" : "LTE";
-        const fullLabel = `[${p.telecom}] ${p.planName} · 월 ${p.monthlyFee.toLocaleString("ko-KR")}원 · ${p.data || "기본제공"} · ${netType}`;
-        majorApiCandidates.push({
-          value: `plan-api|${fullLabel}`,
-          label: fullLabel,
-          price: p.monthlyFee
-        });
-      }
-    });
-  }
-  const selectedMajor9 = majorApiCandidates.sort((a, b) => a.price - b.price).slice(0, 9);
+  const allCandidates = getAllCandidatePhonePlans(userCarrier, userFee);
+  const ranked = rankPhonePlanCandidates(allCandidates, answers, false);
 
-  // 알뜰폰 mockData (ALL_MVNO_PLAN_SPECS) 수집 (최대 3개)
-  let mvnoCandidates = ALL_MVNO_MAPPED.filter(plan => {
-    if (targetNetwork && plan.networkType !== targetNetwork) return false;
-    return matchesDataVolumeFilter(plan.label, dataVolume);
-  });
-  if (mvnoCandidates.length === 0) {
-    mvnoCandidates = ALL_MVNO_MAPPED;
-  }
-  mvnoCandidates = interleaveMvnoPlans(mvnoCandidates);
-  mvnoCandidates.sort((a, b) => a.price - b.price);
-  const selectedMvno3 = mvnoCandidates.slice(0, 3).map(p => ({
-    value: `plan-api|${p.label}`,
-    label: p.label,
-    price: p.price
-  }));
+  const top12 = ranked.slice(0, 12);
 
-  const combined = [...selectedMajor9, ...selectedMvno3].sort((a, b) => a.price - b.price);
-
-  if (combined.length === 0) {
-    return [
-      { value: "plan-api|[추천 1순위] 알뜰폰 5G 데이터 무제한 가성비 팩 (월 33,000원)", label: "알뜰폰 5G 데이터 무제한 가성비 팩 (월 33,000원)", next: "phone-result" },
-      { value: "plan-api|[추천 2순위] KT 맞춤 청년 요금제 (월 45,000원)", label: "KT 맞춤 청년 요금제 (월 45,000원)", next: "phone-result" },
-      { value: "plan-api|SKT 요금제 A (월 69,000원)", label: "SKT 요금제 A (월 69,000원)", next: "phone-result" },
-      { value: "plan-api|SKT 인기 요금제 B (월 59,000원)", label: "SKT 인기 요금제 B (월 59,000원)", next: "phone-result" },
-      { value: "plan-api|일반 LTE/5G 요금제 (월 55,000원)", label: "일반 LTE/5G 요금제 (월 55,000원)", next: "phone-result" }
-    ];
-  }
-
-  return combined.map(p => ({
+  return top12.map(p => ({
     value: p.value,
     label: p.label,
     next: "phone-result"
@@ -534,6 +603,7 @@ const opening: FlowStep[] = [
     options: [
       { value: "select-discount", label: "선택약정 25% 할인 받는 중" },
       { value: "family-discount", label: "가족 결합 할인 중" },
+      { value: "no-discount", label: "할인 안 받음" },
       { value: "unknown", label: "잘 모르겠음" },
     ],
     minSelections: 1,

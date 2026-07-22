@@ -223,12 +223,12 @@ const opening: FlowStep[] = [
 // [Part 2] 원하는 요금제 및 서비스 조건 선택 파트
 // =================================================================
 const specific: FlowStep[] = [
-  // [Part 2 - 6번] 조건에 맞는 인터넷 요금제 선택
+  // [Part 2 - 6번] 조건에 맞는 인터넷 속도 선택
   {
     id: "internet-usage",
     type: "single-choice",
     layout: "inline",
-    message: "조건에 맞는 인터넷 요금제를 선택해 주세요.",
+    message: "조건에 맞는 인터넷 속도를 선택해 주세요.",
     answerKey: `${namespace}.desiredSpeed`,
     options: [
       { value: "100Mbps", label: "100Mbps (웹서핑·유튜브)" },

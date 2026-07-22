@@ -9,18 +9,31 @@ export const buildPhoneResult = (answers: Record<string, any>): FlowResult => {
   // Calculate savings and rate for grading
   const carrier = answers["phone.carrier"] || "skt";
   const currentFee = Number(answers["phone.currentFee"]) || 0;
-  const confirmedPlanRaw = answers["phone.confirmedPlan"] || "";
-  const confirmedPlan = (confirmedPlanRaw === "direct-input" || confirmedPlanRaw === "direct-select")
-    ? (answers["phone.customPlan"] || "")
-    : (confirmedPlanRaw || answers["phone.customPlan"] || "");
-  const selectedRecommendedPlan = answers["phone.selectedRecommendedPlan"] || "rec-mock-1";
-  const dataVolume = answers["phone.dataVolume"] || "mid";
+  
+  const rawSelectedPlan = (answers["phone.manualSelectedPlan"] && answers["phone.manualSelectedPlan"] !== "direct-choose")
+    ? (answers["phone.manualSelectedPlan"] as string)
+    : (answers["phone.selectedRecommendedPlan"] as string) || "";
 
-  const currentSpec = getPlanSpec(confirmedPlan, carrier, currentFee, dataVolume);
-  const recommendedSpec = getPlanSpec(selectedRecommendedPlan);
+  let selectedPlanClean = rawSelectedPlan.replace(/^\[추천\s*\d+순위\]\s*/, "").trim();
+  if (selectedPlanClean.startsWith("plan-api|")) {
+    selectedPlanClean = selectedPlanClean.split("|")[1];
+  }
 
-  const saving = currentSpec.price - recommendedSpec.price;
-  const savingRate = currentSpec.price > 0 ? (saving / currentSpec.price) : 0;
+  const priceMatch = selectedPlanClean.match(/월\s*([\d,]+)원/);
+  let selectedPrice = priceMatch ? parseInt(priceMatch[1].replace(/,/g, ""), 10) : 0;
+
+  if (!selectedPrice) {
+    const spec = getPlanSpec(rawSelectedPlan, carrier, currentFee);
+    selectedPrice = spec.price;
+  }
+
+  const discountOption = answers["phone.discountOption"];
+  const discountOptions = Array.isArray(discountOption) ? discountOption : [discountOption];
+  const hasSelectDiscount = discountOptions.includes("select-discount");
+  const recommendedPaidFee = hasSelectDiscount ? Math.round(selectedPrice * 0.75) : selectedPrice;
+
+  const saving = currentFee > 0 ? Math.max(0, currentFee - recommendedPaidFee) : 0;
+  const savingRate = currentFee > 0 ? (saving / currentFee) : 0;
 
   const isExit = answers["phone.exitRestart"] === "exit" || answers["phone.askGrade"] === "no";
   const isGrade = answers["phone.askGrade"] === "yes";

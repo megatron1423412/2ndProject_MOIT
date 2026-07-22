@@ -423,7 +423,7 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
             </p>
           ) : priceDiff < 0 ? (
             <p>
-              • 매달 <span className="font-extrabold text-destructive">{fmt(Math.abs(priceDiff))}원</span>이 더 지출되지만, 늘어난 데이터 스펙을 돈으로 환산하면 <span className="font-bold text-accent">{fmt(dataBenefit)}원</span>어치라 오히려 이득이에요.
+              • 매달 <span className="font-extrabold text-destructive">{fmt(Math.abs(priceDiff))}원</span>이 더 지출되지만, <span className="font-bold text-accent">원하시는 데이터 스펙을 훨씬 넉넉하게 채울 수 있어 훨씬 효율적이에요!</span>
             </p>
           ) : null}
           <p>

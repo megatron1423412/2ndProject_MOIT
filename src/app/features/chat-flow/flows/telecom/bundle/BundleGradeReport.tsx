@@ -29,13 +29,13 @@ export default function BundleGradeReport({ result, onEndChat }: BundleGradeRepo
     ? Math.ceil(penaltyAmount / saving) 
     : 0;
 
-  // Grade calculation logic: satisfies either the savingRate OR the saving threshold
+  // Grade calculation logic: saving >= threshold OR savingRate >= threshold
   let grade: "Gold" | "Silver" | "Bronze" | "Normal" = "Normal";
-  if (savingRate >= 0.35 || saving >= 45000) {
+  if (saving >= 45000 || savingRate >= 0.35) {
     grade = "Gold";
-  } else if (savingRate >= 0.20 || saving >= 25000) {
+  } else if (saving >= 25000 || savingRate >= 0.20) {
     grade = "Silver";
-  } else if (savingRate >= 0.10 || saving >= 10000) {
+  } else if (saving >= 10000 || savingRate >= 0.10) {
     grade = "Bronze";
   }
 

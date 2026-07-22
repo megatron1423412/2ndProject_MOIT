@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Send, Star } from "lucide-react";
 import type { AnswerInputStep, FlowChoiceOption, SubmittedFlowAnswer } from "../../../features/chat-flow/core/types";
 import QuickReplyChips from "./QuickReplyChips";
@@ -158,6 +158,11 @@ export default function ChatFlowInput({
   const [inputValue, setInputValue] = useState("");
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [phonePlanOptions, setPhonePlanOptions] = useState<FlowChoiceOption[] | null>(null);
+
+  // 처음 로드된 요금제 옵션을 스냅샷으로 고정 저장 (isHistorical 전환 후 데이터 오염 방지)
+  const frozenPlanOptionsRef = useRef<FlowChoiceOption[] | null>(null);
+  const stepIdRef = useRef<string | undefined>(step?.id);
+
   const phoneCarrier = String(answers?.["phone.carrier"] || "");
   const phoneCurrentFee = Number(answers?.["phone.currentFee"] || 0);
   const phoneDiscountOption = answers?.["phone.discountOption"];
@@ -169,17 +174,32 @@ export default function ChatFlowInput({
   }, [step?.id]);
 
   useEffect(() => {
+    // step이 바뀌면 frozen 스냅샷 초기화
+    if (stepIdRef.current !== step?.id) {
+      stepIdRef.current = step?.id;
+      frozenPlanOptionsRef.current = null;
+    }
+
     setPhonePlanOptions(null);
     if (!isCurrentPhonePlanLookup || isHistorical || !phoneCarrier) return;
+
+    // 이미 freeze된 스냅샷이 있으면 재사용 (answers 변경 후 재실행돼도 오염 안 됨)
+    if (frozenPlanOptionsRef.current) {
+      setPhonePlanOptions(frozenPlanOptionsRef.current);
+      return;
+    }
 
     let active = true;
     void prefetchPlans(phoneCarrier).then(() => {
       if (!active) return;
-      setPhonePlanOptions(resolvePhoneCurrentPlanOptions({
+      const resolved = resolvePhoneCurrentPlanOptions({
         "phone.carrier": phoneCarrier,
         "phone.currentFee": phoneCurrentFee,
         "phone.discountOption": phoneDiscountOption,
-      }));
+      });
+      // Deep copy로 스냅샷 고정 — 이후 전역 State 변경에도 절대 변하지 않음
+      frozenPlanOptionsRef.current = JSON.parse(JSON.stringify(resolved));
+      setPhonePlanOptions(frozenPlanOptionsRef.current);
     });
 
     return () => { active = false; };
@@ -521,8 +541,8 @@ export default function ChatFlowInput({
       step.id === "iptv-current-plan-api" ||
       step.id === "bundle-current-plan-api"
     ) {
-      const options = step.id === "phone-current-plan-api" && phonePlanOptions
-        ? phonePlanOptions
+      const options = step.id === "phone-current-plan-api" && (phonePlanOptions ?? frozenPlanOptionsRef.current)
+        ? (phonePlanOptions ?? frozenPlanOptionsRef.current)!
         : step.options;
       const planOption = options.find(
         (o) => o.value !== "direct-select" && o.value !== "direct-input"

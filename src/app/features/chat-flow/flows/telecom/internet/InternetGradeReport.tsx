@@ -63,23 +63,23 @@ export default function InternetGradeReport({ result, onEndChat }: InternetGrade
   let gradeReason = "현재 이용 요금에 대비하여 큰 절감액이 없거나, 가구원 및 연결 기기 수 대비 200Mbps 인터넷의 속도가 다소 부족하여 기존 인터넷 환경을 그대로 유지하시는 것을 추천합니다.";
   let gradeTheme = { bg: "bg-muted/30", text: "text-muted-foreground", border: "border-border/60", ring: "ring-muted" };
 
-  if (speedOk && (saving >= 15000 || savingRate >= 0.3)) {
+  if ((saving >= 15000 || savingRate >= 0.30) && speedOk) {
     grade = "Gold";
     gradeLabel = "골드 등급";
     gradeEmoji = "🏆";
-    gradeReason = `권장 속도 스펙을 완벽히 유지하면서 월 ${fmt(saving)}원(${Math.round(savingRate * 100)}%)의 우수한 통신 지출을 성공적으로 절감하셨습니다! 스마트한 인터넷 소비 설계를 유지하고 계십니다.`;
+    gradeReason = `속도 적합성을 만족하며 월 ${fmt(saving)}원(${Math.round(savingRate * 100)}%)의 우수한 통신 지출을 성공적으로 절감하셨습니다! 스마트한 인터넷 소비 설계를 유지하고 계십니다.`;
     gradeTheme = { bg: "bg-amber-500/5", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20", ring: "ring-amber-500/30" };
-  } else if (speedOk && (saving >= 8000 || savingRate >= 0.15)) {
+  } else if ((saving >= 8000 || savingRate >= 0.15) && speedOk) {
     grade = "Silver";
     gradeLabel = "실버 등급";
     gradeEmoji = "🥈";
-    gradeReason = `가구 환경에 딱 맞는 인터넷 속도를 지켜내면서 월 ${fmt(saving)}원(${Math.round(savingRate * 100)}%) 가량의 소중한 고정비를 절약하셨습니다. 건강하고 낭비 없는 소비 패턴을 보유하고 계십니다.`;
+    gradeReason = `속도 적합성을 만족하며 월 ${fmt(saving)}원(${Math.round(savingRate * 100)}%) 가량의 소중한 고정비를 절약하셨습니다. 건강하고 낭비 없는 소비 패턴을 보유하고 계십니다.`;
     gradeTheme = { bg: "bg-slate-500/5", text: "text-slate-600 dark:text-slate-400", border: "border-slate-500/20", ring: "ring-slate-500/30" };
-  } else if (saving >= 3000 && !speedOk) {
+  } else if (saving >= 3000) {
     grade = "Bronze";
     gradeLabel = "브론즈 등급";
     gradeEmoji = "🥉";
-    gradeReason = `월 ${fmt(saving)}원의 요금 고정비는 절감하였으나, 현재 가구 환경 및 이용 목적 대비 기가 인터넷 권장 사양보다 속도가 낮아져 재택근무나 스트리밍 시 다소간의 속도 체감 손실 리스크가 발생할 수 있습니다.`;
+    gradeReason = `월 ${fmt(saving)}원 수준의 고정비를 절감하셨습니다. 조건에 맞는 요금제를 선택하여 알뜰하게 고정 지출을 아끼셨습니다.`;
     gradeTheme = { bg: "bg-orange-500/5", text: "text-orange-600 dark:text-orange-400", border: "border-orange-500/20", ring: "ring-orange-500/30" };
   }
 
