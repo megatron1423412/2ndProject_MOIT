@@ -16,23 +16,40 @@ export const MOCK_CURRENT_PLANS = [
 
 // 🚀 Part 2용 가짜 추천 요금제 목록
 export const MOCK_RECOMMENDED_PLANS = [
-  { value: "rec-mock-1", label: "[추천 1순위] 알뜰폰 5G 데이터 무제한 가성비 팩 (월 33,000원)" },
-  { value: "rec-mock-2", label: "[추천 2순위] 메이저 통신사 맞춤 청년 요금제 (월 45,000원)" },
+  { value: "rec-mock-1", label: "[추천 1순위] [이야기모바일(SKT)] 5G 데이터 무제한 가성비 팩 · 월 33,000원 · 15GB · 5G" },
+  { value: "rec-mock-2", label: "[추천 2순위] [KT] 맞춤 청년 요금제 · 월 45,000원 · 30GB · 5G" },
   { value: "direct-choose", label: "직접 고를래요 (리스트 보기)", next: "phone-all-plans-select" },
 ];
 
-// 🌟 요금조회 API 연결용 함수 (API 키 연동 틀 설계)
 export const fetchPlansFromApi = (carrier: string, currentFee: number) => {
-  const carrierLabel = carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : "알뜰폰";
-  const feeLabel = typeof currentFee === "number" ? currentFee.toLocaleString("ko-KR") : "0";
+  if (carrier === "skt") {
+    return [
+      { value: "plan-api-skt-1", label: `[SKT] 5G 레귤러 · 월 69,000원 · 110GB (소진 시 5Mbps) · 5G`, price: 69000 },
+      { value: "plan-api-skt-2", label: `[SKT] 5G 언택트 62 · 월 62,000원 · 무제한 (200GB + 5Mbps) · 5G`, price: 62000 },
+      { value: "plan-api-skt-3", label: `[SKT] 5G 레귤러플러스 · 월 79,000원 · 250GB (소진 시 5Mbps) · 5G`, price: 79000 },
+      { value: "plan-api-skt-4", label: `[SKT] 5G 슬림 · 월 55,000원 · 11GB (소진 시 1Mbps) · 5G`, price: 55000 },
+    ];
+  }
 
-  let planName = `${carrierLabel} T플랜 에센스`;
-  if (carrier === "kt") planName = `${carrierLabel} 데이터 ON 비디오`;
-  if (carrier === "lgu") planName = `${carrierLabel} 추가 걱정 없는 데이터 69`;
-  if (carrier === "mvno") planName = `${carrierLabel} 유심 데이터 11GB+`;
+  if (carrier === "kt") {
+    return [
+      { value: "plan-api-kt-1", label: `[KT] 5G 심플 110GB · 월 69,000원 · 110GB (소진 시 5Mbps) · 5G`, price: 69000 },
+      { value: "plan-api-kt-2", label: `[KT] 5G 슬림 14GB · 월 55,000원 · 14GB (소진 시 1Mbps) · 5G`, price: 55000 },
+      { value: "plan-api-kt-3", label: `[KT] 5G 베이직 무제한 · 월 80,000원 · 무제한 (소진 시 5Mbps) · 5G`, price: 80000 },
+    ];
+  }
+
+  if (carrier === "lgu") {
+    return [
+      { value: "plan-api-lgu-1", label: `[LGU+] 5G 레귤러 · 월 63,000원 · 95GB (소진 시 3Mbps) · 5G`, price: 63000 },
+      { value: "plan-api-lgu-2", label: `[LGU+] 5G 라이트+ · 월 55,000원 · 12GB (소진 시 1Mbps) · 5G`, price: 55000 },
+      { value: "plan-api-lgu-3", label: `[LGU+] 5G 프리미어 레귤러 · 월 95,000원 · 무제한 (소진 시 5Mbps) · 5G`, price: 95000 },
+    ];
+  }
 
   return [
-    { value: "plan-api-1", label: `${planName} (기본제공, 월 ${feeLabel}원)` },
+    { value: "plan-api-mvno-1", label: `[이야기모바일(SKT)] 이야기 5G 100GB · 월 38,200원 · 100GB (소진 시 5Mbps) · 5G`, price: 38200 },
+    { value: "plan-api-mvno-2", label: `[티플러스(SKT)] 티플러스 5G 110GB · 월 42,000원 · 110GB (소진 시 5Mbps) · 5G`, price: 42000 },
   ];
 };
 
@@ -183,15 +200,16 @@ export const getPlanSpec = (
   let qosSpeed = "400kbps";
   let hasQos = true;
 
-  if (dataVolume === "unlimited") {
+  const val = (dataVolume || "").toLowerCase();
+  if (val === "unlimited" || val.includes("100gb") || val.includes("over")) {
     dataStr = "무제한 (100GB + 5Mbps)";
     dataMB = 102400;
     qosSpeed = "5Mbps";
-  } else if (dataVolume === "high") {
+  } else if (val === "high" || val.includes("50gb")) {
     dataStr = "75GB (소진 시 1Mbps)";
     dataMB = 76800;
     qosSpeed = "1Mbps";
-  } else if (dataVolume === "low") {
+  } else if (val === "low" || val.includes("under") || val.includes("less") || val.includes("미만")) {
     dataStr = "5GB (소진 시 400kbps)";
     dataMB = 5120;
     qosSpeed = "400kbps";

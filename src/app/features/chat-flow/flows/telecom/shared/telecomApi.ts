@@ -53,13 +53,12 @@ const phonePlanRequestsInFlight = new Map<string, Promise<SmartChoiceResponse>>(
 
 /** phone.dataVolume → data (MB 문자열) */
 export function mapDataVolumeToMB(dataVolume: string): string {
-  switch (dataVolume) {
-    case "unlimited": return "999999";
-    case "high":      return "51200";   // ~50GB
-    case "mid":       return "20480";   // ~20GB
-    case "low":       return "5120";    // ~5GB
-    default:          return "10240";   // 기본 10GB
-  }
+  const val = (dataVolume || "").toLowerCase();
+  if (val === "unlimited" || val.includes("100gb") || val.includes("over")) return "999999";
+  if (val === "high" || val.includes("50gb")) return "51200";   // ~50GB
+  if (val === "mid" || val.includes("10gb_30gb") || val.includes("30gb")) return "20480";   // ~20GB
+  if (val === "low" || val.includes("under") || val.includes("less") || val.includes("미만")) return "5120";    // ~5GB
+  return "10240";   // 기본 10GB
 }
 
 /** phone.desiredNetwork → type (3=LTE, 6=5G) */

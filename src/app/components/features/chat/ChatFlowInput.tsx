@@ -76,6 +76,58 @@ const getPlanDetails = (value: string, label: string, subCategoryId: string) => 
   return { name, price, brand };
 };
 
+export function parsePlanLabel(label: string) {
+  if (!label) return { cleanLabel: "", mvnoCarrier: "", name: "", priceStr: "", data: "", networkType: "" };
+
+  const cleanLabel = label.replace(/^\[추천\s*\d+순위\]\s*/, "");
+  const brandMatch = cleanLabel.match(/^\[(.*?)\]/);
+  const mvnoCarrier = brandMatch ? brandMatch[1] : "";
+  const restLabel = brandMatch ? cleanLabel.replace(/^\[.*?\]\s*/, "") : cleanLabel;
+
+  const priceMatch = label.match(/월\s*([\d,]+원)/);
+  const priceStr = priceMatch ? priceMatch[1] : "";
+
+  let name = restLabel;
+  let data = "";
+  let networkType = "";
+
+  if (restLabel.includes(" · ")) {
+    const parts = restLabel.split(" · ").map(s => s.trim());
+    name = parts[0];
+    for (let i = 1; i < parts.length; i++) {
+      const part = parts[i];
+      if (/월\s*[\d,]+원/.test(part)) continue;
+      if (part === "LTE" || part === "5G" || part === "4G") {
+        networkType = part;
+      } else if (part.includes("GB") || part.includes("MB") || part.includes("무제한") || part.includes("무한")) {
+        data = part;
+      } else if (!data) {
+        data = part;
+      }
+    }
+  } else {
+    name = restLabel.replace(/\s*\(월\s*[\d,]+원\)/, "").trim();
+    name = name.replace(/\s*-\s*월\s*[\d,]+원/, "").trim();
+
+    const dataMatch = name.match(/(\d+(?:\.\d+)?(?:GB|MB)|무제한)/i);
+    if (dataMatch) {
+      data = dataMatch[1];
+    }
+
+    if (/5G/i.test(name)) networkType = "5G";
+    else if (/LTE/i.test(name) || /4G/i.test(name)) networkType = "LTE";
+  }
+
+  return {
+    cleanLabel,
+    mvnoCarrier,
+    name,
+    priceStr,
+    data,
+    networkType
+  };
+}
+
 interface ChatFlowInputProps {
   step: AnswerInputStep | null;
   completed: boolean;
@@ -108,6 +160,7 @@ export default function ChatFlowInput({
   const [phonePlanOptions, setPhonePlanOptions] = useState<FlowChoiceOption[] | null>(null);
   const phoneCarrier = String(answers?.["phone.carrier"] || "");
   const phoneCurrentFee = Number(answers?.["phone.currentFee"] || 0);
+  const phoneDiscountOption = answers?.["phone.discountOption"];
   const isCurrentPhonePlanLookup = step?.id === "phone-current-plan-api";
 
   useEffect(() => {
@@ -125,11 +178,12 @@ export default function ChatFlowInput({
       setPhonePlanOptions(resolvePhoneCurrentPlanOptions({
         "phone.carrier": phoneCarrier,
         "phone.currentFee": phoneCurrentFee,
+        "phone.discountOption": phoneDiscountOption,
       }));
     });
 
     return () => { active = false; };
-  }, [isCurrentPhonePlanLookup, isHistorical, phoneCarrier, phoneCurrentFee]);
+  }, [isCurrentPhonePlanLookup, isHistorical, phoneCarrier, phoneCurrentFee, phoneDiscountOption]);
 
   if (completed) {
     return <QuickReplyChips replies={["처음부터 다시 진단하기"]} onSelect={onReset} />;
@@ -405,24 +459,43 @@ export default function ChatFlowInput({
                 borderClass = "border-border bg-card hover:border-emerald-500/50 hover:bg-emerald-500/5 active:scale-[0.99] cursor-pointer";
               }
 
-              const priceMatch = opt.label.match(/월\s*([\d,]+원)/);
+              const parsed = parsePlanLabel(opt.label);
 
               return (
                 <div
                   key={opt.value}
                   onClick={isHistorical || isUnselectable ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
-                  className={`flex flex-col gap-1 rounded-xl border p-3.5 text-left shadow-sm transition-all duration-200 ${borderClass}`}
+                  className={`flex flex-col gap-1.5 rounded-xl border p-3.5 text-left shadow-sm transition-all duration-200 ${borderClass}`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-primary truncate pr-2">
-                      {opt.label.split(" (월 ")[0]}
-                    </span>
-                    {priceMatch && (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {parsed.mvnoCarrier && (
+                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 shrink-0">
+                          {parsed.mvnoCarrier}
+                        </span>
+                      )}
+                      <span className="text-xs font-black text-primary truncate">
+                        {parsed.name}
+                      </span>
+                    </div>
+                    {parsed.priceStr && (
                       <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
-                        {priceMatch[1]}
+                        월 {parsed.priceStr}
                       </span>
                     )}
                   </div>
+
+                  {(parsed.data || parsed.networkType) && (
+                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground pt-0.5">
+                      {parsed.data && <span>데이터: <strong className="text-foreground font-semibold">{parsed.data}</strong></span>}
+                      {parsed.data && parsed.networkType && <span className="opacity-40">·</span>}
+                      {parsed.networkType && (
+                        <span className="rounded bg-secondary px-1.5 py-0.2 text-[9px] font-bold text-foreground/80 uppercase border border-border/50">
+                          {parsed.networkType}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -578,19 +651,47 @@ export default function ChatFlowInput({
                 ? `${badgeMatch[1]}순위 추천` 
                 : `선택안 ${idx + 1}`;
 
+              const parsed = parsePlanLabel(opt.label);
+
               return (
                 <div 
                   key={opt.value}
                   onClick={isHistorical ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
                   className={`group relative rounded-2xl border p-4 shadow-sm transition-all duration-200 flex flex-col gap-2 h-full justify-between ${!isHistorical ? "cursor-pointer active:scale-[0.99] hover:shadow-md" : ""} ${borderClass}`}
                 >
-                  <div className="flex flex-col gap-1 pr-6">
-                    <span className={`self-start rounded px-1.5 py-0.5 text-[8px] font-black text-white uppercase ${badgeBg}`}>
-                      {badgeLabel}
-                    </span>
-                    <h4 className="text-xs font-black text-primary transition-colors mt-1">
-                      {cleanLabel}
+                  <div className="flex flex-col gap-1.5 pr-6">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`rounded px-1.5 py-0.5 text-[8px] font-black text-white uppercase ${badgeBg}`}>
+                        {badgeLabel}
+                      </span>
+                      {parsed.mvnoCarrier && (
+                        <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-1 py-0.2">
+                          {parsed.mvnoCarrier}
+                        </span>
+                      )}
+                    </div>
+
+                    <h4 className="text-xs font-black text-primary transition-colors mt-0.5 line-clamp-2 leading-snug">
+                      {parsed.name}
                     </h4>
+
+                    {parsed.priceStr && (
+                      <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        월 {parsed.priceStr}
+                      </div>
+                    )}
+
+                    {(parsed.data || parsed.networkType) && (
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground flex-wrap pt-0.5">
+                        {parsed.data && <span className="font-semibold text-foreground">{parsed.data}</span>}
+                        {parsed.data && parsed.networkType && <span className="opacity-40">·</span>}
+                        {parsed.networkType && (
+                          <span className="rounded bg-secondary px-1.5 py-0.2 text-[8px] font-bold uppercase text-foreground/80 border border-border/50">
+                            {parsed.networkType}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <button

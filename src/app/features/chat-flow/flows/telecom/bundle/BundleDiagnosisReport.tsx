@@ -1,9 +1,6 @@
-// src/app/features/chat-flow/flows/telecom/bundle/BundleDiagnosisReport.tsx
-
-import React, { useState, useEffect } from "react";
-import { CheckCircle2, ShieldAlert, Sparkles, ExternalLink, Bot, Loader2 } from "lucide-react";
+import React from "react";
+import { CheckCircle2, ShieldAlert, Sparkles, ExternalLink } from "lucide-react";
 import type { FlowResult } from "../../../core/types";
-import { generateTelecomComment, buildBundleCommentPrompt } from "../shared/telecomApi";
 
 interface BundleDiagnosisReportProps {
   result: FlowResult;
@@ -524,32 +521,6 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
     }
   }
 
-  // Ollama AI comment
-  const [aiComment, setAiComment] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    const prompt = buildBundleCommentPrompt({
-      currentCarrier: currentCarrierLabel,
-      currentFee,
-      selectedPlanName,
-      selectedFee: selectedPrice,
-      knowPenalty,
-      penaltyAmount,
-    });
-    generateTelecomComment(prompt, "bundle").then((comment) => {
-      if (!cancelled) {
-        setAiComment(comment);
-        setAiLoading(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <div className="w-full max-w-2xl rounded-2xl border border-border/80 bg-gradient-to-b from-card to-background p-6 shadow-md transition-all hover:shadow-lg space-y-6">
 
@@ -1018,25 +989,6 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
             )
           )}
         </div>
-      </div>
-
-      {/* AI 맞춤 코멘트 (Ollama) */}
-      <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
-        <div className="flex items-center gap-2 border-b border-violet-500/10 pb-2">
-          <Bot className="text-violet-500" size={14} />
-          <span className="text-xs font-black text-violet-600 dark:text-violet-400">AI 맞춤 절약 가이드</span>
-          <span className="ml-auto rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-500">Ollama</span>
-        </div>
-        {aiLoading ? (
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 size={13} className="animate-spin text-violet-400" />
-            AI가 맞춤 가이드를 생성 중입니다...
-          </div>
-        ) : aiComment ? (
-          <p className="mt-3 text-xs leading-relaxed text-primary/90 font-medium whitespace-pre-wrap">{aiComment}</p>
-        ) : (
-          <p className="mt-3 text-xs text-muted-foreground/70">AI 가이드를 불러올 수 없습니다. Ollama가 실행 중인지 확인해 주세요.</p>
-        )}
       </div>
 
       {/* 4. 부가서비스 링크 버튼 */}

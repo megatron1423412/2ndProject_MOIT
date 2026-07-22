@@ -1,10 +1,9 @@
+
 import React, { useState, useEffect } from "react";
-import { CheckCircle2, ClipboardCheck, ArrowRightLeft, ShieldAlert, Sparkles, ExternalLink, Activity, Bot, Loader2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, ArrowRightLeft, ShieldAlert, Sparkles, ExternalLink, Activity, Loader2, AlertTriangle } from "lucide-react";
 import type { FlowResult } from "../../../core/types";
 import { getPlanSpec, ALL_MVNO_PLAN_SPECS, PlanSpec } from "./mockData";
 import {
-  generateTelecomComment,
-  buildPhoneCommentPrompt,
   mapDataVolumeToMB,
   mapNetworkToType,
   mapAgeGroupToAge,
@@ -48,6 +47,10 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
   const discountOptionValue = Array.isArray(answers["phone.discountOption"])
     ? (answers["phone.discountOption"] as string[]).join(",")
     : String(answers["phone.discountOption"] || "");
+  const hasSelectDiscount = Array.isArray(answers["phone.discountOption"])
+    ? (answers["phone.discountOption"] as string[]).includes("select-discount")
+    : answers["phone.discountOption"] === "select-discount";
+  const currentPlanFee = hasSelectDiscount ? Math.round(currentFee / 0.75) : currentFee;
 
   // ── 스마트초이스 실시간 API 요금제 페칭 ───────────────────────
   const [apiPlan, setApiPlan] = useState<any | null>(null);
@@ -130,7 +133,7 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
   }, [dataVolume, ageGroup, desiredNetwork, discountOptionValue]);
 
   // 기존 요금제 스펙 & 추천 요금제 스펙 매칭 (유저가 추천 카드 또는 '직접 고를래요'에서 선택한 요금제 최우선 적용)
-  const currentSpec = getPlanSpec(confirmedPlan, carrier, currentFee, dataVolume);
+  const currentSpec = getPlanSpec(confirmedPlan, carrier, currentPlanFee, dataVolume);
   
   const rawSelectedPlan = (answers["phone.manualSelectedPlan"] && answers["phone.manualSelectedPlan"] !== "direct-choose")
     ? (answers["phone.manualSelectedPlan"] as string)
@@ -232,9 +235,10 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
   }
 
   const recommendedSpec = userSelectedSpec || (apiPlan && !selectedPlanClean ? apiPlan : getPlanSpec(selectedRecommendedPlan, carrier, currentFee, dataVolume));
+  const recommendedPaidFee = hasSelectDiscount ? Math.round(recommendedSpec.price * 0.75) : recommendedSpec.price;
 
   // 차액 계산
-  const priceDiff = currentSpec.price - recommendedSpec.price;
+  const priceDiff = currentFee - recommendedPaidFee;
   const dataDiffMB = recommendedSpec.dataValueMB - currentSpec.dataValueMB;
   const dataDiffLabel = dataDiffMB > 0 
     ? `${(dataDiffMB / 1024).toFixed(1)}GB` 
@@ -256,32 +260,6 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
   const isMidRange = dataDiffMB >= 5120 && dataDiffMB < 15360;
   const isHighRange = dataDiffMB >= 15360 && dataDiffMB < 30720;
   const isUltraRange = dataDiffMB >= 30720;
-
-  // ── Ollama AI 코멘트 ────────────────────────────────────────
-  const [aiComment, setAiComment] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(true);
-
-  useEffect(() => {
-    if (apiLoading) return; // API 요금제 조회가 끝날 때까지 대기
-    
-    let cancelled = false;
-    const prompt = buildPhoneCommentPrompt({
-      carrier: currentSpec.carrier,
-      currentFee,
-      selectedPlanName: recommendedSpec.name,
-      selectedFee: recommendedSpec.price,
-      dataVolume,
-      ageGroup,
-    });
-    generateTelecomComment(prompt, "phone").then((comment) => {
-      if (!cancelled) {
-        setAiComment(comment);
-        setAiLoading(false);
-      }
-    });
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiLoading]);
 
   return (
     <div className="w-full max-w-2xl rounded-2xl border border-border/80 bg-gradient-to-b from-card to-background p-6 shadow-md transition-all hover:shadow-lg">
@@ -325,13 +303,11 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
           </div>
         </div>
       )}
-
-      {/* 3. 스펙 카드 비교 */}
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         {/* 기존 요금제 */}
         <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-muted-foreground uppercase">CURRENT STATE</span>
+            <span className="text-xs font-black text-primary">현재 사용 중인 요금</span>
             <span className="rounded bg-muted/60 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
               {currentSpec.carrier}
             </span>
@@ -339,9 +315,16 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
           <h4 className="mt-2 text-sm font-black text-primary truncate">
             {currentSpec.name}
           </h4>
-          <div className="mt-4 flex items-baseline gap-1">
-            <span className="text-lg font-black text-primary">{fmt(currentSpec.price)}</span>
-            <span className="text-xs text-muted-foreground">원/월</span>
+          
+          <div className="mt-3 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
+              <span className="font-semibold">할인 전</span>
+              <span className="font-semibold">{fmt(currentSpec.price)}원/월</span>
+            </div>
+            <div className="flex items-center justify-between text-xs sm:text-sm rounded-lg bg-accent/10 p-2 border border-accent/20">
+              <span className="font-black text-accent">실납부액</span>
+              <span className="font-black text-accent">{fmt(currentFee)}원/월</span>
+            </div>
           </div>
           
           <div className="mt-4 border-t border-border/40 pt-3 flex flex-col gap-2 text-xs">
@@ -367,7 +350,7 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
         {/* 추천 요금제 */}
         <div className="relative rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 shadow-sm min-h-[180px] flex flex-col justify-between">
           <div className="absolute -top-2.5 right-3 rounded-full bg-emerald-600 px-2 py-0.5 text-[9px] font-black text-white shadow-sm">
-            RECOMMENDED SPEC
+            추천 요금제
           </div>
           {apiLoading ? (
             <div className="flex flex-col items-center justify-center flex-1 py-8 gap-2">
@@ -378,7 +361,7 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
             <>
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-extrabold text-emerald-600 uppercase">OPTIMAL SPEC</span>
+                  <span className="text-xs font-black text-emerald-600">추천하는 요금제</span>
                   <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
                     {recommendedSpec.carrier}
                   </span>
@@ -386,9 +369,21 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
                 <h4 className="mt-2 text-sm font-black text-primary truncate" title={recommendedSpec.name}>
                   {recommendedSpec.name}
                 </h4>
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-lg font-black text-emerald-600">{fmt(recommendedSpec.price)}</span>
-                  <span className="text-xs text-muted-foreground">원/월</span>
+                
+                <div className="mt-3 flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
+                    <span className="font-semibold">요금액</span>
+                    <span className="font-semibold">{fmt(recommendedSpec.price)}원/월</span>
+                  </div>
+                  <div className="flex flex-col gap-0.5 rounded-lg bg-emerald-500/10 p-2 border border-emerald-500/20">
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="font-black text-emerald-700 dark:text-emerald-300">실납부액</span>
+                      <span className="font-black text-emerald-600 dark:text-emerald-400">{fmt(recommendedPaidFee)}원/월</span>
+                    </div>
+                    {hasSelectDiscount && (
+                      <span className="text-[10px] font-medium text-emerald-600/80 text-right">선택약정 25% 할인 반영</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -437,112 +432,7 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
         </div>
       </div>
 
-      {/* 4. 기본 제공량 */}
-      <div className="mt-5 rounded-xl bg-muted/20 border border-border/40 p-4">
-        <div className="flex items-center gap-2 border-b border-border/20 pb-2">
-          <Activity className="text-accent" size={15} />
-          <h4 className="text-xs font-black text-primary">기본 제공량 상세 분석</h4>
-        </div>
-        <ul className="mt-2 space-y-2 text-xs leading-relaxed text-muted-foreground font-medium">
-          <li>
-            • 매달 <span className="font-bold text-primary">{recommendedSpec.voiceMin === 9999 ? "무제한" : `${recommendedSpec.voiceMin}분`}</span>의 음성 통화가 제공됩니다. 
-            {recommendedSpec.voiceMin !== 9999 && ` (표준 요율 기준 ${fmt(voiceValue)}원 상당의 통화 가치 포함)`}
-          </li>
-          <li>
-            • 매달 <span className="font-bold text-primary">{recommendedSpec.smsCount === 9999 ? "기본제공" : `${recommendedSpec.smsCount}건`}</span>의 기본 문자가 제공됩니다.
-            {recommendedSpec.smsCount !== 9999 && ` (표준 요율 기준 월 ${fmt(smsValue)}원어치의 문자 요금이 기본 포함된 스펙입니다.)`}
-          </li>
-          <li>
-            • 기존 <span className="font-bold text-primary">{currentSpec.data}</span>에서 <span className="font-bold text-primary">{recommendedSpec.data}</span>로 매달 <span className="font-bold text-accent">{dataDiffLabel}</span>을 {dataDiffMB >= 0 ? "더 씁니다" : "이용하게 됩니다"}.
-            {dataDiffMB > 0 && ` 이를 표준 초과 요금으로 환산하면 무려 월 ${fmt(dataBenefit)}원어치의 데이터를 보너스로 받는 셈입니다.`}
-          </li>
-        </ul>
-      </div>
-
-      {/* 5. 데이터 업그레이드 체감 가이드 */}
-      {dataDiffMB > 0 && (
-        <div className="mt-5 rounded-xl bg-muted/30 border border-border/50 p-4">
-          <p className="text-xs font-black text-primary">💡 데이터 업그레이드 체감 가이드</p>
-          
-          {/* 5GB ~ 15GB 미만 */}
-          {isMidRange && (
-            <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              <p className="font-black text-emerald-600 dark:text-emerald-400">알뜰한 업그레이드</p>
-              <p className="mt-1">
-                기본 데이터가 <span className="font-bold text-primary">{dataDiffLabel}</span> 늘어나, 표준 요율 기준 매달 <span className="font-bold text-primary">{fmt(dataBenefit)}원</span> 상당의 데이터 요금을 아끼면서 외부에서 와이파이 없이 고화질 사진과 동영상 원본을 바로 확인할 수 있습니다.
-              </p>
-              <ul className="mt-2 list-disc pl-4 space-y-1 text-primary/70">
-                <li>출퇴근길 내내 음악 스트리밍을 매일 끊김 없이 들을 수 있는 용량입니다.</li>
-                <li>이제 외부에서 친구가 보낸 고화질 사진이나 동영상 원본을 와이파이 찾지 않고 그 자리에서 바로 확인할 수 있어요.</li>
-              </ul>
-            </div>
-          )}
-
-          {/* 15GB ~ 30GB 미만 */}
-          {isHighRange && (
-            <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              <p className="font-black text-blue-600 dark:text-blue-400">가장 대중적인 업그레이드</p>
-              <p className="mt-1">
-                기본 데이터가 <span className="font-bold text-primary">{dataDiffLabel}</span> 대폭 늘어납니다. 이 용량을 초과 요금으로 환산하면 무려 월 <span className="font-bold text-primary">{fmt(dataBenefit)}원</span> 이득이에요! 이제 출퇴근길...
-              </p>
-              <ul className="mt-2 list-disc pl-4 space-y-1 text-primary/70">
-                <li>매일 출퇴근길(왕복 2시간) 동안 유튜브나 넷플릭스 영상을 고화질(720p)로 한 달 내내 볼 수 있는 용량입니다.</li>
-                <li>이제 지하철이나 카페에서 웹서핑할 때 '동영상 자동 재생' 옵션을 켜두어도 한 달 내내 데이터가 모자라지 않는 환경이 됩니다.</li>
-              </ul>
-            </div>
-          )}
-
-          {/* 30GB 이상 / 무제한 */}
-          {isUltraRange && (
-            <div className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              <p className="font-black text-purple-600 dark:text-purple-400">거의 무제한급</p>
-              <p className="mt-1">
-                매달 <span className="font-bold text-primary">{fmt(capBenefit)}원</span>의 요금 폭탄 걱정을 완벽히 차단하는 대용량 스펙입니다. 주말 내내 카페에서...
-              </p>
-              <ul className="mt-2 list-disc pl-4 space-y-1 text-primary/70">
-                <li>주말 내내 카페에서 노트북에 핫스팟을 연결해 재택근무를 하거나 인강을 들어도 끄떡없는 용량입니다.</li>
-                <li>모바일 고사양 게임의 대규모 패치 업데이트를 길거리에서 셀룰러 데이터로 부담 없이 누를 수 있게 됩니다.</li>
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 6. 안심마크 안내 */}
-      {recommendedSpec.hasQos && (
-        <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 flex gap-3 items-start">
-          <ShieldAlert className="text-emerald-500 shrink-0 mt-0.5" size={16} />
-          <div className="text-xs leading-relaxed">
-            <p className="font-black text-emerald-600 dark:text-emerald-400">속도 제어 안심 마크 제공</p>
-            <p className="mt-1 text-muted-foreground">
-              기본 데이터 {recommendedSpec.data.split("(")[0]}를 모두 소진하더라도, 추가 요금 없이 
-              <span className="font-extrabold text-primary"> {recommendedSpec.qosSpeed || "1Mbps"}</span> 속도로 
-              카카오톡이나 음악 감상을 끊김 없이 안심하고 이용할 수 있습니다.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* 7. AI 맞춤 코멘트 (Ollama) */}
-      <div className="mt-6 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
-        <div className="flex items-center gap-2 border-b border-violet-500/10 pb-2">
-          <Bot className="text-violet-500" size={14} />
-          <span className="text-xs font-black text-violet-600 dark:text-violet-400">AI 맞춤 절약 가이드</span>
-          <span className="ml-auto rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-500">Ollama</span>
-        </div>
-        {aiLoading ? (
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 size={13} className="animate-spin text-violet-400" />
-            AI가 맞춤 가이드를 생성 중입니다...
-          </div>
-        ) : aiComment ? (
-          <p className="mt-3 text-xs leading-relaxed text-primary/90 font-medium whitespace-pre-wrap">{aiComment}</p>
-        ) : (
-          <p className="mt-3 text-xs text-muted-foreground/70">AI 가이드를 불러올 수 없습니다. Ollama가 실행 중인지 확인해 주세요.</p>
-        )}
-      </div>
-
-      {/* 8. 부가서비스 링크 버튼 */}
+      {/* 부가서비스 링크 버튼 */}
       <div className="mt-4 flex flex-col gap-2.5">
         <a
           href={recommendedSpec.link}

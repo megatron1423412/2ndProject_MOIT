@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { CheckCircle2, ShieldAlert, Sparkles, ExternalLink, Activity, Wifi, Laptop, ArrowRightLeft, Users, Bot, Loader2, AlertTriangle } from "lucide-react";
+import React from "react";
+import { CheckCircle2, ShieldAlert, Sparkles, ExternalLink, Activity, Wifi, Laptop, ArrowRightLeft, Users, AlertTriangle } from "lucide-react";
 import type { FlowResult } from "../../../core/types";
-import { generateTelecomComment, buildInternetCommentPrompt } from "../shared/telecomApi";
 
 interface InternetDiagnosisReportProps {
   result: FlowResult;
@@ -178,27 +177,6 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
   }
   const linkUrl = carrierUrlMap[selectedCarrierCode || answers["internet.cableCarrier"] || answers["internet.commonCarrier"] || ""] || "https://www.mvnohub.kr";
 
-  // ── Ollama AI 코멘트 ────────────────────────────────────────
-  const [aiComment, setAiComment] = useState<string | null>(null);
-  const [aiLoading, setAiLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    const prompt = buildInternetCommentPrompt({
-      carrier: (carrierMap[carrier as string] || carrier as string),
-      currentFee,
-      selectedPlanName,
-      selectedFee: selectedPrice,
-      desiredSpeed: selectedSpeedKey,
-      contractPeriod: contractPeriod as string,
-    });
-    generateTelecomComment(prompt, "internet").then((comment) => {
-      if (!cancelled) { setAiComment(comment); setAiLoading(false); }
-    });
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <div className="w-full max-w-2xl rounded-2xl border border-border/80 bg-gradient-to-b from-card to-background p-6 shadow-md transition-all hover:shadow-lg">
       
@@ -374,25 +352,6 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
               </span>
             ))}
           </div>
-        )}
-      </div>
-
-      {/* AI 맞춤 코멘트 (Ollama) */}
-      <div className="mt-6 rounded-xl border border-violet-500/20 bg-violet-500/5 p-4">
-        <div className="flex items-center gap-2 border-b border-violet-500/10 pb-2">
-          <Bot className="text-violet-500" size={14} />
-          <span className="text-xs font-black text-violet-600 dark:text-violet-400">AI 맞춤 절약 가이드</span>
-          <span className="ml-auto rounded bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-bold text-violet-500">Ollama</span>
-        </div>
-        {aiLoading ? (
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <Loader2 size={13} className="animate-spin text-violet-400" />
-            AI가 맞춤 가이드를 생성 중입니다...
-          </div>
-        ) : aiComment ? (
-          <p className="mt-3 text-xs leading-relaxed text-primary/90 font-medium whitespace-pre-wrap">{aiComment}</p>
-        ) : (
-          <p className="mt-3 text-xs text-muted-foreground/70">AI 가이드를 불러올 수 없습니다. Ollama가 실행 중인지 확인해 주세요.</p>
         )}
       </div>
 

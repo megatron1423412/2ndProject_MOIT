@@ -18,7 +18,7 @@ export interface MockPlanItem {
 // ── mockData.ts의 ALL_MVNO_PLAN_SPECS 데이터를 MockPlanItem 규격으로 변환 ─────
 const ALL_MVNO_MAPPED: MockPlanItem[] = (ALL_MVNO_PLAN_SPECS && ALL_MVNO_PLAN_SPECS.length > 0)
   ? ALL_MVNO_PLAN_SPECS.map(p => {
-    const fullLabel = `[${p.mvnoCarrier}] ${p.name} (월 ${p.price.toLocaleString("ko-KR")}원)`;
+    const fullLabel = `[${p.mvnoCarrier}] ${p.name} · 월 ${p.price.toLocaleString("ko-KR")}원 · ${p.data} · ${p.networkType}`;
     return {
       value: `plan-api|${fullLabel}`,
       label: fullLabel,
@@ -42,37 +42,86 @@ let allPlans: import("../shared/telecomApi").SmartChoicePlan[] | null = null;
 let allPlansRequest: Promise<import("../shared/telecomApi").SmartChoicePlan[]> | null = null;
 
 function parseDataGB(label: string): number {
-  if (label.includes("일5GB") || label.includes("일 5GB") || label.includes("일5g") || label.includes("일 5g")) return 150;
+  if (!label) return 10;
 
-  // 1. 명시적인 GB 숫자 패턴 우선 추출 (예: 50GB, 10GB, 6GB, 100GB, 110GB, 71GB, 4GB)
-  const match = label.match(/(\d+(?:\.\d+)?)\s*GB/i);
+  // qosSpeed 속도 문자열(예: 소진 시 1Mbps, 5Mbps, 3Mbps, 400kbps 등) 제거하여 기본 데이터용량 추출 오류 방지
+  const cleanLabel = label
+    .replace(/\(소진\s*시.*?\)/gi, "")
+    .replace(/\d+(?:\.\d+)?\s*Mbps/gi, "")
+    .replace(/\d+(?:\.\d+)?\s*kbps/gi, "");
+
+  if (cleanLabel.includes("일5GB") || cleanLabel.includes("일 5GB") || cleanLabel.includes("일5g") || cleanLabel.includes("일 5g")) {
+    return 150;
+  }
+
+  // 1. 명시적인 GB 숫자 패턴 우선 추출 (예: 100GB, 50GB, 10GB, 6GB, 110GB, 71GB, 4GB)
+  const match = cleanLabel.match(/(\d+(?:\.\d+)?)\s*GB/i);
   if (match) {
     return parseFloat(match[1]);
   }
 
+  const mbMatch = cleanLabel.match(/(\d+)\s*MB/i);
+  if (mbMatch) {
+    return parseFloat(mbMatch[1]) / 1024;
+  }
+
   // 2. 숫자가 명시되지 않고 '무제한' 단어가 들어간 경우
-  if (label.includes("무제한") || label.includes("데이터 무한")) {
+  if (cleanLabel.includes("무제한") || cleanLabel.includes("데이터 무한")) {
     return 100;
   }
 
   return 10;
 }
 
+export interface DataRange {
+  minGB: number;
+  maxGB: number;
+}
+
+export function parseDataVolumeRange(dataVolume: string): DataRange {
+  const valLower = (dataVolume || "").toLowerCase();
+
+  // 1. Unlimited / 100GB+ / 100gb_over / 100gb-plus / 100gb이상 / 무제한 (50GB 이상 ~ 무제한 헤비 유저)
+  if (valLower === "unlimited" || valLower.includes("100gb") || valLower.includes("over") || valLower.includes("plus") || valLower.includes("+") || valLower.includes("이상")) {
+    return { minGB: 50, maxGB: 9999 };
+  }
+
+  // 2. Range pattern: e.g. "50gb_100gb", "50gb-100gb", "10gb_30gb", "10gb-30gb"
+  const rangeMatch = valLower.match(/(\d+(?:\.\d+)?)\s*(?:gb)?\s*(?:~|-|_)\s*(\d+(?:\.\d+)?)\s*(?:gb)?/);
+  if (rangeMatch) {
+    const min = parseFloat(rangeMatch[1]);
+    const max = parseFloat(rangeMatch[2]);
+    return { minGB: Math.min(min, max), maxGB: Math.max(min, max) };
+  }
+
+  // 3. Under pattern: e.g. "10gb_under", "under-10gb", "10gb미만", "low"
+  if (valLower === "low" || valLower.includes("under") || valLower.includes("less") || valLower.includes("미만")) {
+    const underMatch = valLower.match(/(\d+(?:\.\d+)?)\s*gb/);
+    const limit = underMatch ? parseFloat(underMatch[1]) : 10;
+    return { minGB: 0, maxGB: limit };
+  }
+
+  // Legacy fallbacks
+  if (valLower === "high") return { minGB: 50, maxGB: 100 };
+  if (valLower === "mid") return { minGB: 10, maxGB: 35 };
+  if (valLower === "low") return { minGB: 0, maxGB: 10 };
+
+  return { minGB: 0, maxGB: 9999 };
+}
+
 function matchesDataVolumeFilter(label: string, dataVolume: string): boolean {
   const gb = parseDataGB(label);
-  if (dataVolume === "unlimited") {
-    return gb >= 100 || label.includes("무제한") || label.includes("일5GB") || label.includes("일 5GB");
+  const { minGB, maxGB } = parseDataVolumeRange(dataVolume);
+
+  if (minGB >= 50 && maxGB >= 9999) {
+    return gb >= 50 || label.includes("무제한") || label.includes("일5GB") || label.includes("일 5GB");
   }
-  if (dataVolume === "high") {
-    return gb >= 50 && gb <= 100;
+
+  if (minGB === 0) {
+    return gb < maxGB;
   }
-  if (dataVolume === "mid") {
-    return gb >= 10 && gb <= 35;
-  }
-  if (dataVolume === "low") {
-    return gb < 10;
-  }
-  return true;
+
+  return gb >= minGB && gb <= maxGB;
 }
 
 // ── 알뜰폰 브랜드별 무작위 라운드로빈 교차 수집 ────────────
@@ -173,9 +222,19 @@ export function prefetchPlans(carrier: string) {
   return request;
 }
 
+export const getPhonePlanLookupFee = (answers: FlowAnswers): number => {
+  const currentFee = Number(answers[`${namespace}.currentFee`] || 0);
+  const discountOption = answers[`${namespace}.discountOption`];
+  const discountOptions = Array.isArray(discountOption) ? discountOption : [discountOption];
+
+  return discountOptions.includes("select-discount")
+    ? Math.round(currentFee / 0.75)
+    : currentFee;
+};
+
 export const resolvePhoneCurrentPlanOptions = (answers: FlowAnswers): FlowChoiceOption[] => {
   const carrier = answers[`${namespace}.carrier`] as string;
-  const currentFee = (answers[`${namespace}.currentFee`] as number) || 0;
+  const currentFee = getPhonePlanLookupFee(answers);
 
   // 1순위: 스마트 초이스 API 키 데이터 (planCache 또는 allPlans에서 가져옴)
   let apiPlans = planCache[carrier] || [];
@@ -186,11 +245,15 @@ export const resolvePhoneCurrentPlanOptions = (answers: FlowAnswers): FlowChoice
         ? (p.telecom !== "SKT" && p.telecom !== "KT" && p.telecom !== "LGU+")
         : p.telecom === carrierUpper
     );
-    apiPlans = filtered.map(p => ({
-      value: `plan-api|[${p.telecom}] ${p.planName} (월 ${p.monthlyFee.toLocaleString("ko-KR")}원)`,
-      label: `[${p.telecom}] ${p.planName} (월 ${p.monthlyFee.toLocaleString("ko-KR")}원)`,
-      price: p.monthlyFee
-    }));
+    apiPlans = filtered.map(p => {
+      const netType = p.planName.includes("5G") || p.planName.includes("5g") ? "5G" : "LTE";
+      const fullLabel = `[${p.telecom}] ${p.planName} · 월 ${p.monthlyFee.toLocaleString("ko-KR")}원 · ${p.data || "기본제공"} · ${netType}`;
+      return {
+        value: `plan-api|${fullLabel}`,
+        label: fullLabel,
+        price: p.monthlyFee
+      };
+    });
   }
 
   // 납부 금액 근접 순 정렬
@@ -234,6 +297,7 @@ export const resolvePhoneCurrentPlanOptions = (answers: FlowAnswers): FlowChoice
 };
 
 export const resolvePhoneRecommendations = (answers: FlowAnswers): FlowChoiceOption[] => {
+  const carrier = answers[`${namespace}.carrier`] as string;
   const desiredNetwork = answers[`${namespace}.desiredNetwork`] as string;
   const dataVolume = answers[`${namespace}.dataVolume`] as string;
   const targetNetwork = desiredNetwork === "5g" ? "5G" : desiredNetwork === "lte" ? "LTE" : null;
@@ -273,7 +337,8 @@ export const resolvePhoneRecommendations = (answers: FlowAnswers): FlowChoiceOpt
     filteredMajor.forEach(p => {
       if (!seenNames.has(p.planName)) {
         seenNames.add(p.planName);
-        const fullLabel = `[${p.telecom}] ${p.planName} (월 ${p.monthlyFee.toLocaleString("ko-KR")}원)`;
+        const netType = p.planName.includes("5G") || p.planName.includes("5g") ? "5G" : "LTE";
+        const fullLabel = `[${p.telecom}] ${p.planName} · 월 ${p.monthlyFee.toLocaleString("ko-KR")}원 · ${p.data || "기본제공"} · ${netType}`;
         majorApiCandidates.push({
           value: `plan-api|${fullLabel}`,
           label: fullLabel,
@@ -301,8 +366,6 @@ export const resolvePhoneRecommendations = (answers: FlowAnswers): FlowChoiceOpt
   }
 
   // 메이저 3사 API 요금제 최저가 순 상위 3개 확정 (비율: 3)
-  const selectedMajor3 = majorApiCandidates.sort((a, b) => a.price - b.price).slice(0, 3);
-
   // 2. mockData.ts (ALL_MVNO_PLAN_SPECS)에서 알뜰폰 요금제 1개 수집 (네트워크 & 데이터 범위 일치, 비율: 1)
   let mvnoCandidates = ALL_MVNO_MAPPED.filter(plan => {
     if (targetNetwork && plan.networkType !== targetNetwork) return false;
@@ -321,15 +384,30 @@ export const resolvePhoneRecommendations = (answers: FlowAnswers): FlowChoiceOpt
   mvnoCandidates = interleaveMvnoPlans(mvnoCandidates);
   mvnoCandidates.sort((a, b) => a.price - b.price);
 
-  const selectedMvno1 = mvnoCandidates.slice(0, 1).map(p => ({
+  const mvnoRecommendationCandidates = mvnoCandidates.map(p => ({
     value: `plan-api|${p.label}`,
     label: p.label,
     price: p.price
   }));
 
   // 3. 메이저 3사 API (3) : 알뜰폰 Mock (1) 비율로 4개 결합 후 전체 가격 낮은 순 정렬
-  const pool = [...selectedMajor3, ...selectedMvno1];
-  pool.sort((a, b) => a.price - b.price);
+  const preferredCarrier = carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : "";
+  const preferredCandidates = carrier === "mvno"
+    ? mvnoRecommendationCandidates
+    : majorApiCandidates.filter(plan => plan.label.includes(preferredCarrier));
+  const otherCandidates = carrier === "mvno"
+    ? majorApiCandidates
+    : [
+        ...majorApiCandidates.filter(plan => !plan.label.includes(preferredCarrier)),
+        ...mvnoRecommendationCandidates,
+      ];
+
+  const pool = [
+    ...[...preferredCandidates].sort((a, b) => a.price - b.price),
+    ...[...otherCandidates].sort((a, b) => a.price - b.price),
+  ]
+    .filter((plan, index, plans) => plans.findIndex(candidate => candidate.value === plan.value) === index)
+    .slice(0, 4);
 
   // 4. 가격 순으로 [추천 1순위] ~ [추천 4순위] 라벨링하여 반환
   const finalOptions: FlowChoiceOption[] = pool.map((p, idx) => ({
@@ -377,7 +455,8 @@ export const resolvePhoneAllPlans = (answers: FlowAnswers): FlowChoiceOption[] =
     filteredMajor.forEach(p => {
       if (!seenNames.has(p.planName)) {
         seenNames.add(p.planName);
-        const fullLabel = `[${p.telecom}] ${p.planName} (월 ${p.monthlyFee.toLocaleString("ko-KR")}원)`;
+        const netType = p.planName.includes("5G") || p.planName.includes("5g") ? "5G" : "LTE";
+        const fullLabel = `[${p.telecom}] ${p.planName} · 월 ${p.monthlyFee.toLocaleString("ko-KR")}원 · ${p.data || "기본제공"} · ${netType}`;
         majorApiCandidates.push({
           value: `plan-api|${fullLabel}`,
           label: fullLabel,
@@ -443,10 +522,25 @@ const opening: FlowStep[] = [
       { value: "lgu", label: "LGU+" },
       { value: "mvno", label: "알뜰폰(MVNO)" },
     ],
+    next: "phone-discount-options"
+  },
+
+  // [Part 1 - 2번] 할인 옵션 선택
+  {
+    id: "phone-discount-options",
+    type: "multi-choice",
+    message: "그 외에 현재 적용받고 있거나 해당되는 옵션을 알려주세요.",
+    answerKey: `${namespace}.discountOption`,
+    options: [
+      { value: "select-discount", label: "선택약정 25% 할인 받는 중" },
+      { value: "family-discount", label: "가족 결합 할인 중" },
+      { value: "unknown", label: "잘 모르겠음" },
+    ],
+    minSelections: 1,
     next: "phone-plan-fee"
   },
 
-  // [Part 1 - 2번] 현재 사용하는 요금제 금액 입력
+  // [Part 1 - 3번] 현재 사용하는 요금제 금액 입력
   {
     id: "phone-plan-fee",
     type: "number-input",
@@ -483,8 +577,97 @@ const opening: FlowStep[] = [
     ],
     optionsResolver: (answers) => {
       const carrier = answers[`phone.carrier`] as string;
-      const currentFee = (answers[`phone.currentFee`] as number) || 0;
+      const currentFee = getPhonePlanLookupFee(answers);
+      const dataVolume = answers[`phone.dataVolume`] as string;
+      const desiredNetwork = answers[`phone.desiredNetwork`] as string;
+      const targetNetwork = desiredNetwork === "5g" ? "5G" : desiredNetwork === "lte" ? "LTE" : null;
+      const { minGB, maxGB } = parseDataVolumeRange(dataVolume);
+      const targetDataGb = minGB >= 100 ? 100 : (minGB + (maxGB > 100 ? 100 : maxGB)) / 2;
 
+      const getMockDataGb = (data: string) => {
+        if (!data) return 10;
+        if (data.includes("무제한") || data.includes("데이터 무한")) return 100;
+        if (data.includes("일5GB") || data.includes("일 5GB")) return 150;
+        const matches = [...data.matchAll(/(\d+(?:\.\d+)?)\s*GB/gi)].map(match => Number(match[1]));
+        return matches.length > 0 ? Math.max(...matches) : 10;
+      };
+
+      const isCarrierMatch = (mvnoCarrier: string, targetCarrier: string) => {
+        if (!targetCarrier || targetCarrier === "mvno") return true;
+        if (targetCarrier === "skt") return mvnoCarrier.includes("SKT");
+        if (targetCarrier === "kt") return mvnoCarrier.includes("KT");
+        if (targetCarrier === "lgu") return mvnoCarrier.includes("LGU+") || mvnoCarrier.includes("U+") || mvnoCarrier.includes("LGU");
+        return true;
+      };
+
+      const mockMatchedList = ALL_MVNO_PLAN_SPECS
+        .map(plan => {
+          const planDataGb = getMockDataGb(plan.data);
+          const dataDiff = Math.abs(planDataGb - targetDataGb);
+          const priceDiff = Math.abs(plan.price - currentFee);
+          const matchesCarrier = isCarrierMatch(plan.mvnoCarrier, carrier);
+          const matchesData = dataDiff <= 10;
+          const matchesPrice = priceDiff <= 25000;
+          const matchesNetwork = !targetNetwork || plan.networkType === targetNetwork;
+
+          return {
+            plan,
+            matchesCarrier,
+            matchesData,
+            dataDiff,
+            matchesPrice,
+            priceDiff,
+            matchesNetwork,
+          };
+        })
+        .sort((a, b) => {
+          // 1. 통신사 우선순위 (id: "phone-carrier")
+          if (a.matchesCarrier !== b.matchesCarrier) {
+            return Number(b.matchesCarrier) - Number(a.matchesCarrier);
+          }
+
+          // 2. 데이터 사용량 우선순위 (id: "phone-data-volume" ±10GB 범위 & 근접 순 정렬)
+          if (a.matchesData !== b.matchesData) {
+            return Number(b.matchesData) - Number(a.matchesData);
+          }
+          if (a.dataDiff !== b.dataDiff) {
+            return a.dataDiff - b.dataDiff;
+          }
+
+          // 3. 요금 금액 우선순위 (id: "phone-plan-fee" ±25000원 범위 & 근접 순 정렬)
+          if (a.matchesPrice !== b.matchesPrice) {
+            return Number(b.matchesPrice) - Number(a.matchesPrice);
+          }
+          if (a.priceDiff !== b.priceDiff) {
+            return a.priceDiff - b.priceDiff;
+          }
+
+          // 4. 네트워크 타입 우선순위 (id: "phone-desired-network")
+          if (a.matchesNetwork !== b.matchesNetwork) {
+            return Number(b.matchesNetwork) - Number(a.matchesNetwork);
+          }
+
+          return 0;
+        })
+        .slice(0, 6)
+        .map(({ plan }) => {
+          const planInfo = `[${plan.mvnoCarrier}] ${plan.name} · 월 ${plan.price.toLocaleString("ko-KR")}원 · ${plan.data} · ${plan.networkType}`;
+
+          return {
+            value: `plan-api|${planInfo}`,
+            label: planInfo,
+            next: "phone-contract-period",
+          };
+        });
+
+      if (mockMatchedList.length > 0) {
+        return [
+          ...mockMatchedList,
+          { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-contract-period" }
+        ];
+      }
+
+      // API 데이터 Fallback 처리 (동일한 1.통신사 -> 2.데이터 -> 3.가격 -> 4.네트워크 타입 우선순위 적용)
       let apiPlans = planCache[carrier] || [];
       if (apiPlans.length === 0 && allPlans) {
         const carrierUpper = carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : "알뜰폰";
@@ -500,10 +683,19 @@ const opening: FlowStep[] = [
         }));
       }
 
-      // API 1순위 (입력 금액 기준 근접 순 정렬)
       let apiMatched = apiPlans
-        .sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee))
-        .slice(0, 5);
+        .map(p => {
+          const planDataGb = getMockDataGb(p.label);
+          const dataDiff = Math.abs(planDataGb - targetDataGb);
+          const priceDiff = Math.abs(p.price - currentFee);
+          return { p, dataDiff, priceDiff };
+        })
+        .sort((a, b) => {
+          if (a.dataDiff !== b.dataDiff) return a.dataDiff - b.dataDiff;
+          return a.priceDiff - b.priceDiff;
+        })
+        .slice(0, 5)
+        .map(item => item.p);
 
       let matchedList = apiMatched.map(p => ({
         value: p.value,
@@ -511,13 +703,8 @@ const opening: FlowStep[] = [
         next: "phone-contract-period"
       }));
 
-      // 알뜰폰(MVNO) 선택 시에만 수량 부족 시 ALL_MVNO_PLAN_SPECS 데이터 추가
       if (carrier === "mvno" && matchedList.length < 4) {
-        let mockMatched = ALL_MVNO_MAPPED
-          .filter(p => Math.abs(p.price - currentFee) <= 25000)
-          .sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee));
-
-        if (mockMatched.length === 0) mockMatched = ALL_MVNO_MAPPED;
+        let mockMatched = ALL_MVNO_MAPPED;
         mockMatched = interleaveMvnoPlans(mockMatched);
 
         const needed = 6 - matchedList.length;
@@ -530,7 +717,6 @@ const opening: FlowStep[] = [
         matchedList = [...matchedList, ...additional];
       }
 
-      // SKT/KT/LGU+ 매칭 API 데이터가 아직 없는 경우 메이저 통신사 전용 요금제 1개 추가
       if (carrier !== "mvno" && matchedList.length === 0) {
         const fallback = fetchPlansFromApi(carrier, currentFee);
         matchedList = fallback.map(p => ({
@@ -540,14 +726,8 @@ const opening: FlowStep[] = [
         }));
       }
 
-      if (matchedList.length > 0) {
-        return [
-          ...matchedList,
-          { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-contract-period" }
-        ];
-      }
-
       return [
+        ...matchedList,
         { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-contract-period" }
       ];
     },
@@ -617,26 +797,11 @@ const specific: FlowStep[] = [
     message: "한 달 데이터 사용량을 알려주세요.",
     answerKey: `${namespace}.dataVolume`,
     options: [
-      { value: "unlimited", label: "무제한 (헤비 유저)" },
-      { value: "high", label: "50GB~100GB (일반 동영상 시청)" },
-      { value: "mid", label: "10GB~30GB (출퇴근 웹서핑)" },
-      { value: "low", label: "10GB 미만 (주로 와이파이 사용)" },
+      { value: "100GB_over", label: "무제한 (헤비 유저)" },
+      { value: "50GB_100GB", label: "50GB~100GB (일반 동영상 시청)" },
+      { value: "10GB_30GB", label: "10GB~30GB (출퇴근 웹서핑)" },
+      { value: "10GB_under", label: "10GB 미만 (주로 와이파이 사용)" },
     ],
-    next: "phone-discount-options"
-  },
-
-  // [Part 2 - 7번] 옵션 선택
-  {
-    id: "phone-discount-options",
-    type: "multi-choice",
-    message: "그 외에 현재 적용받고 있거나 해당되는 옵션을 알려주세요.",
-    answerKey: `${namespace}.discountOption`,
-    options: [
-      { value: "select-discount", label: "선택약정 25% 할인 받는 중" },
-      { value: "family-discount", label: "가족 결합 할인 중" },
-      { value: "unknown", label: "잘 모르겠음" },
-    ],
-    minSelections: 1,
     next: "phone-recommendation-api"
   },
 
@@ -704,4 +869,3 @@ export const phoneFlow: FlowDefinition = {
   startStepId: "phone-intro",
   steps: composeFlow(opening, specific),
 };
-
