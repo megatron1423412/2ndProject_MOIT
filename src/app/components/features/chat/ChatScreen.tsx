@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { getSubCategoryById } from "../../../data/categories";
 import { useChatFlow } from "../../../features/chat-flow/engine/useChatFlow";
 import type { ConversationHistoryItem, SubCategory, SubCategoryId, TopActionState } from "../../../types/moit";
@@ -16,8 +16,6 @@ import type { FavoriteProduct, FavoriteDraft } from "../../../features/favorites
 import RecommendationSelectionView from "../../../features/smart-shopping/recommendation/RecommendationSelectionView";
 import { isSmartShoppingConversationItem, SmartShoppingAlternativeCards, SmartShoppingWideTimelineContent, type SmartShoppingTimelineRenderModel } from "../../../features/smart-shopping/timeline/SmartShoppingTimeline";
 import type { ProductRecommendation } from "../../../features/product-catalog/core/types";
-import ProductQuestionSources from "../../../features/smart-shopping/product-detail/ProductQuestionSources";
-import type { ProductQuestionSource } from "../../../features/smart-shopping/product-detail/productQuestionClient";
 
 interface ChatScreenProps {
   subCategoryId: SubCategoryId;
@@ -31,63 +29,6 @@ interface ChatScreenProps {
   onToggleFavoriteProduct?: (productId: string, draft: FavoriteDraft) => void;
   onToggleFavorite?: (draft: FavoriteDraft) => void;
 }
-
-export const PRODUCT_SELECTION_SCROLL_OFFSET = 16;
-export const CHAT_BOTTOM_STICKY_THRESHOLD = 96;
-export const CHAT_SCROLL_BOTTOM_EPSILON = 1;
-type ChatScrollContainer = Pick<HTMLElement, "scrollTop" | "scrollHeight" | "clientHeight" | "getBoundingClientRect" | "scrollTo">;
-
-export const resolveChatScrollOwnership = ({ remainingScroll, manualScrollIntent }: { remainingScroll: number; manualScrollIntent: boolean }) => {
-  const keepsManualControl = manualScrollIntent && remainingScroll > CHAT_SCROLL_BOTTOM_EPSILON;
-  return {
-    manualScrollIntent: keepsManualControl,
-    shouldStickToBottom: !keepsManualControl && remainingScroll < CHAT_BOTTOM_STICKY_THRESHOLD,
-  };
-};
-
-export const getProductSelectionScrollPosition = ({ container, anchor }: {
-  container: Pick<ChatScrollContainer, "scrollTop" | "scrollHeight" | "clientHeight" | "getBoundingClientRect">;
-  anchor: Pick<HTMLElement, "getBoundingClientRect">;
-}) => {
-  const desiredScrollTop = container.scrollTop + anchor.getBoundingClientRect().top - container.getBoundingClientRect().top - PRODUCT_SELECTION_SCROLL_OFFSET;
-  const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
-  const targetScrollTop = Math.min(Math.max(0, desiredScrollTop), maxScrollTop);
-  return {
-    currentScrollTop: container.scrollTop,
-    desiredScrollTop,
-    targetScrollTop,
-    scrollHeight: container.scrollHeight,
-    clientHeight: container.clientHeight,
-    maxScrollTop,
-    wasClamped: desiredScrollTop > maxScrollTop,
-  };
-};
-
-export const scrollContainerToProductSelectionAnchor = ({ container, anchor, behavior }: {
-  container: ChatScrollContainer;
-  anchor: Pick<HTMLElement, "getBoundingClientRect">;
-  behavior: ScrollBehavior;
-}) => {
-  const position = getProductSelectionScrollPosition({ container, anchor });
-  container.scrollTo({ top: position.targetScrollTop, behavior });
-  return position;
-};
-
-const isRecommendationStartAnchor = (anchorId: string) => anchorId.includes("-recommendation-start-");
-
-export const shouldCorrectRecommendationStartScroll = ({
-  initialMaxScrollTop,
-  nextMaxScrollTop,
-  isCurrentAnchor,
-  userScrolled,
-  corrected,
-}: {
-  initialMaxScrollTop: number;
-  nextMaxScrollTop: number;
-  isCurrentAnchor: boolean;
-  userScrolled: boolean;
-  corrected: boolean;
-}) => isCurrentAnchor && !userScrolled && !corrected && nextMaxScrollTop > initialMaxScrollTop;
 
 export default function ChatScreen({
   subCategoryId,
@@ -109,22 +50,7 @@ export default function ChatScreen({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
   const shouldStickToBottomRef = useRef(true);
-  const manualScrollIntentRef = useRef(false);
-  const productSelectionScrollFrameRef = useRef<number | null>(null);
-  const scrolledProductSelectionAnchorsRef = useRef(new Set<string>());
-  const currentRecommendationStartAnchorRef = useRef<string | null>(null);
-  const recommendationStartCorrectionRef = useRef<{
-    anchorId: string;
-    anchor: HTMLDivElement;
-    initialMaxScrollTop: number;
-    userScrolled: boolean;
-    corrected: boolean;
-  } | null>(null);
   const [timelineRevision, setTimelineRevision] = useState(0);
-
-  useEffect(() => () => {
-    if (productSelectionScrollFrameRef.current !== null) window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
-  }, []);
 
   useEffect(() => {
     if (!shouldStickToBottomRef.current) return;
@@ -136,80 +62,14 @@ export default function ChatScreen({
   const handleScroll = () => {
     const container = scrollContainerRef.current;
     if (!container) return;
-    const ownership = resolveChatScrollOwnership({
-      remainingScroll: container.scrollHeight - container.scrollTop - container.clientHeight,
-      manualScrollIntent: manualScrollIntentRef.current,
-    });
-    manualScrollIntentRef.current = ownership.manualScrollIntent;
-    shouldStickToBottomRef.current = ownership.shouldStickToBottom;
+    shouldStickToBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < 96;
   };
 
-  const takeChatScrollControl = () => {
-    manualScrollIntentRef.current = true;
-    shouldStickToBottomRef.current = false;
-    const correction = recommendationStartCorrectionRef.current;
-    if (correction) correction.userScrolled = true;
-    if (productSelectionScrollFrameRef.current !== null) {
-      window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
-      productSelectionScrollFrameRef.current = null;
-    }
-    const container = scrollContainerRef.current;
-    if (container) container.scrollTo({ top: container.scrollTop, behavior: "auto" });
-  };
-
-  const cancelRecommendationStartCorrectionOnScrollKey = (event: React.KeyboardEvent<HTMLElement>) => {
-    if ([" ", "ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End"].includes(event.key)) {
-      takeChatScrollControl();
-    }
-  };
-
-  const scrollToProductSelectionAnchor = useCallback((anchorId: string, anchor: HTMLDivElement | null) => {
-    if (!anchor || scrolledProductSelectionAnchorsRef.current.has(anchorId)) return;
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const isRecommendationStart = isRecommendationStartAnchor(anchorId);
-    if (isRecommendationStart) currentRecommendationStartAnchorRef.current = anchorId;
-    else recommendationStartCorrectionRef.current = null;
-    manualScrollIntentRef.current = false;
-    shouldStickToBottomRef.current = false;
-    if (productSelectionScrollFrameRef.current !== null) window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
-    productSelectionScrollFrameRef.current = window.requestAnimationFrame(() => {
-      productSelectionScrollFrameRef.current = null;
-      if (!anchor.isConnected || !container.isConnected) return;
-      const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      const position = scrollContainerToProductSelectionAnchor({ container, anchor, behavior: reducedMotion ? "auto" : "smooth" });
-      scrolledProductSelectionAnchorsRef.current.add(anchorId);
-      if (isRecommendationStart && position.wasClamped) {
-        recommendationStartCorrectionRef.current = {
-          anchorId,
-          anchor,
-          initialMaxScrollTop: position.maxScrollTop,
-          userScrolled: false,
-          corrected: false,
-        };
-      }
-    });
-  }, []);
-
-  const correctRecommendationStartScroll = useCallback(() => {
-    const correction = recommendationStartCorrectionRef.current;
-    const container = scrollContainerRef.current;
-    if (!correction || correction.corrected || correction.userScrolled || correction.anchorId !== currentRecommendationStartAnchorRef.current || !container || !correction.anchor.isConnected || !container.isConnected) return;
-
-    const position = getProductSelectionScrollPosition({ container, anchor: correction.anchor });
-    if (!shouldCorrectRecommendationStartScroll({
-      initialMaxScrollTop: correction.initialMaxScrollTop,
-      nextMaxScrollTop: position.maxScrollTop,
-      isCurrentAnchor: correction.anchorId === currentRecommendationStartAnchorRef.current,
-      userScrolled: correction.userScrolled,
-      corrected: correction.corrected,
-    })) return;
-
-    correction.corrected = true;
-    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    scrollContainerToProductSelectionAnchor({ container, anchor: correction.anchor, behavior: reducedMotion ? "auto" : "smooth" });
-  }, []);
-
+  /* 🎨 [프론트엔드 수정 가능 Zone 1: 예외/에러 화면 UI]
+     - flex h-screen w-screen: 전체 중앙 정렬 방식
+     - bg-background / text-primary: 배경색 및 문구 색상
+     - 텍스트/경고 아이콘 추가 가능
+  */
   if (!item) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background text-primary">
@@ -218,12 +78,21 @@ export default function ChatScreen({
     );
   }
 
+  const smartShoppingResult = flow.messages
+    .filter((message) => message.type === "result")
+    .map((message) => message.result ?? flow.result)
+    .find((result) => Boolean(result?.recommendations));
+
   const handleHistorySelect = (historyItem: ConversationHistoryItem) => {
     setNotice(`${historyItem.title} 상세 화면은 다음 단계에서 연결할게요.`);
     window.setTimeout(() => setNotice(""), 2200);
   };
 
   return (
+    /* 🎨 [프론트엔드 수정 가능 Zone 2: 전체 애플리케이션 프레임/레이아웃]
+       - bg-background / text-foreground: 챗봇 전체 테마 색상 설정
+       - flex h-screen w-screen: 화면 꽉 채움 레이아웃
+    */
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
       <ChatSidebar
         activeSubCategoryId={subCategoryId}
@@ -241,7 +110,16 @@ export default function ChatScreen({
           onToggleActionsCollapsed={() => setAreActionsCollapsed((value) => !value)}
         />
 
-        <main ref={scrollContainerRef} onScroll={handleScroll} onWheel={takeChatScrollControl} onPointerDown={takeChatScrollControl} onTouchStart={takeChatScrollControl} onKeyDown={cancelRecommendationStartCorrectionOnScrollKey} className="flex-1 overflow-y-auto p-5">
+        {/* 🎨 [프론트엔드 수정 가능 Zone 3: 대화 메인 영역 패딩 & 스크롤 영역]
+           - p-5: 대화창 내부 패딩 여백 (p-4, p-6 등으로 변경)
+           - overflow-y-auto: 스크롤 동작 속성
+        */}
+        <main ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-5">
+          
+          {/* 🎨 [프론트엔드 수정 가능 Zone 4: 메시지 타임라인 컨테이너 (너비 및 간격)]
+             - max-w-4xl: 메시지 영역의 최대 너비 (max-w-3xl, max-w-5xl 등)
+             - gap-4: 메시지 카드/말풍선 간의 상하 간격 (gap-3, gap-5 등)
+          */}
           <div className="mx-auto grid w-full max-w-4xl grid-cols-[minmax(0,1fr)] gap-4" aria-live="polite" data-chat-timeline-root>
             {item.parentCategory === "appliances" && (
               <ChatConversationTurn sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} />
@@ -251,9 +129,6 @@ export default function ChatScreen({
               const isAi = message.sender === "ai";
               const renderedResult = message.result ?? flow.result;
               const isSmartShoppingResult = Boolean(renderedResult?.recommendations);
-              const flowSelectionAnchorId = message.sender === "user" && typeof message.metadata?.productSelectionAnchorId === "string"
-                ? message.metadata.productSelectionAnchorId
-                : undefined;
               
               // 선택형 단계이거나 완료 상태인 경우에만 인라인 선택지를 표시합니다.
               const isSelectionStep = flow.currentStep && ["single-choice", "multi-choice", "confirmation"].includes(flow.currentStep.type);
@@ -282,34 +157,38 @@ export default function ChatScreen({
                       isHistorical={!isLast}
                       answers={flow.answers}
                       onEndSmartShoppingChat={onEndSmartShoppingChat}
-                      selectionAnchorId={flowSelectionAnchorId}
-                      onSelectionAnchorMount={scrollToProductSelectionAnchor}
                     />
                   )}
                   {message.type === "result" && renderedResult && !isSmartShoppingResult && renderedResult.metadata?.category !== "completed-exit" && (
+                    /* 🎨 [프론트엔드 수정 가능 Zone 5: 일반 진단 결과 카드 들여쓰기/너비]
+                       - pl-11: AI 메시지 로고 옆 결과 카드 들여쓰기 여백
+                       - w-full: 결과 카드 너비
+                    */
                     <div className="w-full self-start pl-11">
                       <DiagnosisResultCard result={renderedResult} onEndSmartShoppingChat={onEndSmartShoppingChat} onCreatePriceAlert={onCreatePriceAlert} onTimelineChange={() => setTimelineRevision((value) => value + 1)} userId={userProfile.id} />
                     </div>
                   )}
-                  {message.type === "result" && renderedResult && isSmartShoppingResult && (
-                    <RecommendationSelectionView
-                      key={message.id}
-                      result={renderedResult}
-                      onEndSmartShoppingChat={onEndSmartShoppingChat}
-                      onCreatePriceAlert={onCreatePriceAlert}
-                      onTimelineChange={() => setTimelineRevision((value) => value + 1)}
-                      userId={userProfile.id}
-                      favorites={favorites ?? []}
-                      onToggleFavorite={onToggleFavorite ?? (() => {})}
-                      onProductSelectionAnchorMount={scrollToProductSelectionAnchor}
-                      onRecommendationResultContainerMount={correctRecommendationStartScroll}
-                      onRestartConditionSearch={flow.restartConditionSearch}
-                      renderTimeline={(model) => <ChatScreenSmartShoppingTimeline model={model} />}
-                    />
-                  )}
                 </React.Fragment>
               );
             })}
+            {smartShoppingResult && (
+              <RecommendationSelectionView
+                key={`${String(smartShoppingResult.metadata?.category ?? "unknown")}-${smartShoppingResult.title}`}
+                result={smartShoppingResult}
+                onEndSmartShoppingChat={onEndSmartShoppingChat}
+                onCreatePriceAlert={onCreatePriceAlert}
+                onTimelineChange={() => setTimelineRevision((value) => value + 1)}
+                userId={userProfile.id}
+                favorites={favorites ?? []}
+                onToggleFavorite={onToggleFavorite ?? (() => {})}
+                renderTimeline={(model) => <ChatScreenSmartShoppingTimeline model={model} />}
+              />
+            )}
+            
+            {/* 🎨 [프론트엔드 수정 가능 Zone 6: 에러 메시지 바 경고창 UI]
+               - rounded-lg / border-destructive/30 / bg-destructive/10 / text-destructive
+               - 에러 발생 시 노출되는 빨간색 경고 상자 스타일링
+            */}
             {flow.error && (
               <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm font-bold text-destructive">
                 {flow.error}
@@ -319,6 +198,10 @@ export default function ChatScreen({
           </div>
         </main>
 
+        {/* 🎨 [프론트엔드 수정 가능 Zone 7: 하단 입력창(Footer) 레이아웃 & 테두리]
+           - border-t border-border bg-card p-4: 하단 고정 입력 영역 스타일
+           - max-w-4xl: 입력 영역 최대 너비
+        */}
         {/* 입력형 단계(number-input, text-input)인 경우에만 화면 하단에 입력창을 노출 */}
         {flow.currentStep && ["number-input", "text-input"].includes(flow.currentStep.type) && (
           <footer className="flex-shrink-0 border-t border-border bg-card p-4">
@@ -352,6 +235,11 @@ export default function ChatScreen({
 
       </div>
 
+      {/* 🎨 [프론트엔드 수정 가능 Zone 8: 플로팅 알림(Toast Notice) 팝업 UI]
+         - fixed bottom-5 left-1/2 -translate-x-1/2: 화면 하단 중앙 정렬 위치
+         - rounded-lg / border / bg-card / shadow-lg: 토스트 팝업 그림자 및 카드 모양
+         - text-sm / font-bold / text-primary: 토스트 글자 스타일
+      */}
       {notice && (
         <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-border bg-card px-4 py-3 text-sm font-bold text-primary shadow-lg">
           {notice}
@@ -366,6 +254,10 @@ export function ChatScreenSmartShoppingTimeline({ model }: { model: SmartShoppin
   const { timeline, showClosestOverBudget, onShowClosestOverBudget, ...bindings } = model;
   return (
     <>
+      {/* 🎨 [프론트엔드 수정 가능 Zone 9: 스마트 쇼핑 '예산 초과 상품 보기' 버튼 UI]
+         - rounded-lg / border-accent / bg-card / text-accent / shadow-sm
+         - hover:bg-secondary / focus:ring-2: 버튼 반응 효과 및 색상
+      */}
       {showClosestOverBudget && (
         <ChatTimelineRow kind="wide">
           <button type="button" onClick={onShowClosestOverBudget} className="rounded-lg border border-accent bg-card px-4 py-2.5 text-sm font-black text-accent shadow-sm transition hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-accent/40">
@@ -376,13 +268,11 @@ export function ChatScreenSmartShoppingTimeline({ model }: { model: SmartShoppin
       {timeline.map((timelineItem) => {
         if (isSmartShoppingConversationItem(timelineItem)) {
           const isAssistant = timelineItem.type === "assistant-text";
-          const selectionAnchorId = timelineItem.type === "user-action" && typeof timelineItem.metadata?.productSelectionAnchorId === "string" ? timelineItem.metadata.productSelectionAnchorId : undefined;
           const alternatives = timelineItem.metadata?.alternatives as ProductRecommendation[] | undefined;
-          const sources = isAssistant && Array.isArray(timelineItem.metadata?.usedSources) ? timelineItem.metadata.usedSources as ProductQuestionSource[] : [];
           return (
             <React.Fragment key={timelineItem.id}>
-              <ChatConversationTurn sender={isAssistant ? "ai" : "user"} text={timelineItem.text} timestamp={timelineItem.timestamp} selectionAnchorId={selectionAnchorId} onSelectionAnchorMount={bindings.onProductSelectionAnchorMount}>{sources.length ? <ProductQuestionSources sources={sources} /> : null}</ChatConversationTurn>
-              {alternatives?.length ? <ChatTimelineRow kind="wide"><SmartShoppingAlternativeCards items={alternatives} onSelect={bindings.onSelectRecommendation} isFavorite={(recommendation) => bindings.isFavorite({ source: "internal", recommendation })} onToggleFavorite={(recommendation) => bindings.onToggleFavorite({ source: "internal", recommendation })} /></ChatTimelineRow> : null}
+              <ChatConversationTurn sender={isAssistant ? "ai" : "user"} text={timelineItem.text} timestamp={timelineItem.timestamp} />
+              {alternatives?.length ? <ChatTimelineRow kind="wide"><SmartShoppingAlternativeCards items={alternatives} /></ChatTimelineRow> : null}
             </React.Fragment>
           );
         }

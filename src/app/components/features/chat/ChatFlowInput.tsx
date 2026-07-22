@@ -325,10 +325,10 @@ export default function ChatFlowInput({
         </div>
       );
     }
-    if (step.id.startsWith("iptv-region-")) {
+    if (step.id.includes("-region-")) {
       return (
         <div className="flex flex-col gap-3 w-full max-w-md">
-          <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-1 border border-border/80 rounded-2xl bg-card p-2 shadow-inner">
+          <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1 border border-border/80 rounded-2xl bg-card p-2 shadow-inner">
             {step.options.map((opt) => {
               const userSelectedThis = answers && answers[step.answerKey] === opt.value;
               let itemClass = "";
@@ -370,7 +370,13 @@ export default function ChatFlowInput({
       step.id === "iptv-current-plans-list" ||
       step.id === "bundle-current-plans-list" ||
       step.id === "iptv-choose-current-list" ||
-      step.id === "iptv-all-plans-select"
+      step.id === "internet-all-plans-select" ||
+      step.id === "iptv-all-plans-select" ||
+      step.id === "bundle-all-plans-select" ||
+      step.id.endsWith("-all-plans-select") ||
+      step.id.endsWith("_list") ||
+      step.id.endsWith("-plans-list") ||
+      step.answerKey?.endsWith("PlanCheckList")
     ) {
       const planOptions = step.options.filter(
         (o) => o.value !== "none-of-them" && o.value !== "manual_fallback" && o.value !== "direct-choose"
@@ -384,8 +390,12 @@ export default function ChatFlowInput({
           <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
             {planOptions.map((opt) => {
               const userSelectedThis = answers && answers[step.answerKey] === opt.value;
+              const isUnselectable = opt.value === "no_more_plans" || opt.value === "disabled";
+
               let borderClass = "";
-              if (isHistorical) {
+              if (isUnselectable) {
+                borderClass = "border-border/60 bg-muted/40 text-muted-foreground opacity-60 cursor-not-allowed select-none pointer-events-none";
+              } else if (isHistorical) {
                 if (userSelectedThis) {
                   borderClass = "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed";
                 } else {
@@ -395,19 +405,23 @@ export default function ChatFlowInput({
                 borderClass = "border-border bg-card hover:border-emerald-500/50 hover:bg-emerald-500/5 active:scale-[0.99] cursor-pointer";
               }
 
+              const priceMatch = opt.label.match(/월\s*([\d,]+원)/);
+
               return (
                 <div
                   key={opt.value}
-                  onClick={isHistorical ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
+                  onClick={isHistorical || isUnselectable ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
                   className={`flex flex-col gap-1 rounded-xl border p-3.5 text-left shadow-sm transition-all duration-200 ${borderClass}`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-primary truncate pr-2">
                       {opt.label.split(" (월 ")[0]}
                     </span>
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
-                      {(opt.label.match(/월\s*([\d,]+원)/)?.[1]) || ""}
-                    </span>
+                    {priceMatch && (
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                        {priceMatch[1]}
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -511,7 +525,8 @@ export default function ChatFlowInput({
       step.id === "internet-recommendation-api" ||
       step.id === "iptv-select-new-plan" ||
       step.id === "bundle-recommendation-api" ||
-      step.id === "bundle-all-plans-select"
+      step.answerKey?.endsWith("PlanCheck") ||
+      step.id.includes("PlanCheck")
     ) {
       const cardOptions = step.options.filter(
         (o) => !["direct-choose", "direct-select", "direct-input"].includes(o.value)
@@ -538,7 +553,7 @@ export default function ChatFlowInput({
                   borderClass = isRec1
                     ? "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed"
                     : isRec2
-                      ? "border-blue-500 bg-blue-500/10 opacity-90 cursor-not-allowed"
+                      ? "border-teal-500 bg-teal-500/10 opacity-90 cursor-not-allowed"
                       : "border-accent bg-accent/10 opacity-90 cursor-not-allowed";
                 } else {
                   borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
@@ -547,17 +562,17 @@ export default function ChatFlowInput({
                 borderClass = isRec1 
                   ? "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10" 
                   : isRec2 
-                    ? "border-blue-500/20 bg-blue-500/5 hover:border-blue-500/50 hover:bg-blue-500/10"
+                    ? "border-teal-500/20 bg-teal-500/5 hover:border-teal-500/50 hover:bg-teal-500/10"
                     : "border-border bg-card hover:border-accent/50 hover:bg-secondary";
               }
               
               const textClass = isRec1 
                 ? "text-emerald-600 dark:text-emerald-400" 
                 : isRec2 
-                  ? "text-blue-600 dark:text-blue-400"
+                  ? "text-teal-600 dark:text-teal-400"
                   : "text-accent";
 
-              const badgeBg = isRec1 ? "bg-emerald-600" : isRec2 ? "bg-blue-600" : "bg-accent";
+              const badgeBg = isRec1 ? "bg-emerald-600" : isRec2 ? "bg-teal-600" : "bg-accent";
               const badgeMatch = opt.label.match(/추천 (\d+)순위/);
               const badgeLabel = badgeMatch 
                 ? `${badgeMatch[1]}순위 추천` 

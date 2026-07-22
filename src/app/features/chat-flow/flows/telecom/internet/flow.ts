@@ -1,8 +1,37 @@
 import { composeFlow } from "../../../core/composeFlow";
 import type { FlowDefinition, FlowStep } from "../../../core/types";
-import { fetchInternetPlansFromApi, MOCK_ALL_INTERNET_PLANS, MOCK_RECOMMENDED_INTERNET_PLANS } from "./mockData";
+import { fetchInternetPlansFromApi, MOCK_ALL_INTERNET_PLANS, MOCK_RECOMMENDED_INTERNET_PLANS, getInternetPlansForCarrier, getRecommendedInternetPlans, isPlanAvailableInRegion, getFilteredAllInternetPlans } from "./mockData";
+import { regionDetailsMap } from "../iptv/mockData";
 
 const namespace = "internet";
+
+const generateRegionDetailSteps = (namespace: string, nextStepId: string): FlowStep[] => {
+  const korRegionNames: Record<string, string> = {
+    seoul: "서울", gyeonggi: "경기", incheon: "인천", daegu: "대구", busan: "부산",
+    ulsan: "울산", gyeongbuk: "경북", gyeongnam: "경남", daejeon: "대전", sejong: "세종",
+    chungbuk: "충북", chungnam: "충남", jeonbuk: "전북", jeonnam: "전남", gangwon: "강원", jeju: "제주"
+  };
+
+  return Object.entries(regionDetailsMap).map(([regionKey, districts]) => {
+    const suffix = regionKey.charAt(0).toUpperCase() + regionKey.slice(1);
+    const answerKey = `${namespace}.regionDetail${suffix}`;
+    const korName = korRegionNames[regionKey] ?? regionKey;
+
+    const sortedDistricts = [...districts].sort((a, b) => a.label.localeCompare(b.label, "ko-KR"));
+
+    return {
+      id: `${namespace}-region-${regionKey}`,
+      type: "single-choice",
+      message: `${korName}의 상세 지역을 선택해주세요.`,
+      answerKey,
+      options: sortedDistricts.map(d => ({
+        value: d.value,
+        label: d.label,
+        next: nextStepId,
+      })),
+    };
+  });
+};
 
 // ── 인터넷 요금제 백그라운드 캐싱 ────────────────
 interface CachedPlan {
@@ -15,22 +44,7 @@ const planCache: Record<string, CachedPlan[]> = {};
 
 export function prefetchPlans(carrier: string) {
   if (planCache[carrier]) return;
-
-  const carrierLabel = carrier === "SK" ? "SK 브로드밴드" 
-                     : carrier === "KT" ? "KT 올레" 
-                     : carrier === "LGU" ? "LG 유플러스"
-                     : carrier === "HELLOVISION" ? "LG 헬로비전"
-                     : carrier === "KTSKY" ? "KT 스카이라이프"
-                     : carrier === "KTHCN" ? "KT HCN"
-                     : carrier === "SKYLIFE" ? "스카이라이프"
-                     : carrier;
-
-  planCache[carrier] = [
-    { value: "plan-internet-1", label: `[더미] ${carrierLabel} 광랜 인터넷 100Mbps (월 22,000원)`, price: 22000 },
-    { value: "plan-internet-2", label: `[더미] ${carrierLabel} 베이직 인터넷 500Mbps (월 33,000원)`, price: 33000 },
-    { value: "plan-internet-3", label: `[더미] ${carrierLabel} 기가 인터넷 1Gbps (월 38,500원)`, price: 38500 },
-    { value: "plan-internet-4", label: `[더미] ${carrierLabel} 프리미엄 인터넷 2.5Gbps (월 44,000원)`, price: 44000 },
-  ];
+  planCache[carrier] = getInternetPlansForCarrier(carrier);
 }
 
 // =================================================================
@@ -45,7 +59,7 @@ const opening: FlowStep[] = [
     next: "internet-carrier",
   },
 
-  // [Part 1 - 1번] 통신사 선택 (인사말과 질문을 분리하여 답변 후 다음 질문이 나오도록 유도)
+  // [Part 1 - 1번] 통신사 선택 (1차 목록 4개)
   {
     id: "internet-carrier",
     type: "single-choice",
@@ -53,13 +67,26 @@ const opening: FlowStep[] = [
     message: "현재 사용하는 인터넷 통신사를 선택해주세요.",
     answerKey: `${namespace}.commonCarrier`,
     options: [
-      { value: "SK", label: "SK 브로드밴드" },
-      { value: "KT", label: "KT 올레" },
-      { value: "LGU", label: "LG 유플러스" },
-      { value: "HELLOVISION", label: "LG 헬로비전" },
-      { value: "KTSKY", label: "KT 스카이라이프" },
-      { value: "KTHCN", label: "KT HCN" },
-      { value: "SKYLIFE", label: "스카이라이프" },
+      { value: "SK", label: "SK 브로드밴드(B tv)", next: "internet-fee" },
+      { value: "KT", label: "KT (지니 TV)", next: "internet-fee" },
+      { value: "LGU", label: "LG유플러스 (U+tv)", next: "internet-fee" },
+      { value: "cable", label: "케이블/지역인터넷", next: "internet-carrier-cable" },
+    ],
+    next: "internet-fee",
+  },
+
+  // [Part 1 - 1-1번] 케이블/지역인터넷 세부 선택 (2차 목록)
+  {
+    id: "internet-carrier-cable",
+    type: "single-choice",
+    layout: "inline",
+    message: "사용 중이신 케이블/지역인터넷 통신사를 선택해주세요.",
+    answerKey: `${namespace}.cableCarrier`,
+    options: [
+      { value: "DLIVE", label: "딜라이브", next: "internet-fee" },
+      { value: "KTHCN", label: "KT HCN", next: "internet-fee" },
+      { value: "HELLOVISION", label: "LG헬로비전", next: "internet-fee" },
+      { value: "SKYLIFE", label: "스카이라이프", next: "internet-fee" },
     ],
     next: "internet-fee",
   },
@@ -87,7 +114,7 @@ const opening: FlowStep[] = [
       { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "internet-custom-plan-input" },
     ],
     optionsResolver: (answers) => {
-      const carrier = answers[`internet.commonCarrier`] as string;
+      const carrier = (answers[`internet.cableCarrier`] || answers[`internet.commonCarrier`]) as string;
       const currentFee = answers[`internet.fee`] as number;
       
       prefetchPlans(carrier);
@@ -127,7 +154,7 @@ const opening: FlowStep[] = [
       { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "internet-contract-notice" }
     ],
     optionsResolver: (answers) => {
-      const carrier = answers[`internet.commonCarrier`] as string;
+      const carrier = (answers[`internet.cableCarrier`] || answers[`internet.commonCarrier`]) as string;
       const currentFee = answers[`internet.fee`] as number;
       
       prefetchPlans(carrier);
@@ -158,8 +185,12 @@ const opening: FlowStep[] = [
     type: "single-choice",
     message: "추천 요금제 외에 선택 가능한 전체 요금제 리스트입니다. 원하시는 요금제를 선택해 주세요.",
     answerKey: `${namespace}.manualSelectedPlan`,
-    options: MOCK_ALL_INTERNET_PLANS,
-    next: "internet-contract-notice",
+    options: [],
+    optionsResolver: (answers) => {
+      const contractKey = answers["internet.planContract"] || "discount3y";
+      return getFilteredAllInternetPlans(contractKey, answers);
+    },
+    next: "internet-result",
   },
 
   // 직접 요금제명을 입력하는 분기 스텝
@@ -209,9 +240,9 @@ const specific: FlowStep[] = [
     message: "조건에 맞는 인터넷 요금제를 선택해 주세요.",
     answerKey: `${namespace}.desiredSpeed`,
     options: [
-      { value: "200", label: "200Mbps (일상 실속)" },
-      { value: "500", label: "1Gbps (초고속)" },
-      { value: "10000", label: "10Gbps (기업급)" },
+      { value: "100Mbps", label: "100Mbps (웹서핑·유튜브)" },
+      { value: "500Mbps", label: "500Mbps (고화질 영상·게임)" },
+      { value: "1Gbps", label: "1Gbps (대용량 다운로드·방송)" },
     ],
     next: "internet-plan-contract",
   },
@@ -229,7 +260,67 @@ const specific: FlowStep[] = [
       { value: "discount1y", label: "1년 약정" },
       { value: "noDiscount", label: "무약정" },
     ],
-    next: "internet-recommendation-api",
+    next: "internet-region-lv1",
+  },
+
+  {
+    id: "internet-region-lv1",
+    type: "single-choice",
+    message: "사는 곳을 선택해주세요.",
+    answerKey: `${namespace}.regionLv1`,
+    options: [
+      { value: "gangwon", label: "강원", next: "internet-region-gangwon" },
+      { value: "gyeonggi", label: "경기", next: "internet-region-gyeonggi" },
+      { value: "gyeongsang", label: "경상도", next: "internet-region-gyeongsang-lv2" },
+      { value: "seoul", label: "서울", next: "internet-region-seoul" },
+      { value: "incheon", label: "인천", next: "internet-region-incheon" },
+      { value: "jeolla", label: "전라도", next: "internet-region-jeolla-lv2" },
+      { value: "jeju", label: "제주", next: "internet-region-jeju" },
+      { value: "chungcheong", label: "충청도", next: "internet-region-chungcheong-lv2" },
+      { value: "none", label: "선택안함", next: "internet-recommendation-api" },
+    ],
+  },
+
+  // 🔧 mockData 팩토리 함수를 이용한 동적 지역 디테일 Step 전개
+  ...generateRegionDetailSteps(namespace, "internet-recommendation-api"),
+
+  // 경상도 중분류
+  {
+    id: "internet-region-gyeongsang-lv2",
+    type: "single-choice",
+    message: "경상도의 세부 지역을 선택해주세요.",
+    answerKey: `${namespace}.regionLv2Gyeongsang`,
+    options: [
+      { value: "gyeongnam", label: "경상남도", next: "internet-region-gyeongnam" },
+      { value: "gyeongbuk", label: "경상북도", next: "internet-region-gyeongbuk" },
+      { value: "daegu", label: "대구광역시", next: "internet-region-daegu" },
+      { value: "busan", label: "부산광역시", next: "internet-region-busan" },
+      { value: "ulsan", label: "울산광역시", next: "internet-region-ulsan" },
+    ],
+  },
+  // 충청도 중분류
+  {
+    id: "internet-region-chungcheong-lv2",
+    type: "single-choice",
+    message: "충청도의 세부 지역을 선택해주세요.",
+    answerKey: `${namespace}.regionLv2Chungcheong`,
+    options: [
+      { value: "daejeon", label: "대전광역시", next: "internet-region-daejeon" },
+      { value: "sejong", label: "세종특별자치시", next: "internet-region-sejong" },
+      { value: "chungnam", label: "충청남도", next: "internet-region-chungnam" },
+      { value: "chungbuk", label: "충청북도", next: "internet-region-chungbuk" },
+    ],
+  },
+  // 전라도 중분류
+  {
+    id: "internet-region-jeolla-lv2",
+    type: "single-choice",
+    message: "전라도의 세부 지역을 선택해주세요.",
+    answerKey: `${namespace}.regionLv2Jeolla`,
+    options: [
+      { value: "jeonnam", label: "전라남도", next: "internet-region-jeonnam" },
+      { value: "jeonbuk", label: "전라북도", next: "internet-region-jeonbuk" },
+    ],
   },
 
   // [Part 2 - 8번] 🚀 요금 비교 추천 솔루션 요금제 선택 스텝
@@ -240,8 +331,12 @@ const specific: FlowStep[] = [
     answerKey: `${namespace}.selectedRecommendedPlan`,
     options: MOCK_RECOMMENDED_INTERNET_PLANS,
     optionsResolver: (answers) => {
+      const carrier = answers["internet.cableCarrier"] || answers["internet.commonCarrier"] || "SK";
+      const desiredSpeed = answers["internet.desiredSpeed"] || "500";
+      const planContract = answers["internet.planContract"] || "discount3y";
+      const recommendations = getRecommendedInternetPlans(carrier, desiredSpeed, planContract, answers);
       return [
-        ...MOCK_RECOMMENDED_INTERNET_PLANS,
+        ...recommendations,
         { value: "direct-choose", label: "직접 고를래요 (전체 리스트 보기)", next: "internet-all-plans-select" },
       ];
     },

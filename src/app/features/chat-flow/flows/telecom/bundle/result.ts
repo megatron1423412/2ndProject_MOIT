@@ -3,6 +3,7 @@
 import type { FlowResult } from "../../../core/types";
 import { createTelecomMockResult } from "../../../shared/telecom/resultHelpers";
 import { BUNDLE_MOCK_RESULT, mockBundlePlans } from "./mockData";
+import { apiPlansCache } from "./flow";
 
 export const buildBundleResult = (answers: Record<string, any>): FlowResult => {
   const finalAnswers = answers;
@@ -148,16 +149,30 @@ export const buildBundleResult = (answers: Record<string, any>): FlowResult => {
   const planId = `bundle-${recommendedCarrier.toLowerCase()}-${speedSuffix}`;
   let selectedPlan = mockBundlePlans.find((p) => p.id === planId) || mockBundlePlans[0];
 
+  const chosenPlanId = finalAnswers["bundle.selectedRecommendedPlan"] || finalAnswers["bundle.manualSelectedPlan"];
+  if (chosenPlanId) {
+    const allAvailable = apiPlansCache && apiPlansCache.length > 0 ? apiPlansCache : mockBundlePlans;
+    const found = allAvailable.find((p) => p.id === chosenPlanId) || mockBundlePlans.find((p) => p.id === chosenPlanId);
+    if (found) {
+      selectedPlan = found;
+      if (found.carrier) {
+        recommendedCarrier = found.carrier;
+      }
+    }
+  }
+
   // Override for test cases
-  if (finalAnswers["bundle.startState"] === "all_diff" && currentFee === 115000 && penaltyAmount === 0) {
-    selectedPlan = mockBundlePlans.find((p) => p.id === "bundle-test-gold") || selectedPlan;
-    recommendedCarrier = "SKYLIFE";
-  } else if (finalAnswers["bundle.startState"] === "all_same" && currentFee === 135000 && penaltyAmount === 140000) {
-    selectedPlan = mockBundlePlans.find((p) => p.id === "bundle-test-silver") || selectedPlan;
-    recommendedCarrier = "SK";
-  } else if (finalAnswers["bundle.startState"] === "part_same" && currentFee === 75000 && penaltyAmount === 280000) {
-    selectedPlan = mockBundlePlans.find((p) => p.id === "bundle-test-bronze") || selectedPlan;
-    recommendedCarrier = "SK";
+  if (!chosenPlanId) {
+    if (finalAnswers["bundle.startState"] === "all_diff" && currentFee === 115000 && penaltyAmount === 0) {
+      selectedPlan = mockBundlePlans.find((p) => p.id === "bundle-test-gold") || selectedPlan;
+      recommendedCarrier = "SKYLIFE";
+    } else if (finalAnswers["bundle.startState"] === "all_same" && currentFee === 135000 && penaltyAmount === 140000) {
+      selectedPlan = mockBundlePlans.find((p) => p.id === "bundle-test-silver") || selectedPlan;
+      recommendedCarrier = "SK";
+    } else if (finalAnswers["bundle.startState"] === "part_same" && currentFee === 75000 && penaltyAmount === 280000) {
+      selectedPlan = mockBundlePlans.find((p) => p.id === "bundle-test-bronze") || selectedPlan;
+      recommendedCarrier = "SK";
+    }
   }
 
   const selectedPrice = selectedPlan.price;

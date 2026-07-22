@@ -8,7 +8,7 @@ export const BRAND = {
   name: "모잇",
   nameEnglish: "MOIT",
   tagline: "돈을 모으다, 정보를 잇다",
-  logoPath: "/assets/brand/moit-logo.svg",
-  compactLogoPath: "/assets/brand/moit-logo-compact.svg",
+  logoPath: "/assets/brand/mascot_pose_thumbsup.png",
+  compactLogoPath: "/assets/brand/mascot_pose_thumbsup.png",
   logoAlt: "모잇 로고",
 } as const;
