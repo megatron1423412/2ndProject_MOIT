@@ -18,15 +18,15 @@ export interface MockPlanItem {
 // ── mockData.ts의 ALL_MVNO_PLAN_SPECS 데이터를 MockPlanItem 규격으로 변환 ─────
 const ALL_MVNO_MAPPED: MockPlanItem[] = (ALL_MVNO_PLAN_SPECS && ALL_MVNO_PLAN_SPECS.length > 0)
   ? ALL_MVNO_PLAN_SPECS.map(p => {
-      const fullLabel = `[${p.mvnoCarrier}] ${p.name} (월 ${p.price.toLocaleString("ko-KR")}원)`;
-      return {
-        value: `plan-api|${fullLabel}`,
-        label: fullLabel,
-        price: p.price,
-        carrier: "mvno",
-        networkType: p.networkType as NetworkType
-      };
-    })
+    const fullLabel = `[${p.mvnoCarrier}] ${p.name} (월 ${p.price.toLocaleString("ko-KR")}원)`;
+    return {
+      value: `plan-api|${fullLabel}`,
+      label: fullLabel,
+      price: p.price,
+      carrier: "mvno",
+      networkType: p.networkType as NetworkType
+    };
+  })
   : [];
 
 // ── 스마트초이스 실시간 요금제 백그라운드 캐싱 ────────────────
@@ -43,7 +43,7 @@ let allPlansRequest: Promise<import("../shared/telecomApi").SmartChoicePlan[]> |
 
 function parseDataGB(label: string): number {
   if (label.includes("일5GB") || label.includes("일 5GB") || label.includes("일5g") || label.includes("일 5g")) return 150;
-  
+
   // 1. 명시적인 GB 숫자 패턴 우선 추출 (예: 50GB, 10GB, 6GB, 100GB, 110GB, 71GB, 4GB)
   const match = label.match(/(\d+(?:\.\d+)?)\s*GB/i);
   if (match) {
@@ -568,11 +568,11 @@ const opening: FlowStep[] = [
   {
     id: "phone-contract-period",
     type: "single-choice",
-    message: " 약정 기간 진단 여부 확인",
+    message: "현재 휴대폰 가입 약정기간 상태가 어떻게 되시나요?",
     answerKey: `${namespace}.contractPeriod`,
     options: [
-      { value: "expired", label: "가입한 지 3년 넘음 (또는 만료됨)" },
-      { value: "remaining", label: "아직 약정 기간 남음" },
+      { value: "expired", label: "약정이 만료됨" },
+      { value: "remaining", label: "약정 기간 남음" },
       { value: "unknown", label: "잘 모르겠음" },
     ],
     next: "phone-desired-network"

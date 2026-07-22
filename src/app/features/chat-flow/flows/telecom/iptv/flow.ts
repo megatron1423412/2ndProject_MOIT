@@ -308,11 +308,11 @@ const specific: FlowStep[] = [
   {
     id: "iptv-contract-diagnosis",
     type: "single-choice",
-    message: "현재 고객님의 약정 상태는 어떠신가요?\n\n💡[공지] 약정 기간에 따라 위약금이 발생할 수 있으니, 기존 통신사 위약금을 꼭 먼저 확인해 주세요.",
+    message: "현재 TV·IPTV 가입 약정기간 상태가 어떻게 되시나요?",
     answerKey: `${namespace}.userContractStatus`,
     options: [
-      { value: "expired", label: "가입한 지 3년 넘음 (또는 만료됨)", next: "iptv-desired-contract" },
-      { value: "remaining", label: "아직 약정 기간 남음", next: "iptv-desired-contract" },
+      { value: "expired", label: "약정이 만료됨", next: "iptv-desired-contract" },
+      { value: "remaining", label: "약정 기간 남음", next: "iptv-desired-contract" },
       { value: "unknown", label: "잘 모르겠음", next: "iptv-desired-contract" },
     ],
     optionsResolver: (answers) => {
@@ -330,8 +330,8 @@ const specific: FlowStep[] = [
       }
 
       return [
-        { value: "expired", label: "가입한 지 3년 넘음 (또는 만료됨)", next: "iptv-desired-contract" },
-        { value: "remaining", label: "아직 약정 기간 남음", next: "iptv-desired-contract" },
+        { value: "expired", label: "약정이 만료됨", next: "iptv-desired-contract" },
+        { value: "remaining", label: "약정 기간 남음", next: "iptv-desired-contract" },
         { value: "unknown", label: "잘 모르겠음", next: "iptv-desired-contract" },
       ];
     },
