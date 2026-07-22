@@ -46,12 +46,23 @@ export function fetchMobilePlansWithApiKey(): Promise<BundlePlan[]> {
   apiFetchPromise = (async () => {
     try {
       // API 키를 포함한 스마트초이스 요금제 API 호출
-      const [res5g, resLte] = await Promise.all([
+      const [res5gL, resLteL, res5gM, resLteM, res5gH, resLteH] = await Promise.all([
+        fetchSmartChoicePhonePlans({ voice: "999999", data: "5120", sms: "999999", age: "20", type: "6", dis: "24" }),
+        fetchSmartChoicePhonePlans({ voice: "999999", data: "5120", sms: "999999", age: "20", type: "3", dis: "24" }),
         fetchSmartChoicePhonePlans({ voice: "999999", data: "20480", sms: "999999", age: "20", type: "6", dis: "24" }),
         fetchSmartChoicePhonePlans({ voice: "999999", data: "20480", sms: "999999", age: "20", type: "3", dis: "24" }),
+        fetchSmartChoicePhonePlans({ voice: "999999", data: "999999", sms: "999999", age: "20", type: "6", dis: "24" }),
+        fetchSmartChoicePhonePlans({ voice: "999999", data: "999999", sms: "999999", age: "20", type: "3", dis: "24" }),
       ]);
 
-      const rawPlans = [...(res5g.plans || []), ...(resLte.plans || [])];
+      const rawPlans = [
+        ...(res5gL.plans || []),
+        ...(resLteL.plans || []),
+        ...(res5gM.plans || []),
+        ...(resLteM.plans || []),
+        ...(res5gH.plans || []),
+        ...(resLteH.plans || []),
+      ];
       if (rawPlans.length > 0) {
         const seen = new Set<string>();
         const mapped: BundlePlan[] = [];
@@ -248,21 +259,64 @@ function resolveRecommendedBundlePlans(
       return interleaved;
     }
 
-    let basePlans = apiPlansCache && apiPlansCache.length > 0 ? apiPlansCache : mockBundlePlans;
-    let plans = basePlans;
-    if (targetCarrier) {
-      const filtered = basePlans.filter((p) => p.carrier === targetCarrier);
-      if (filtered.length > 0) {
-        plans = filtered;
-      }
+    // 1. Try to find plans from SmartChoice API first (apiPlansCache) within currentFee ±25,000 KRW
+    let smartChoicePlans: BundlePlan[] = [];
+    if (apiPlansCache && apiPlansCache.length > 0) {
+      smartChoicePlans = apiPlansCache.filter((p) => {
+        const matchCarrier = p.carrier === targetCarrier;
+        const matchPrice = currentFee > 0 ? Math.abs(p.price - currentFee) <= 25000 : true;
+        return matchCarrier && matchPrice;
+      });
     }
 
-    if (currentFee > 0) {
-      plans = [...plans].sort(
-        (a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee)
-      );
+    let plansResult = [...smartChoicePlans];
+
+    // 2. If no plans found or insufficient (less than 3), get from MOCK_PLAN_COMBINATIONS unique mobile plans
+    if (plansResult.length < 3) {
+      const extractedMnoPlans: BundlePlan[] = [];
+      const seenExtracted = new Set<string>();
+      MOCK_PLAN_COMBINATIONS.forEach((c) => {
+        const key = `${c.carrier}-${c.mobilePlan}`;
+        if (!seenExtracted.has(key)) {
+          seenExtracted.add(key);
+          let carrier = "SK";
+          if (c.carrier === "KT") carrier = "KT";
+          else if (c.carrier === "LGU+" || c.carrier === "LGU") carrier = "LGU";
+          
+          extractedMnoPlans.push({
+            id: `mock-mob-${c.id}`,
+            name: `[${c.carrier}] ${c.mobilePlan}`,
+            price: c.mobilePrice,
+            carrier,
+            services: ["mobile"]
+          });
+        }
+      });
+
+      let fallbackPlans = extractedMnoPlans.filter((p) => {
+        const matchCarrier = p.carrier === targetCarrier;
+        const matchPrice = currentFee > 0 ? Math.abs(p.price - currentFee) <= 25000 : true;
+        return matchCarrier && matchPrice;
+      });
+
+      // Avoid name duplicates
+      const seenNames = new Set(plansResult.map((p) => p.name));
+      fallbackPlans.forEach((p) => {
+        if (!seenNames.has(p.name)) {
+          seenNames.add(p.name);
+          plansResult.push(p);
+        }
+      });
     }
-    return plans;
+
+    // Sort by proximity to currentFee if currentFee > 0, otherwise sort by price ascending
+    if (currentFee > 0) {
+      plansResult.sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee));
+    } else {
+      plansResult.sort((a, b) => a.price - b.price);
+    }
+
+    return plansResult;
   }
 
   // 1. [다 달라요] - 인터넷 단독 선택 시 (diffInternet) -> 인터넷명만 불러오기
@@ -1397,6 +1451,58 @@ function matchesSpeedFilter(speedStr: string, desiredSpeed: string): boolean {
   return true;
 }
 
+// 🟢 고정 비용 최소화 추천 시 두 통신사의 비율이 4:6 또는 6:4로 골고루 나오게 하고 최저가 순 정렬
+function getRatioBalancedMvnoCombos(
+  skylife: any[],
+  hello: any[],
+  targetCount: number = 3
+) {
+  const sortedSky = [...skylife].sort((a, b) => a.totalPrice - b.totalPrice);
+  const sortedHello = [...hello].sort((a, b) => a.totalPrice - b.totalPrice);
+
+  const countA_Sky = Math.round(targetCount * 0.4);
+  const countA_Hello = targetCount - countA_Sky;
+
+  const countB_Sky = Math.round(targetCount * 0.6);
+  const countB_Hello = targetCount - countB_Sky;
+
+  // Ensure lists have enough elements
+  if (sortedSky.length < Math.max(countA_Sky, countB_Sky) || sortedHello.length < Math.max(countA_Hello, countB_Hello)) {
+    const combined = [...sortedSky, ...sortedHello].sort((a, b) => a.totalPrice - b.totalPrice);
+    return combined.slice(0, targetCount);
+  }
+
+  // Try Scenario A: countA_Sky Skylife, countA_Hello Hello
+  let scenarioA: any[] = [];
+  let priceSumA = Infinity;
+  if (sortedSky.length >= countA_Sky && sortedHello.length >= countA_Hello) {
+    scenarioA = [...sortedSky.slice(0, countA_Sky), ...sortedHello.slice(0, countA_Hello)];
+    priceSumA = scenarioA.reduce((sum, item) => sum + item.totalPrice, 0);
+  }
+
+  // Try Scenario B: countB_Sky Skylife, countB_Hello Hello
+  let scenarioB: any[] = [];
+  let priceSumB = Infinity;
+  if (sortedSky.length >= countB_Sky && sortedHello.length >= countB_Hello) {
+    scenarioB = [...sortedSky.slice(0, countB_Sky), ...sortedHello.slice(0, countB_Hello)];
+    priceSumB = scenarioB.reduce((sum, item) => sum + item.totalPrice, 0);
+  }
+
+  // Choose the scenario with the lower total cost (or scenario A by default)
+  let selected = scenarioA;
+  if (priceSumB < priceSumA) {
+    selected = scenarioB;
+  }
+
+  if (selected.length === 0) {
+    const combined = [...sortedSky, ...sortedHello].sort((a, b) => a.totalPrice - b.totalPrice);
+    return combined.slice(0, targetCount);
+  }
+
+  // Return the selected combinations sorted by price ascending
+  return selected.sort((a, b) => a.totalPrice - b.totalPrice);
+}
+
 // 🟢 여러 통신사 데이터 교차 균등(라운드로빈) 배치 및 최저가순 정렬 헬퍼 함수
 function interleaveAndSortByPrice<T extends { totalPrice: number }>(lists: T[][], limit?: number): T[] {
   const validLists = lists.filter((l) => l && l.length > 0);
@@ -1997,8 +2103,7 @@ const steps: FlowStep[] = [
         const skylifeCombos = filterSkylifeCombinations(answers);
         const helloCombos = filterHelloCombinations(answers);
 
-        // 두 알뜰/케이블 통신사 교차 배치 후 최저가순 상위 4개 추출
-        const topMvno = interleaveAndSortByPrice([skylifeCombos, helloCombos], 4);
+        const topMvno = getRatioBalancedMvnoCombos(skylifeCombos, helloCombos, 6);
 
         return [
           ...topMvno.map((combo, idx) => ({
@@ -2119,7 +2224,7 @@ const steps: FlowStep[] = [
         const skylifeCombos = filterSkylifeCombinations(answers);
         const helloCombos = filterHelloCombinations(answers);
 
-        const allMvnoCombos = interleaveAndSortByPrice([skylifeCombos, helloCombos]).slice(0, 12);
+        const allMvnoCombos = getRatioBalancedMvnoCombos(skylifeCombos, helloCombos, 10);
 
         return [
           ...allMvnoCombos.map((combo) => ({
