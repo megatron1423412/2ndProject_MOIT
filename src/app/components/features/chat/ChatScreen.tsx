@@ -18,6 +18,7 @@ import { isSmartShoppingConversationItem, SmartShoppingAlternativeCards, SmartSh
 import type { ProductRecommendation } from "../../../features/product-catalog/core/types";
 import ProductQuestionSources from "../../../features/smart-shopping/product-detail/ProductQuestionSources";
 import type { ProductQuestionSource } from "../../../features/smart-shopping/product-detail/productQuestionClient";
+import type { SubmittedFlowAnswer } from "../../../features/chat-flow/core/types";
 
 interface ChatScreenProps {
   subCategoryId: SubCategoryId;
@@ -36,12 +37,29 @@ export const PRODUCT_SELECTION_SCROLL_OFFSET = 16;
 export const CHAT_BOTTOM_STICKY_THRESHOLD = 96;
 export const CHAT_SCROLL_BOTTOM_EPSILON = 1;
 type ChatScrollContainer = Pick<HTMLElement, "scrollTop" | "scrollHeight" | "clientHeight" | "getBoundingClientRect" | "scrollTo">;
+export type ChatScrollDirection = "up" | "down" | "none";
 
-export const resolveChatScrollOwnership = ({ remainingScroll, manualScrollIntent }: { remainingScroll: number; manualScrollIntent: boolean }) => {
-  const keepsManualControl = manualScrollIntent && remainingScroll > CHAT_SCROLL_BOTTOM_EPSILON;
+export const getChatScrollDirection = ({ previousScrollTop, currentScrollTop }: { previousScrollTop: number; currentScrollTop: number }): ChatScrollDirection => {
+  if (currentScrollTop < previousScrollTop - CHAT_SCROLL_BOTTOM_EPSILON) return "up";
+  if (currentScrollTop > previousScrollTop + CHAT_SCROLL_BOTTOM_EPSILON) return "down";
+  return "none";
+};
+
+export const resolveChatScrollOwnership = ({
+  remainingScroll,
+  manualScrollIntent,
+  scrollDirection = "none",
+}: {
+  remainingScroll: number;
+  manualScrollIntent: boolean;
+  scrollDirection?: ChatScrollDirection;
+}) => {
+  const isNearBottom = remainingScroll < CHAT_BOTTOM_STICKY_THRESHOLD;
+  const returnedNearBottom = manualScrollIntent && scrollDirection === "down" && isNearBottom;
+  const keepsManualControl = manualScrollIntent && remainingScroll > CHAT_SCROLL_BOTTOM_EPSILON && !returnedNearBottom;
   return {
     manualScrollIntent: keepsManualControl,
-    shouldStickToBottom: !keepsManualControl && remainingScroll < CHAT_BOTTOM_STICKY_THRESHOLD,
+    shouldStickToBottom: !keepsManualControl && isNearBottom,
   };
 };
 
@@ -110,6 +128,8 @@ export default function ChatScreen({
   const scrollContainerRef = useRef<HTMLElement>(null);
   const shouldStickToBottomRef = useRef(true);
   const manualScrollIntentRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
+  const programmaticScrollTargetRef = useRef<number | null>(null);
   const productSelectionScrollFrameRef = useRef<number | null>(null);
   const scrolledProductSelectionAnchorsRef = useRef(new Set<string>());
   const currentRecommendationStartAnchorRef = useRef<string | null>(null);
@@ -129,24 +149,40 @@ export default function ChatScreen({
   useEffect(() => {
     if (!shouldStickToBottomRef.current) return;
     const container = scrollContainerRef.current;
-    if (container) container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    if (container) {
+      const targetScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      programmaticScrollTargetRef.current = targetScrollTop;
+      container.scrollTo({ top: targetScrollTop, behavior: "smooth" });
+    }
     else messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [flow.messages, flow.supplementalMessages, timelineRevision]);
 
   const handleScroll = () => {
     const container = scrollContainerRef.current;
     if (!container) return;
+    const currentScrollTop = container.scrollTop;
+    const programmaticTarget = programmaticScrollTargetRef.current;
+    if (programmaticTarget !== null) {
+      if (Math.abs(currentScrollTop - programmaticTarget) <= CHAT_SCROLL_BOTTOM_EPSILON) {
+        programmaticScrollTargetRef.current = null;
+      }
+      lastScrollTopRef.current = currentScrollTop;
+      return;
+    }
     const ownership = resolveChatScrollOwnership({
-      remainingScroll: container.scrollHeight - container.scrollTop - container.clientHeight,
+      remainingScroll: container.scrollHeight - currentScrollTop - container.clientHeight,
       manualScrollIntent: manualScrollIntentRef.current,
+      scrollDirection: getChatScrollDirection({ previousScrollTop: lastScrollTopRef.current, currentScrollTop }),
     });
     manualScrollIntentRef.current = ownership.manualScrollIntent;
     shouldStickToBottomRef.current = ownership.shouldStickToBottom;
+    lastScrollTopRef.current = currentScrollTop;
   };
 
   const takeChatScrollControl = () => {
     manualScrollIntentRef.current = true;
     shouldStickToBottomRef.current = false;
+    programmaticScrollTargetRef.current = null;
     const correction = recommendationStartCorrectionRef.current;
     if (correction) correction.userScrolled = true;
     if (productSelectionScrollFrameRef.current !== null) {
@@ -154,7 +190,10 @@ export default function ChatScreen({
       productSelectionScrollFrameRef.current = null;
     }
     const container = scrollContainerRef.current;
-    if (container) container.scrollTo({ top: container.scrollTop, behavior: "auto" });
+    if (container) {
+      lastScrollTopRef.current = container.scrollTop;
+      container.scrollTo({ top: container.scrollTop, behavior: "auto" });
+    }
   };
 
   const cancelRecommendationStartCorrectionOnScrollKey = (event: React.KeyboardEvent<HTMLElement>) => {
@@ -177,6 +216,7 @@ export default function ChatScreen({
       productSelectionScrollFrameRef.current = null;
       if (!anchor.isConnected || !container.isConnected) return;
       const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      programmaticScrollTargetRef.current = getProductSelectionScrollPosition({ container, anchor }).targetScrollTop;
       const position = scrollContainerToProductSelectionAnchor({ container, anchor, behavior: reducedMotion ? "auto" : "smooth" });
       scrolledProductSelectionAnchorsRef.current.add(anchorId);
       if (isRecommendationStart && position.wasClamped) {
@@ -207,8 +247,18 @@ export default function ChatScreen({
 
     correction.corrected = true;
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    programmaticScrollTargetRef.current = position.targetScrollTop;
     scrollContainerToProductSelectionAnchor({ container, anchor: correction.anchor, behavior: reducedMotion ? "auto" : "smooth" });
   }, []);
+
+  const submitAnswerWithSmartShoppingFollow = (answer: SubmittedFlowAnswer) => {
+    if (item?.parentCategory === "appliances") {
+      manualScrollIntentRef.current = false;
+      shouldStickToBottomRef.current = true;
+      programmaticScrollTargetRef.current = null;
+    }
+    flow.submitAnswer(answer);
+  };
 
   /* 🎨 [프론트엔드 수정 가능 Zone 1: 예외/에러 화면 UI]
      - flex h-screen w-screen: 전체 중앙 정렬 방식
@@ -287,7 +337,7 @@ export default function ChatScreen({
                       timestamp={message.timestamp}
                       step={currentStepForMessage}
                       completed={isLast ? flow.completed : false}
-                      onSubmit={flow.submitAnswer}
+                      onSubmit={submitAnswerWithSmartShoppingFollow}
                       onReset={flow.reset}
                       canUndo={isLast && isAi && Boolean(flow.currentStep) && flow.canUndo}
                       undoDisabled={flow.isTransitioning}
@@ -357,7 +407,7 @@ export default function ChatScreen({
                <ChatFlowInput
                 step={flow.currentStep}
                 completed={flow.completed}
-                onSubmit={flow.submitAnswer}
+                onSubmit={submitAnswerWithSmartShoppingFollow}
                 onReset={flow.reset}
                 favorites={favorites}
                 onToggleFavoriteProduct={onToggleFavoriteProduct}
@@ -374,7 +424,7 @@ export default function ChatScreen({
             <ChatFlowInput
               step={flow.currentStep}
               completed={flow.completed}
-              onSubmit={flow.submitAnswer}
+              onSubmit={submitAnswerWithSmartShoppingFollow}
               onReset={flow.reset}
             />
           </div>

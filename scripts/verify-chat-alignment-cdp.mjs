@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 const debugPort = Number(process.env.MOIT_CDP_PORT ?? 9222);
 const appUrl = process.env.MOIT_APP_URL ?? "http://127.0.0.1:5173/";
-const mode = process.argv.includes("--flow-inspect") ? "flow-inspect" : process.argv.includes("--inspect") ? "inspect" : process.argv.includes("--baseline") ? "baseline" : process.argv.includes("--measure") ? "measure" : "verify";
+const mode = process.argv.includes("--follow-scroll") ? "follow-scroll" : process.argv.includes("--flow-inspect") ? "flow-inspect" : process.argv.includes("--inspect") ? "inspect" : process.argv.includes("--baseline") ? "baseline" : process.argv.includes("--measure") ? "measure" : "verify";
 const artifactDirectory = process.env.MOIT_CDP_ARTIFACT_DIR ?? join(process.cwd(), ".tmp", "chat-alignment");
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -283,6 +283,128 @@ async function completeAirConditionerConditions(send) {
   await waitFor(send, "!document.body.innerText.includes('네이버 쇼핑 가격을 불러오는 중이에요')", "settled recommendation snapshot", 20_000);
 }
 
+const clickButtonWithPointer = (send, label) => evaluate(send, `(() => {
+  const expected = ${JSON.stringify(label)};
+  const button = [...document.querySelectorAll('button')].find((item) => !item.disabled && (item.innerText.trim() === expected || item.getAttribute('aria-label') === expected));
+  if (!button) return false;
+  button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
+  button.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 1, pointerType: 'mouse', isPrimary: true }));
+  button.click();
+  return true;
+})()`);
+
+async function readFollowTarget(send, { label, text }) {
+  return evaluate(send, `(() => {
+    const main = document.querySelector('main');
+    const target = ${label ? `[...document.querySelectorAll('button')].find((item) => !item.disabled && item.innerText.trim() === ${JSON.stringify(label)})` : `[...document.querySelectorAll('[data-chat-timeline-row="assistant"]')].findLast((row) => row.innerText.includes(${JSON.stringify(text)}))`};
+    if (!main || !target) return null;
+    const mainRect = main.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    return {
+      label: ${JSON.stringify(label ?? text)},
+      visible: targetRect.top >= mainRect.top - 2 && targetRect.bottom <= mainRect.bottom + 2,
+      targetTop: targetRect.top,
+      targetBottom: targetRect.bottom,
+      mainTop: mainRect.top,
+      mainBottom: mainRect.bottom,
+      scrollTop: main.scrollTop,
+      maxScrollTop: Math.max(0, main.scrollHeight - main.clientHeight),
+    };
+  })()`);
+}
+
+async function waitForFollowTarget(send, target, label) {
+  const expression = target.label
+    ? `(() => { const main=document.querySelector('main'); const target=[...document.querySelectorAll('button')].find((item) => !item.disabled && item.innerText.trim() === ${JSON.stringify(target.label)}); if (!main || !target) return false; const m=main.getBoundingClientRect(); const t=target.getBoundingClientRect(); return t.top >= m.top - 2 && t.bottom <= m.bottom + 2; })()`
+    : `(() => { const main=document.querySelector('main'); const target=[...document.querySelectorAll('[data-chat-timeline-row="assistant"]')].findLast((row) => row.innerText.includes(${JSON.stringify(target.text)})); if (!main || !target) return false; const m=main.getBoundingClientRect(); const t=target.getBoundingClientRect(); return t.top >= m.top - 2 && t.bottom <= m.bottom + 2; })()`;
+  await waitFor(send, expression, label, 10_000);
+  return readFollowTarget(send, target);
+}
+
+async function verifyConditionFollowScroll(send) {
+  const states = [];
+  assert.equal(await clickButton(send, "에어컨"), true, "air-conditioner entry button");
+  await waitFor(send, "document.body.innerText.includes('에어컨을 주로 어디에 설치할 예정인가요?')", "air-conditioner first question");
+  states.push(await waitForFollowTarget(send, { label: "거실" }, "initial condition choices visible"));
+
+  assert.equal(await clickButtonWithPointer(send, "거실"), true, "pointer-selected living-room choice");
+  const followTrajectory = await evaluate(send, `new Promise((resolve) => {
+    const main = document.querySelector('main');
+    const samples = [];
+    const sample = () => {
+      samples.push(main?.scrollTop ?? null);
+      if (samples.length >= 24) resolve(samples);
+      else requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  })`);
+  const followDeltas = followTrajectory.slice(1).map((value, index) => value - followTrajectory[index]);
+  assert.equal(followDeltas.some((delta) => delta < -1), false, "condition follow-scroll has no downward/upward oscillation");
+  await waitFor(send, "document.body.innerText.includes('스탠드형으로 진행')", "standing type follow-up");
+  states.push(await waitForFollowTarget(send, { label: "스탠드형으로 진행" }, "standing choice follows selected condition"));
+
+  assert.equal(await clickButtonWithPointer(send, "스탠드형으로 진행"), true, "pointer-selected standing type");
+  await waitFor(send, "document.querySelector('input[placeholder=\"냉방 공간 크기\"]') !== null", "cooling-area input");
+  states.push(await waitForFollowTarget(send, { text: "실제로 냉방할 공간은 몇 평인가요?" }, "number question follows standing choice"));
+  assert.equal(await fillNumberInput(send, "냉방 공간 크기", 16), true, "cooling-area input value");
+  await waitFor(send, "[...document.querySelectorAll('button[aria-label=\"답변 전송\"]')].some((item) => !item.disabled)", "enabled cooling-area submit");
+  assert.equal(await clickButtonWithPointer(send, "답변 전송"), true, "pointer-submitted cooling area");
+  await waitFor(send, "document.body.innerText.includes('여름철 하루에 몇 시간 정도 사용할 예정인가요?')", "usage question");
+  states.push(await waitForFollowTarget(send, { label: "4~8시간" }, "usage choices follow number answer"));
+
+  const manualState = await evaluate(send, `new Promise((resolve) => {
+    const main = document.querySelector('main');
+    if (!main) return resolve(null);
+    const before = main.scrollTop;
+    main.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: -180 }));
+    requestAnimationFrame(() => {
+      main.scrollTop = Math.max(0, main.scrollTop - 180);
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve({ before, after: main.scrollTop })));
+    });
+  })`);
+  assert.ok(manualState && manualState.after < manualState.before, "manual upward wheel changes internal main scroll position");
+  const lateGrowthState = await evaluate(send, `new Promise((resolve) => {
+    const main = document.querySelector('main');
+    const timeline = document.querySelector('[data-chat-timeline-root]');
+    const before = main?.scrollTop ?? null;
+    const spacer = document.createElement('div');
+    spacer.dataset.followScrollLateGrowth = 'true';
+    spacer.style.height = '320px';
+    timeline?.appendChild(spacer);
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve({ before, after: main?.scrollTop ?? null })));
+  })`);
+  assert.equal(lateGrowthState.after, lateGrowthState.before, "late unrelated content growth does not reclaim scroll ownership");
+
+  await evaluate(send, `new Promise((resolve) => {
+    const main = document.querySelector('main');
+    if (!main) return resolve(false);
+    main.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 10_000 }));
+    requestAnimationFrame(() => {
+      main.scrollTop = Math.max(0, main.scrollHeight - main.clientHeight - 24);
+      requestAnimationFrame(() => resolve(true));
+    });
+  })`);
+  await waitFor(send, `(() => { const main=document.querySelector('main'); return main && main.scrollHeight - main.scrollTop - main.clientHeight < 96; })()`, "manual return near bottom resumes ownership");
+  const nearBottomState = await evaluate(send, `(() => { const main=document.querySelector('main'); return main ? { scrollTop: main.scrollTop, remainingScroll: main.scrollHeight - main.scrollTop - main.clientHeight } : null; })()`);
+  assert.ok(nearBottomState && nearBottomState.remainingScroll < 96, "manual downward navigation returns to the follow threshold");
+
+  await evaluate(send, `new Promise((resolve) => {
+    const main = document.querySelector('main');
+    if (!main) return resolve(false);
+    main.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: -180 }));
+    requestAnimationFrame(() => {
+      main.scrollTop = Math.max(0, main.scrollTop - 180);
+      requestAnimationFrame(() => resolve(true));
+    });
+  })`);
+  await waitFor(send, `document.querySelector('main')?.scrollTop < ${nearBottomState.scrollTop}`, "second manual upward wheel takes ownership again");
+  assert.equal(await clickButtonWithPointer(send, "4~8시간"), true, "new condition explicitly resumes follow");
+  await waitFor(send, "document.body.innerText.includes('어떤 기준의 가성비를 가장 중요하게 볼까요?')", "priority question");
+  states.push(await waitForFollowTarget(send, { label: "가격·효율 균형 추천" }, "explicit condition resumes follow after manual upward scroll"));
+
+  return { states, followTrajectory, manualState, lateGrowthState, nearBottomState, runtimeErrors: await evaluate(send, "window.__moitRuntimeErrors") };
+}
+
 async function assertLatestAnchorAligned(send, anchorToken, label) {
   const alignedExpression = `(() => {
     const main = document.querySelector('main');
@@ -541,7 +663,11 @@ try {
   await waitFor(send, "document.readyState === 'complete'", "page load");
   await evaluate(send, `(() => { window.__moitRuntimeErrors = []; window.addEventListener('error', (event) => window.__moitRuntimeErrors.push(event.error?.stack ?? event.message)); window.addEventListener('unhandledrejection', (event) => window.__moitRuntimeErrors.push(event.reason?.stack ?? String(event.reason))); return true; })()`);
 
-  if (mode === "inspect" || mode === "flow-inspect") {
+  if (mode === "follow-scroll") {
+    const report = await verifyConditionFollowScroll(send);
+    assert.deepEqual(report.runtimeErrors, [], "condition follow-scroll path has no runtime exception");
+    console.log(JSON.stringify(report, null, 2));
+  } else if (mode === "inspect" || mode === "flow-inspect") {
     if (mode === "flow-inspect") {
       assert.equal(await clickButton(send, "에어컨"), true, "air-conditioner entry button");
       await waitFor(send, "document.body.innerText.includes('에어컨을 주로 어디에 설치할 예정인가요?')", "air-conditioner first question");
