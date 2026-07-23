@@ -225,8 +225,8 @@ const specific: FlowStep[] = [
     message: "현재 사용하시는 TV·IPTV 요금제가 맞을까요?",
     answerKey: `${namespace}.confirmedPlan`,
     options: [
-      { value: "direct-select", label: "직접 선택", next: "iptv-choose-current-list" },
-      { value: "direct-input", label: "직접 입력", next: "iptv-manual-name-input" },
+      { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "iptv-choose-current-list" },
+      { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "iptv-manual-name-input" },
     ],
     optionsResolver: (answers) => {
       const providerType = (answers[`${namespace}.providerType`] || answers[`${namespace}.providerCategory`]) as string;
@@ -263,8 +263,8 @@ const specific: FlowStep[] = [
 
       return [
         ...apiOptions,
-        { value: "direct-select", label: "직접 선택", next: "iptv-choose-current-list" },
-        { value: "direct-input", label: "직접 입력", next: "iptv-manual-name-input" },
+        { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "iptv-choose-current-list" },
+        { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "iptv-manual-name-input" },
       ];
     },
     next: "iptv-contract-diagnosis",
@@ -412,7 +412,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-select-new-plan",
     type: "single-choice",
-    message: "선택하신 약정 조건에 맞는 TV·IPTV 요금제 추천입니다. 변경을 고려 중이거나 관심 있는 요금제를 선택해주세요.\n※셋톱박스 대여, 출동비 별도※",
+    message: "고객님의 조건을 분석하여 선정한 최적의 추천 요금제 리스트입니다.\n※셋톱박스 대여, 출동비 별도※",
     answerKey: `${namespace}.selectedNewPlan`,
     options: [
       { value: "direct-choose", label: "직접 고를래요 (다른추천 리스트 보기)", next: "iptv-all-plans-select" },
@@ -456,7 +456,7 @@ const specific: FlowStep[] = [
         }
       });
 
-      // 가격 오름차순 정렬
+      // 최저 가격 순 (오름차순) 정렬
       cheapestByCarrier.sort((a, b) => a.price - b.price);
 
       const recommendedOptions = cheapestByCarrier.map((item, idx) => {
@@ -486,7 +486,7 @@ const specific: FlowStep[] = [
       };
       const contractLabel = labels[desiredContract] || desiredContract;
 
-      let table = `📊 [다른 추천 TV·IPTV 요금제입니다. 관심있는 요금제를 선택해주세요. (${contractLabel})]\n`;
+      let table = `추천 요금제 외에 선택 가능한 전체 요금제 리스트입니다. 원하시는 요금제를 선택해 주세요. (${contractLabel})]\n`;
       return table;
     }) as unknown as string,
     answerKey: `${namespace}.selectedNewPlanDirect`,
@@ -509,13 +509,8 @@ const specific: FlowStep[] = [
         })
         .filter((item) => item.price > 0);
 
-      // 통신사 순 & 가격 오름차순 정렬
-      availablePlans.sort((a, b) => {
-        if (a.plan.carrier !== b.plan.carrier) {
-          return a.plan.carrier.localeCompare(b.plan.carrier);
-        }
-        return a.price - b.price;
-      });
+      // 최저 가격 순 (오름차순) 정렬
+      availablePlans.sort((a, b) => a.price - b.price);
 
       const resolvedOptions = [
         ...availablePlans.map(({ plan, price }) => ({
