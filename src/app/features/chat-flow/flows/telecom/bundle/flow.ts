@@ -227,19 +227,23 @@ function resolveRecommendedBundlePlans(
         eyagi_lgu: eyagiLguPlans,
       };
 
-      // 🟢 2. 브랜드별 ±10,000원 필터링 및 각 그룹 내 최저가 순 정렬
+      // 🟢 2. 브랜드별 ±25,000원 필터링 및 각 그룹 내 입력 실납부액 근접 순(비슷한 우선순위) 정렬
       const brandKeys = ["hello", "sky", "eyagi_skt", "eyagi_lgu"];
       brandKeys.forEach((b) => {
         let list = brandGroups[b] || [];
         if (currentFee > 0) {
-          const range = list.filter((p) => Math.abs(p.price - currentFee) <= 10000);
+          const range = list.filter((p) => Math.abs(p.price - currentFee) <= 25000);
           if (range.length > 0) list = range;
         }
-        list.sort((a, b) => a.price - b.price);
+        if (currentFee > 0) {
+          list.sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee));
+        } else {
+          list.sort((a, b) => a.price - b.price);
+        }
         brandGroups[b] = list;
       });
 
-      // 🟢 3. 4개 알뜰 통신사 브랜드가 골고루 출력되도록 라운드별로 1개씩 수집 후, 각 라운드(4개 브랜드 세트) 내에서 최저가 순으로 정렬
+      // 🟢 3. 4개 알뜰 통신사 브랜드가 골고루 출력되도록 라운드별로 1개씩 수집 후, 각 라운드(4개 브랜드 세트) 내에서도 실납부액 근접 순(비슷한 우선순위) 정렬
       const shuffledBrandKeys = [...brandKeys].sort(() => 0.5 - Math.random());
       const interleaved: BundlePlan[] = [];
       const maxLength = Math.max(...Object.values(brandGroups).map((g) => g.length), 0);
@@ -251,8 +255,12 @@ function resolveRecommendedBundlePlans(
             roundBatch.push(brandGroups[b][i]);
           }
         });
-        // 🟢 4. 라운드별(4대 브랜드 세트) 수집된 알뜰 요금제들을 최저가 순으로 정렬하여 추가
-        roundBatch.sort((a, b) => a.price - b.price);
+        // 🟢 4. 라운드별(4대 브랜드 세트) 수집된 요금제들을 입력 실납부액 근접 순(비슷한 우선순위)으로 정렬하여 추가
+        if (currentFee > 0) {
+          roundBatch.sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee));
+        } else {
+          roundBatch.sort((a, b) => a.price - b.price);
+        }
         interleaved.push(...roundBatch);
       }
 
@@ -913,15 +921,23 @@ function PlanCheckMethod(args: {
 
       let rangePlans = plans;
       if (currentFee > 0) {
-        rangePlans = plans.filter((p) => Math.abs(p.price - currentFee) <= 10000);
+        rangePlans = plans.filter((p) => Math.abs(p.price - currentFee) <= 25000);
         if (rangePlans.length === 0) {
           rangePlans = plans;
         }
       }
 
+      // 유선/결합 상품의 경우 실 납부액 우선순위(근접 순)로 정렬하여 카드 노출
+      const sortedByFeeProximity = [...rangePlans].sort((a, b) => {
+        if (currentFee > 0) {
+          return Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee);
+        }
+        return a.price - b.price;
+      });
+
       const topPlans = isMobile
         ? rangePlans.slice(0, 4)
-        : [...rangePlans].sort(() => 0.5 - Math.random()).slice(0, 2);
+        : sortedByFeeProximity.slice(0, 2);
 
       const cards = topPlans.map((plan, idx) => ({
         value: plan.id,
@@ -948,7 +964,7 @@ function PlanCheckMethod(args: {
     answerKey: `${args.answerKey}List`,
     options: [],
     optionsResolver: (answers) => {
-      const plans = resolveRecommendedBundlePlans(answers, args.answerPrefix, !!args.isMobile);
+      const isMobile = !!args.isMobile;
       const feeVal =
         answers[`${namespace}.${args.answerPrefix}Fee`] ??
         answers[`${namespace}.${args.answerPrefix}MobileFee`] ??
@@ -956,24 +972,137 @@ function PlanCheckMethod(args: {
         0;
       const currentFee = Number(feeVal) || 0;
 
-      // 입력 금액 기준 ±10,000원 범위 이내 필터링
-      let rangePlans = plans;
-      if (currentFee > 0) {
-        const filtered = plans.filter((p) => Math.abs(p.price - currentFee) <= 10000);
-        if (filtered.length > 0) {
-          rangePlans = filtered;
+      let carrierVal =
+        (answers[`${namespace}.${args.answerPrefix}Carrier`] as string) ||
+        (answers[`${namespace}.${args.answerPrefix}MobileCarrier`] as string) ||
+        (answers[`${namespace}.allCarrier`] as string) ||
+        (answers[`${namespace}.diffCarrier`] as string) ||
+        (answers[`${namespace}.diffMobileCarrier`] as string) ||
+        (answers[`${namespace}.ptaCarrier`] as string) ||
+        (answers[`${namespace}.ptbCarrier`] as string) ||
+        (answers[`${namespace}.ptcCarrier`] as string) ||
+        (answers[`${namespace}.newACarrier`] as string) ||
+        (answers[`${namespace}.newBCarrier`] as string) ||
+        (answers[`${namespace}.mobileCarrier`] as string) ||
+        (answers[`${namespace}.commonCarrier`] as string) ||
+        "";
+
+      if (!carrierVal) {
+        for (const key of Object.keys(answers)) {
+          if (key.endsWith("Carrier")) {
+            const val = answers[key];
+            if (typeof val === "string" && val.trim() !== "") {
+              carrierVal = val;
+              break;
+            }
+          }
         }
       }
 
-      // 모바일 요금제인 경우 4개 알뜰 브랜드가 골고루 구성된 최저가순 목록을 유지하여 상위 10개 추출
-      let displayPlans = rangePlans;
-      if (args.isMobile) {
-        displayPlans = rangePlans.slice(0, 10);
+      const lowerCarrier = carrierVal.toLowerCase();
+      const isMvno =
+        lowerCarrier.includes("알뜰") ||
+        lowerCarrier.includes("스카이") ||
+        lowerCarrier.includes("mvno") ||
+        lowerCarrier.includes("헬로") ||
+        lowerCarrier.includes("이야기") ||
+        lowerCarrier.includes("케이블") ||
+        (!carrierVal && isMobile);
+
+      let displayPlans: BundlePlan[] = [];
+
+      if (isMobile && isMvno) {
+        // 알뜰폰 모바일: 4개 브랜드 각각 ±15,000원 범위 최저가 순 정렬 후 브랜드 골고루 라운드로빈 수집
+        const skyPlans: BundlePlan[] = mockMvnoMobilePlans.map((p) => ({
+          id: p.id,
+          name: `[KT 스카이라이프] ${p.mobilePlanName}`,
+          price: p.price,
+          carrier: "SKYLIFE",
+          services: ["mobile"],
+        }));
+
+        const eyagiSktPlans: BundlePlan[] = mockEyagiSktMobilePlans.map((p) => ({
+          id: p.id,
+          name: `[이야기모바일(SKT)] ${p.mobilePlanName}`,
+          price: p.price,
+          carrier: "SKYLIFE",
+          services: ["mobile"],
+        }));
+
+        const eyagiLguPlans: BundlePlan[] = mockEyagiLguMobilePlans.map((p) => ({
+          id: p.id,
+          name: `[이야기모바일(LGU+)] ${p.mobilePlanName}`,
+          price: p.price,
+          carrier: "SKYLIFE",
+          services: ["mobile"],
+        }));
+
+        const helloSeen = new Set<string>();
+        const helloPlans: BundlePlan[] = [];
+        mockLgHelloBundles.forEach((b, idx) => {
+          if (!helloSeen.has(b.mobilePlanName)) {
+            helloSeen.add(b.mobilePlanName);
+            helloPlans.push({
+              id: `hello-mob-${idx}`,
+              name: `[LG 헬로비전] ${b.mobilePlanName}`,
+              price: b.mobileFee,
+              carrier: "SKYLIFE",
+              services: ["mobile"],
+            });
+          }
+        });
+
+        const brandGroups: { [brand: string]: BundlePlan[] } = {
+          hello: helloPlans,
+          sky: skyPlans,
+          eyagi_skt: eyagiSktPlans,
+          eyagi_lgu: eyagiLguPlans,
+        };
+
+        const brandKeys = ["hello", "sky", "eyagi_skt", "eyagi_lgu"];
+        brandKeys.forEach((b) => {
+          let list = brandGroups[b] || [];
+          if (currentFee > 0) {
+            // 실납부액과 가까운 금액부터 가져오기 위한 근접 순 정렬
+            list.sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee));
+          } else {
+            list.sort((a, b) => a.price - b.price);
+          }
+          brandGroups[b] = list;
+        });
+
+        const shuffledBrandKeys = [...brandKeys].sort(() => 0.5 - Math.random());
+        const interleaved: BundlePlan[] = [];
+        const maxLength = Math.max(...Object.values(brandGroups).map((g) => g.length), 0);
+
+        for (let i = 0; i < maxLength; i++) {
+          shuffledBrandKeys.forEach((b) => {
+            if (brandGroups[b] && brandGroups[b][i]) {
+              interleaved.push(brandGroups[b][i]);
+            }
+          });
+        }
+
+        // 실납부액에 가까운 요금제들을 추출한 뒤, 리스트에는 최저가 순(오름차순)으로 정렬하여 반영
+        const nearbyTopPlans = interleaved.slice(0, 10);
+        displayPlans = nearbyTopPlans.sort((a, b) => a.price - b.price);
       } else {
-        displayPlans =
-          rangePlans.length > 10
-            ? [...rangePlans].sort(() => 0.5 - Math.random()).slice(0, 10)
-            : rangePlans;
+        const plans = resolveRecommendedBundlePlans(answers, args.answerPrefix, !!args.isMobile);
+        let rangePlans = plans;
+        if (currentFee > 0) {
+          const filtered = plans.filter((p) => Math.abs(p.price - currentFee) <= 25000);
+          if (filtered.length > 0) {
+            rangePlans = filtered;
+          }
+        }
+        // 유선/결합 상품 등: 실 납부액 근접 순 정렬
+        let sortedPlans = [...rangePlans].sort((a, b) => {
+          if (currentFee > 0) {
+            return Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee);
+          }
+          return a.price - b.price;
+        });
+        displayPlans = isMobile ? sortedPlans.slice(0, 10) : (sortedPlans.length > 10 ? sortedPlans.slice(0, 10) : sortedPlans);
       }
 
       if (displayPlans.length === 0) {
@@ -987,11 +1116,24 @@ function PlanCheckMethod(args: {
       }
 
       return [
-        ...displayPlans.map((plan) => ({
-          value: plan.id,
-          label: `${plan.name} (월 ${plan.price.toLocaleString("ko-KR")}원)`,
-          next: args.next,
-        })),
+        ...displayPlans.map((plan) => {
+          let diffStr = "";
+          if (currentFee > 0) {
+            const diff = plan.price - currentFee;
+            if (diff > 0) {
+              diffStr = ` (+${diff.toLocaleString("ko-KR")}원)`;
+            } else if (diff < 0) {
+              diffStr = ` (${diff.toLocaleString("ko-KR")}원)`;
+            } else {
+              diffStr = " (동일)";
+            }
+          }
+          return {
+            value: plan.id,
+            label: `${plan.name} (월 ${plan.price.toLocaleString("ko-KR")}원${diffStr})`,
+            next: args.next,
+          };
+        }),
         {
           value: "none-of-them",
           label: "목록에 없음 (금액 기준으로만 진단)",
