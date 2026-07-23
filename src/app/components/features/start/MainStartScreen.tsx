@@ -43,7 +43,7 @@ export default function MainStartScreen({
           {/* ========================================================================= */}
           {/* 🚀 [ZONE 1: 상단 히어로 배너 - 마스코트 3D 돌출 입체 연출] */}
           {/* ========================================================================= */}
-          <div className="relative mb-15 w-full rounded-3xl bg-gradient-to-r from-[#2A6CB6] via-indigo-600 to-blue-500 p-8 text-white shadow-lg">
+          <div className="relative mb-15 w-full rounded-3xl bg-gradient-to-r from-[#1E3ABA] via-[#2A6CB6] to-blue-500 p-8 text-white shadow-lg">
             
             {/* 1-1. 은은한 배경 빛(Glow) 효과 - 배너 내부 틀에만 제한되도록 처리 */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">

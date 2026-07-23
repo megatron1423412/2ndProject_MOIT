@@ -4,6 +4,88 @@ import type { AnswerInputStep, FlowChoiceOption, SubmittedFlowAnswer } from "../
 import QuickReplyChips from "./QuickReplyChips";
 import type { FavoriteProduct, FavoriteDraft } from "../../../features/favorites/types";
 import { prefetchPlans, resolvePhoneCurrentPlanOptions } from "../../../features/chat-flow/flows/telecom/phone/flow";
+import { mockLgHelloBundles, mockMvnoMobilePlans, mockEyagiSktMobilePlans, mockEyagiLguMobilePlans } from "../../../features/chat-flow/flows/telecom/bundle/MVNOmockData";
+import { MOCK_PLAN_COMBINATIONS, mockBundlePlans } from "../../../features/chat-flow/flows/telecom/bundle/mockData";
+
+function getBundlePlanData(id: string): string | null {
+  if (!id) return null;
+  const hello = mockLgHelloBundles.find((b) => b.id === id);
+  if (hello?.data) return hello.data;
+
+  if (id.includes("_")) {
+    const [mobId] = id.split("_");
+    const skyMob = mockMvnoMobilePlans.find((m) => m.id === mobId);
+    if (skyMob?.data) return skyMob.data;
+
+    const eyagiSkt = mockEyagiSktMobilePlans.find((m) => m.id === mobId);
+    if (eyagiSkt?.data) return eyagiSkt.data;
+
+    const eyagiLgu = mockEyagiLguMobilePlans.find((m) => m.id === mobId);
+    if (eyagiLgu?.data) return eyagiLgu.data;
+  }
+
+  const mno = MOCK_PLAN_COMBINATIONS.find((c) => c.id === id);
+  if (mno?.mobileSpeed) return mno.mobileSpeed;
+
+  return null;
+}
+
+function getBundleComposition(id: string, label: string = ""): string {
+  if (!id) return "모바일+인터넷+TV";
+
+  const hello = mockLgHelloBundles.find((b) => b.id === id);
+  if (hello) {
+    const hasMobile = Boolean(hello.mobilePlanName);
+    const hasInternet = Boolean(hello.internetName);
+    const hasTv = Boolean(hello.tvName);
+    if (hasMobile && hasInternet && hasTv) return "모바일+인터넷+TV";
+    if (hasMobile && hasInternet) return "모바일+인터넷";
+    if (hasInternet && hasTv) return "인터넷+TV";
+  }
+
+  if (id.includes("_")) {
+    const [mobId, homeId] = id.split("_");
+    const hasMobile = Boolean(
+      mockMvnoMobilePlans.some((m) => m.id === mobId) ||
+      mockEyagiSktMobilePlans.some((m) => m.id === mobId) ||
+      mockEyagiLguMobilePlans.some((m) => m.id === mobId)
+    );
+    const hasHome = Boolean(homeId);
+    if (hasMobile && hasHome) return "모바일+인터넷+TV";
+    if (hasMobile) return "모바일";
+    if (hasHome) return "인터넷+TV";
+  }
+
+  const mno = MOCK_PLAN_COMBINATIONS.find((c) => c.id === id);
+  if (mno) {
+    const hasMobile = Boolean(mno.mobilePlan);
+    const hasInternet = Boolean(mno.internetPlan);
+    const hasTv = Boolean(mno.tvPlan);
+    if (hasMobile && hasInternet && hasTv) return "모바일+인터넷+TV";
+    if (hasMobile && hasInternet) return "모바일+인터넷";
+    if (hasInternet && hasTv) return "인터넷+TV";
+  }
+
+  const bundlePlan = mockBundlePlans.find((b) => b.id === id);
+  if (bundlePlan) {
+    const hasNet = bundlePlan.services.includes("internet");
+    const hasTv = bundlePlan.services.includes("iptv");
+    const hasMob = bundlePlan.services.includes("mobile");
+    if (hasMob && hasNet && hasTv) return "모바일+인터넷+TV";
+    if (hasNet && hasTv) return "인터넷+TV";
+    if (hasMob && hasNet) return "모바일+인터넷";
+  }
+
+  const hasMob = /모바일|폰|유심|전화|5G|LTE/i.test(label);
+  const hasNet = /인터넷|100M|500M|1G/i.test(label);
+  const hasTv = /TV|IPTV|tv|보상|채널/i.test(label);
+
+  if (hasMob && hasNet && hasTv) return "모바일+인터넷+TV";
+  if (hasNet && hasTv && !hasMob) return "인터넷+TV";
+  if (hasMob && hasNet && !hasTv) return "모바일+인터넷";
+
+  return "모바일+인터넷+TV";
+}
 
 const getPlanDetails = (value: string, label: string, subCategoryId: string) => {
   let name = label;
@@ -138,7 +220,7 @@ export function parsePlanLabel(label: string) {
     name = restLabel.replace(/\s*\(월\s*[\d,]+원\)/, "").trim();
     name = name.replace(/\s*-\s*월\s*[\d,]+원/, "").trim();
 
-    const dataMatch = name.match(/(\d+(?:\.\d+)?(?:GB|MB)|무제한)/i);
+    const dataMatch = name.match(/(\d+(?:\.\d+)?(?:GB|MB)(?:\+[^\s,|()]*)*(?:\([^)]*\))?|무제한)/i);
     if (dataMatch) {
       data = dataMatch[1];
     }
@@ -295,12 +377,12 @@ export default function ChatFlowInput({
             let borderClass = "";
             if (isHistorical) {
               if (userSelectedThis) {
-                borderClass = "border-indigo-500 bg-indigo-500/10 opacity-90 cursor-not-allowed";
+                borderClass = "border-[#2A6CB6] bg-[#2A6CB6]/10 opacity-90 cursor-not-allowed";
               } else {
                 borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
               }
             } else {
-              borderClass = "border-border bg-card hover:border-indigo-500/50 hover:bg-indigo-500/5 active:scale-[0.99] cursor-pointer";
+              borderClass = "border-border bg-card hover:border-[#2A6CB6]/50 hover:bg-[#2A6CB6]/5 active:scale-[0.99] cursor-pointer";
             }
 
             return (
@@ -314,7 +396,7 @@ export default function ChatFlowInput({
                     {opt.label}
                   </span>
                   {isHistorical && userSelectedThis && (
-                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                    <span className="text-xs font-bold text-[#1E3ABA]">
                       선택됨 ✓
                     </span>
                   )}
@@ -355,12 +437,12 @@ export default function ChatFlowInput({
             let borderClass = "";
             if (isHistorical) {
               if (userSelectedThis) {
-                borderClass = "border-indigo-500 bg-indigo-500/10 opacity-90 cursor-not-allowed";
+                borderClass = "border-[#2A6CB6] bg-[#2A6CB6]/10 opacity-90 cursor-not-allowed";
               } else {
                 borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
               }
             } else {
-              borderClass = "border-border bg-card hover:border-indigo-500/50 hover:bg-indigo-500/5 active:scale-[0.99] cursor-pointer";
+              borderClass = "border-border bg-card hover:border-[#2A6CB6]/50 hover:bg-[#2A6CB6]/5 active:scale-[0.99] cursor-pointer";
             }
 
             return (
@@ -374,7 +456,7 @@ export default function ChatFlowInput({
                     {opt.label}
                   </span>
                   {isHistorical && userSelectedThis && (
-                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                    <span className="text-xs font-bold text-[#1E3ABA]">
                       선택됨 ✓
                     </span>
                   )}
@@ -593,7 +675,9 @@ export default function ChatFlowInput({
       step.id === "internet-current-plan-api" ||
       step.id === "iptv-current-plan-api" ||
       step.id === "bundle-current-plan-api" ||
-      step.id.endsWith("-current-plan-api")
+      step.id.endsWith("-current-plan-api") ||
+      step.answerKey?.endsWith("PlanCheck") ||
+      step.id.includes("PlanCheck")
     ) {
       const options = step.id === "phone-current-plan-api" && (phonePlanOptions ?? frozenPlanOptionsRef.current)
         ? (phonePlanOptions ?? frozenPlanOptionsRef.current)!
@@ -684,13 +768,11 @@ export default function ChatFlowInput({
       step.id === "phone-recommendation-api" ||
       step.id === "internet-recommendation-api" ||
       step.id === "iptv-select-new-plan" ||
-      step.id === "bundle-recommendation-api" ||
-      step.answerKey?.endsWith("PlanCheck") ||
-      step.id.includes("PlanCheck")
+      step.id === "bundle-recommendation-api"
     ) {
-      const cardOptions = step.options.filter(
-        (o) => !["direct-choose", "direct-select", "direct-input"].includes(o.value)
-      );
+      const cardOptions = step.options
+        .filter((o) => !["direct-choose", "direct-select", "direct-input"].includes(o.value))
+        .slice(0, 4);
       const directChoose = step.options.find((o) => o.value === "direct-choose");
       const directSelect = step.options.find((o) => o.value === "direct-select");
       const directInput = step.options.find((o) => o.value === "direct-input");
@@ -739,6 +821,8 @@ export default function ChatFlowInput({
                 : `선택안 ${idx + 1}`;
 
               const parsed = parsePlanLabel(opt.label);
+              const displayData = getBundlePlanData(opt.value) || parsed.data;
+              const bundleComposition = getBundleComposition(opt.value, opt.label);
 
               return (
                 <div 
@@ -769,10 +853,18 @@ export default function ChatFlowInput({
                     )}
 
                     <div className="flex flex-col gap-1 pt-1 border-t border-border/30 mt-1">
-                      {parsed.data && (
+                      {step.id === "bundle-recommendation-api" && (
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-[9.5px] font-black text-[#1E3ABA] bg-[#1E3ABA]/10 border border-[#1E3ABA]/20 px-1.5 py-0.5 rounded">
+                            {bundleComposition}
+                          </span>
+                        </div>
+                      )}
+
+                      {displayData && (
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-[10.5px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                            {parsed.data}
+                            {displayData}
                           </span>
                           {parsed.networkType && (
                             <span className="rounded bg-secondary px-1 py-0.2 text-[8px] font-bold uppercase text-foreground/80 border border-border/50">
@@ -920,7 +1012,27 @@ export default function ChatFlowInput({
                 type="button"
                 aria-pressed={selected}
                 disabled={isHistorical}
-                onClick={() => !isHistorical && setSelectedValues((current) => selected ? current.filter((value) => value !== option.value) : [...current, option.value])}
+                onClick={() =>
+                  !isHistorical &&
+                  setSelectedValues((current) => {
+                    const isExclusive =
+                      option.value === "no-discount" ||
+                      option.value === "no_discount" ||
+                      option.value === "no-discount-option" ||
+                      option.value === "모름" ||
+                      option.value === "none" ||
+                      option.value === "no-discount";
+
+                    if (isExclusive) {
+                      return selected ? [] : [option.value];
+                    }
+
+                    const filtered = current.filter(
+                      (v) => v !== "no-discount" && v !== "no_discount" && v !== "no-discount-option" && v !== "모름" && v !== "none"
+                    );
+                    return selected ? filtered.filter((v) => v !== option.value) : [...filtered, option.value];
+                  })
+                }
                 className={`rounded-full border px-3.5 py-2 text-xs font-bold shadow-sm transition-all active:scale-[0.98] ${btnClass}`}
               >
                 {option.label}

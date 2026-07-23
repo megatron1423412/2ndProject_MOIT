@@ -146,16 +146,33 @@ export default function ChatScreen({
     if (productSelectionScrollFrameRef.current !== null) window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
   }, []);
 
-  useEffect(() => {
-    if (!shouldStickToBottomRef.current) return;
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior, block: "end" });
+    }
     const container = scrollContainerRef.current;
     if (container) {
       const targetScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
       programmaticScrollTargetRef.current = targetScrollTop;
-      container.scrollTo({ top: targetScrollTop, behavior: "smooth" });
+      container.scrollTo({ top: targetScrollTop, behavior });
     }
-    else messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [flow.messages, flow.supplementalMessages, timelineRevision]);
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom("smooth");
+
+    const rafId = requestAnimationFrame(() => {
+      scrollToBottom("smooth");
+    });
+    const timerId = setTimeout(() => {
+      scrollToBottom("smooth");
+    }, 100);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(timerId);
+    };
+  }, [flow.messages, flow.supplementalMessages, flow.currentStep, flow.isTransitioning, timelineRevision, scrollToBottom]);
 
   const handleScroll = () => {
     const container = scrollContainerRef.current;

@@ -1,5 +1,5 @@
 import React from "react";
-import { CheckCircle2, ShieldAlert, Sparkles, ExternalLink, AlertTriangle } from "lucide-react";
+import { ShieldAlert, Sparkles, ExternalLink, Wifi } from "lucide-react";
 import type { FlowResult } from "../../../core/types";
 
 interface BundleDiagnosisReportProps {
@@ -18,6 +18,20 @@ import {
 } from "./MVNOmockData";
 
 const fmt = (n: number) => n.toLocaleString("ko-KR");
+
+const renderGuidance = (text: string) => {
+  const parts = text.split(/(\[.*?\])/);
+  return parts.map((part, i) => {
+    if (part.startsWith("[") && part.endsWith("]")) {
+      return (
+        <span key={i} className="text-[#1E3ABA] font-bold">
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+};
 
 const companyTypeMap: Record<string, string> = {
   mno: "품질 및 결합 혜택 우선 추천",
@@ -46,12 +60,13 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
   const isNewStart = startState === "new_start";
 
   // Parse contract info helper
-  const getContractLabel = (val: string) => {
-    if (!val) return "-";
-    if (val === "만료") return "3년 이상 (만료)";
-    if (val === "남음") return "약정 기간 남음";
-    if (val === "모름") return "잘 모르겠음";
-    return val;
+  const getContractLabel = (val: any) => {
+    if (!val) return "확인 불가";
+    const str = String(val).trim();
+    if (str === "만료" || str === "expired" || str.includes("만료")) return "약정 만료";
+    if (str === "남음" || str === "remaining" || str.includes("남음")) return "약정 있음";
+    if (str === "모름" || str === "unknown" || str.includes("모름")) return "확인 불가";
+    return str;
   };
 
   // 1. 현재 상태 요약 (Current State Summary)
@@ -62,22 +77,22 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
   if (startState === "all_same") {
     currentStateSummaryTitle = "전부 같아요";
     currentStateComposition = "모바일+인터넷+IPTV";
-    currentStateGuidance = "현재 스마트폰, 인터넷, IPTV를 하나로 묶은 [전부 결합] 실태로 통신 서비스를 이용하고 계십니다";
+    currentStateGuidance = "지금은 스마트폰, 인터넷, IPTV를 한 번에 묶어 알차게 이용하시는 [전부 결합] 상태네요!";
   } else if (startState === "part_same") {
     currentStateSummaryTitle = "일부만 같아요";
     const partSelect = answers["bundle.partSelect"] as string;
     if (partSelect === "pta") {
       currentStateComposition = "모바일(개인)/인터넷+IPTV";
-      currentStateGuidance = "현재 개인 스마트폰 요금과 인터넷+TV 요금이 찢어진 [모바일/홈 개별 결합] 상태입니다.";
+      currentStateGuidance = "지금은 내 스마트폰 요금과 집 인터넷·TV 요금이 따로 나뉘어 있는 [모바일/홈 개별 결합] 상태네요!";
     } else if (partSelect === "ptc") {
       currentStateComposition = "모바일(다인)/인터넷+IPTV";
-      currentStateGuidance = "현재 여러 명이 묶인 모바일 결합과 집 인터넷+TV 결합이 따로 노는 [그룹 분리 결합] 상태입니다.";
+      currentStateGuidance = "지금은 다인 모바일 결합과 집 인터넷·TV 결합이 서로 각각 따로 설정된 [그룹 분리 결합] 상태예요!";
     } else if (partSelect === "ptb") {
       currentStateComposition = "모바일 인터넷/IPTV";
-      currentStateGuidance = "현재 스마트폰과 인터넷 위주로만 연계된 [모바일+인터넷 결합] 상태입니다.";
+      currentStateGuidance = "지금은 스마트폰과 인터넷 위주로 단단하게 묶여 있는 [모바일+인터넷 결합] 상태예요!";
     } else {
       currentStateComposition = "일부 결합";
-      currentStateGuidance = "현재 일부 상품만 결합된 상태로 이용하고 계십니다.";
+      currentStateGuidance = "지금은 이용 중이신 상품 중 일부만 결합 혜택을 받고 계신 상태네요!";
     }
   } else if (startState === "all_diff") {
     currentStateSummaryTitle = "다 달라요";
@@ -206,12 +221,11 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
   const resolvePlanName = (id: string) => {
     if (!id) return "";
     if (id === "direct-choose") return "";
-    
+
     if (id.startsWith("api-")) {
       return id.substring(4);
     }
-    
-    // Clean up literal plan selections from recommendation list options
+
     if (id.includes("(월 ") || id.includes("순위")) {
       let clean = id;
       clean = clean.replace(/\[\d+순위\s*추천\]/g, "").replace(/\[추천\s*\d+순위\]/g, "").trim();
@@ -219,57 +233,55 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
       clean = clean.replace(/\(월\s*[\d,]+원\)/g, "").replace(/\([\d,]+원\)/g, "").trim();
       return clean;
     }
-    
+
     const mb = mockBundlePlans.find((p) => p.id === id);
     if (mb) return mb.name;
-    
+
     const mvnoMob = mockMvnoMobilePlans.find((p) => p.id === id);
     if (mvnoMob) return mvnoMob.mobilePlanName;
-    
+
     const mvnoHome = mockMvnoHomeBundles.find((p) => p.id === id);
     if (mvnoHome) return mvnoHome.internetName;
-    
+
     const hello = mockLgHelloBundles.find((p) => p.id === id);
     if (hello) return hello.mobilePlanName;
-    
+
     const eyagiSkt = mockEyagiSktMobilePlans.find((p) => p.id === id);
     if (eyagiSkt) return eyagiSkt.mobilePlanName;
-    
+
     const eyagiLgu = mockEyagiLguMobilePlans.find((p) => p.id === id);
     if (eyagiLgu) return eyagiLgu.mobilePlanName;
-    
+
     const sktHome = mockSktHomeBundles.find((p) => p.id === id || p.id === `skt-home-${id}` || `skt-home-${p.id}` === id);
     if (sktHome) return sktHome.internetName;
-    
+
     const lguHome = mockLguHomeBundles.find((p) => p.id === id || p.id === `lgu-home-${id}` || `lgu-home-${p.id}` === id);
     if (lguHome) return lguHome.internetName;
-    
+
     const combo = MOCK_PLAN_COMBINATIONS.find((p) => p.id === id);
     if (combo) return combo.mobilePlan;
-    
+
     return id;
   };
 
   const getComboDetails = (comboId: string) => {
     if (!comboId) return { internet: "", tv: "" };
-    
-    // 1. First parse if it contains "+"
+
     if (comboId.includes("+")) {
       const parts = comboId.split("+");
       let internetPart = parts[0].trim();
       let tvPart = parts[1].trim();
-      
+
       internetPart = internetPart.replace(/\[\d+순위\s*추천\]/g, "").replace(/\[추천\s*\d+순위\]/g, "").trim();
       internetPart = internetPart.replace(/\[(KT|SKT|LGU\+|LG|SK|LGU)\]/gi, "").trim();
       tvPart = tvPart.replace(/\(월\s*[\d,]+원\)/g, "").replace(/\([\d,]+원\)/g, "").trim();
-      
+
       return {
         internet: internetPart,
         tv: tvPart
       };
     }
-    
-    // 2. Clean prefix from comboId
+
     let cleanId = comboId;
     if (comboId.startsWith("skt-home-")) cleanId = comboId.replace("skt-home-", "");
     else if (comboId.startsWith("kt-home-")) cleanId = comboId.replace("kt-home-", "");
@@ -278,8 +290,7 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
       const parts = comboId.split("_");
       cleanId = parts[1] || comboId;
     }
-    
-    // 3. Search in MOCK_PLAN_COMBINATIONS using cleanId or original comboId
+
     const combo = MOCK_PLAN_COMBINATIONS.find((c) => c.id === cleanId || c.id === comboId);
     if (combo) {
       return {
@@ -287,8 +298,7 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
         tv: combo.tvPlan.replace(/\s*\(인터넷\+TV 결합:\s*[\d,]+원\)/g, "").replace(/\s*\(인터넷결합\)/g, "").replace(/\s*\([\d,]+원\)/g, "").trim()
       };
     }
-    
-    // 4. Search in mockMvnoHomeBundles
+
     const skyHome = mockMvnoHomeBundles.find((h) => h.id === cleanId || h.id === comboId);
     if (skyHome) {
       return {
@@ -296,8 +306,7 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
         tv: skyHome.tvName
       };
     }
-    
-    // 5. Search in mockSktHomeBundles
+
     const sktHome = mockSktHomeBundles.find((h) => h.id === cleanId || h.id === comboId);
     if (sktHome) {
       return {
@@ -305,8 +314,7 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
         tv: sktHome.tvName
       };
     }
-    
-    // 6. Search in mockLguHomeBundles
+
     const lguHome = mockLguHomeBundles.find((h) => h.id === cleanId || h.id === comboId);
     if (lguHome) {
       return {
@@ -314,8 +322,7 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
         tv: lguHome.tvName
       };
     }
-    
-    // 7. Search in mockLgHelloBundles
+
     const hello = mockLgHelloBundles.find((h) => h.id === cleanId || h.id === comboId);
     if (hello) {
       return {
@@ -323,28 +330,28 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
         tv: hello.tvName
       };
     }
-    
+
     return { internet: "", tv: "" };
   };
 
   const getDiscountText = (discounts: any) => {
-    if (!discounts) return "-";
-    const arr = Array.isArray(discounts) ? discounts : [discounts];
-    if (arr.includes("선택약정") || arr.includes("가족결합")) {
-      return "결합 할인 적용 중";
-    }
-    if (arr.includes("모름")) {
-      return "-";
-    }
-    return "-";
+    if (!discounts) return "할인 없음";
+    const arr = Array.isArray(discounts) ? discounts : [String(discounts)];
+    const formatted: string[] = [];
+    if (arr.includes("선택약정")) formatted.push("선택약정 25%");
+    if (arr.includes("가족결합")) formatted.push("가족 결합");
+    if (formatted.length > 0) return formatted.join(", ");
+    if (arr.includes("no-discount") || arr.includes("모름")) return "할인 없음";
+    return "할인 없음";
   };
 
-  const getCustomContractText = (val: string) => {
-    if (!val) return "-";
-    if (val === "만료") return "약정이 만료됨";
-    if (val === "남음") return "약정 기간 남음";
-    if (val === "모름") return "-";
-    return val;
+  const getCustomContractText = (val: any) => {
+    if (!val) return "확인 불가";
+    const str = String(val).trim();
+    if (str === "만료" || str === "expired" || str.includes("만료")) return "약정 만료";
+    if (str === "남음" || str === "remaining" || str.includes("남음")) return "약정 있음";
+    if (str === "모름" || str === "unknown" || str.includes("모름")) return "확인 불가";
+    return str;
   };
 
   // Parse penalty info & Sum of current fee based on startState
@@ -368,7 +375,6 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
   }
 
   // Resolving specific values for CURRENT STATE cards
-  // 1) all_same
   const allMobilePlanId = answers["bundle.allPlanCheck"] || answers["bundle.allPlanCheckList"];
   const allMobilePlanText = resolvePlanName(allMobilePlanId) || answers["bundle.allMobilePlan"] || "모바일 요금제";
 
@@ -380,7 +386,6 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
   const allDiscountText = getDiscountText(answers["bundle.allDiscount"]);
   const allContractText = getCustomContractText(answers["bundle.allContract"] as string);
 
-  // 2) part_same
   const partSelect = answers["bundle.partSelect"] as string || "pta";
   const partMobilePlanId = answers[`bundle.${partSelect}PlanCheck`] || answers[`bundle.${partSelect}PlanCheckList`];
   const partMobilePlanText = resolvePlanName(partMobilePlanId) || answers[`bundle.${partSelect}MobilePlan`] || "모바일 요금제";
@@ -437,24 +442,27 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
   const desiredSpeedLabel = speedMap[answers["bundle.desiredSpeed"] as string] || "일반 가정용(500M)";
   const desiredDataLabel = dataMap[answers["bundle.desiredData"] as string] || "무제한 필요";
 
-  // Calculate savings
+  // Calculate savings & Payback & Net Benefit (36개월 약정 기준 계산)
   const monthlySaving = Math.max(0, currentFee - selectedPrice);
   const yearlySaving = monthlySaving * 12;
 
-  // 약정 기간 남음 판별 및 위약금 시뮬레이션 연산
-  const isRemaining = answers["bundle.allContract"] === "남음" || 
-    answers["bundle.ptaContract"] === "남음" || answers["bundle.ptaComboContract"] === "남음" || 
-    answers["bundle.ptbContract"] === "남음" || answers["bundle.ptbComboContract"] === "남음" || 
-    answers["bundle.ptcContract"] === "남음" || answers["bundle.ptcComboContract"] === "남음" || 
-    answers["bundle.diffContract"] === "남음" || answers["bundle.diffInternetContract"] === "남음" || answers["bundle.diffTvContract"] === "남음" || 
-    answers["bundle.newAContract"] === "남음" || answers["bundle.newBContract"] === "남음" || 
-    currentContractString.includes("남음");
+  // Payback period (위약금 회수 기간)
+  const paybackPeriod = monthlySaving > 0 && penaltyAmount > 0
+    ? Math.ceil(penaltyAmount / monthlySaving)
+    : 0;
 
-  const actualSaving = currentFee - selectedPrice;
-  const penalty12 = Math.round(currentFee * 3.5);
-  const penalty24 = Math.round(currentFee * 7.5);
-  const bep12 = actualSaving > 0 ? Math.ceil(penalty12 / actualSaving) : null;
-  const bep24 = actualSaving > 0 ? Math.ceil(penalty24 / actualSaving) : null;
+  // netBenefit: 3년(36개월) 기준 총 아끼는 돈에서 위약금을 차감한 '순수 이득금액'
+  const netBenefit = Math.max(0, (monthlySaving * 36) - penaltyAmount);
+
+  // 약정 기간 남음 판별
+  const currentContractStringLocal = currentContractString;
+  const isRemaining = answers["bundle.allContract"] === "남음" ||
+    answers["bundle.ptaContract"] === "남음" || answers["bundle.ptaComboContract"] === "남음" ||
+    answers["bundle.ptbContract"] === "남음" || answers["bundle.ptbComboContract"] === "남음" ||
+    answers["bundle.ptcContract"] === "남음" || answers["bundle.ptcComboContract"] === "남음" ||
+    answers["bundle.diffContract"] === "남음" || answers["bundle.diffInternetContract"] === "남음" || answers["bundle.diffTvContract"] === "남음" ||
+    answers["bundle.newAContract"] === "남음" || answers["bundle.newBContract"] === "남음" ||
+    currentContractStringLocal.includes("남음");
 
   const carrierLower = (recommendedCarrier || "").toLowerCase();
   const isSeparatedCarrier = carrierLower.includes("이야기") || carrierLower.includes("eyagi");
@@ -472,30 +480,22 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
     ? "최대 47만원 상품권 + 추가 요금할인"
     : "최대 47만원 상당 현금/상품권 지원";
 
-  // 2. 추천 지향점 (Recommendation Goal)
+  // 2. 추천 지향점
   const desiredCompanyType = answers["bundle.desiredCompanyType"] as string;
-  let recommendationGoalText = "";
-  if (desiredCompanyType === "mvno") {
-    recommendationGoalText = "알뜰폰·케이블 최저가 위주로 추천해드려요";
-  } else if (desiredCompanyType === "mno") {
-    recommendationGoalText = "메이저 3사 결합 위주로 추천해드려요";
-  } else {
-    recommendationGoalText = "위약금을 내고 갈아타도 진짜 이득인지 비교해드려요";
-  }
 
-  // 3. 고객의 통신 성향 매칭 (Customer Telecom Disposition Matching)
+  // 3. 고객의 통신 성향 매칭
   let dispositionMatchingText = "";
   if (desiredCompanyType === "mvno") {
-    dispositionMatchingText = "유저님은 통신사에 매달 꼬박꼬박 나가는 고정 지출을 싹 걷어내고 내 지갑의 실속을 챙기는 고정 비용 최소화를 가장 중요하게 생각하시는 극강의 가성비파 성향이시군요! 매달 지출 부담을 가장 획기적으로 낮춰줄 최적의 절약 세트를 제안합니다.";
+    dispositionMatchingText = "유저님은 매달 꼬박꼬박 나가는 통신비를 싹 줄이고, 내 지갑의 실속을 챙기는 걸 제일 중요하게 생각하시는 '극강의 가성비파' 성향이시군요! 💰✨\n매달 지출 부담을 획기적으로 낮춰줄 가장 알찬 절약 세트를 제안해 드려요! 👍";
   } else if (desiredCompanyType === "mno") {
-    dispositionMatchingText = "유저님은 여기저기 찢어져서 머리 아픈 것보다 하나로 깔끔하게 묶어 알아서 혜택이 커지는 [품질 및 결합 혜택 우선] 지향점을 선택하셨군요! 기존 통신망의 안정적인 품질은 유지하면서 결합 시너지를 극대화할 수 있는 안전한 맞춤 조합을 제안합니다.";
+    dispositionMatchingText = "유저님은 복잡하게 나뉘는 것보다 하나로 깔끔하게 묶어서 알아서 혜택이 커지는 '품질&결합 혜택 우선' 성향이시군요! ⚡📶\n통신 3사의 안정적인 품질은 그대로 유지하면서, 결합 시너지를 극대화할 수 있는 안전한 맞춤 조합을 제안해 드려요! 👍";
   } else {
-    dispositionMatchingText = "유저님은 겉으로 보이는 위약금의 압박에 흔들리지 않고, 갈아탔을 때 내 지갑에 들어오는 순수 보너스가 더 큰지 따져보는 [위약금 대비 실질 이득 우선] 성향이시군요! 환승 리워드로 패널티를 완벽하게 상쇄하고도 넘는 가장 똑똑한 전환 타이밍 솔루션을 제안합니다.";
+    dispositionMatchingText = "유저님은 겉으로 보이는 위약금에 흔들리지 않고, 갈아탔을 때 내 지갑에 돌아오는 진짜 이득을 계산해보는 '실속파 스마트 환승' 성향이시군요! 💡🎯\n위약금을 완벽히 넘어서는 혜택으로, 지금 갈아타도 확실히 남는 장사가 되는 최적의 타이밍 솔루션을 제안해 드려요! 👍";
   }
 
   // Check if current contract is expired
   const allContract = answers["bundle.allContract"] as string;
-  const partSelectVal = answers["bundle.partSelect"] as string || "pta";
+  const partSelectVal = answers[`bundle.partSelect`] as string || "pta";
   const partContract = answers[`bundle.${partSelectVal}Contract`] as string;
   const diffContract = answers["bundle.diffContract"] as string;
   const isExpired =
@@ -505,11 +505,6 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
     allContract === "expired" ||
     partContract === "expired" ||
     diffContract === "expired";
-
-  // Payback period
-  const paybackPeriod = monthlySaving > 0 && penaltyAmount > 0
-    ? Math.ceil(penaltyAmount / monthlySaving)
-    : 0;
 
   // One line diagnosis
   let oneLineDiagnosis = "";
@@ -522,7 +517,6 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
       oneLineDiagnosis = "현재 요금제를 그대로 유지하는 것이 유리합니다.";
     }
   } else {
-    // Recommended is cheaper
     if (!knowPenalty) {
       oneLineDiagnosis = "위약금 확인 후 즉시 변경을 추천합니다.";
     } else if (penaltyAmount === 0 || isExpired) {
@@ -537,551 +531,475 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
   }
 
   return (
-    <div className="w-full max-w-2xl rounded-2xl border border-border/80 bg-gradient-to-b from-card to-background p-6 shadow-md transition-all hover:shadow-lg space-y-6">
+    <div className="w-full max-w-2xl rounded-2xl border border-[#2A6CB6]/20 bg-white p-6 shadow-md transition-all hover:shadow-lg space-y-6 text-[#1F2937]">
 
-      {/* 1. 상단 타이틀 */}
-      <div className="flex flex-col gap-2 border-b border-border/60 pb-5">
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-indigo-500/10 px-2.5 py-0.5 text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase">
-            결합상품 분석 솔루션
-          </span>
-          <span className="flex items-center gap-1 text-[11px] font-bold text-accent">
-            <Sparkles size={12} /> 요금 비교·추천 솔루션
+      {/* 1. 상단 타이틀 Header */}
+      <div className="flex flex-col border-b border-gray-100 pb-5">
+        <div className="mb-[12px]">
+          <span className="inline-flex items-center gap-[6px] py-[4px] px-[12px] rounded-[20px] bg-[#E1F5EE]">
+            <Wifi size={14} className="text-[#0F766E]" />
+            <span className="text-[12px] font-medium text-[#0F766E]">인터넷·결합 분석</span>
           </span>
         </div>
+        <h1 className="text-[22px] font-bold text-[#1E3ABA] mt-0 mb-[4px]">
+          요금 비교 · 추천 솔루션
+        </h1>
+        <p className="text-[13px] font-normal text-[#6B7280] mb-[20px]">
+          선택하신 조건 기반 맞춤 분석 리포트
+        </p>
       </div>
 
-      {/* 현재 결합 요금제 안내 및 추천 지향점 */}
-      <div className="rounded-xl bg-muted/20 p-4 border border-border/40 text-xs sm:text-sm space-y-3">
-        <div>
-          <span className="font-extrabold text-[10px] uppercase tracking-wider text-muted-foreground block mb-1">현재 상태 요약 ({currentStateSummaryTitle})</span>
-          <p className="font-black text-primary leading-relaxed">
-            {currentStateGuidance}
-          </p>
-        </div>
-        <div className="border-t border-border/30 pt-2">
-          <span className="font-extrabold text-[10px] uppercase tracking-wider text-muted-foreground block mb-1">추천 지향점</span>
-          <p className="font-black text-indigo-600 dark:text-indigo-400 leading-relaxed">
-            {desiredCompanyTypeLabel} - <span className="text-primary font-medium">{recommendationGoalText}</span>
-          </p>
-        </div>
+      {/* 인사이트 박스 */}
+      <div className="bg-[#2A6CB6]/5 border border-[#2A6CB6]/20 border-l-[3px] border-l-[#2A6CB6] rounded-r-[8px] rounded-l-none p-[12px_16px]">
+        <p className="text-[14px] font-medium text-[#1F2937] leading-[1.5]">
+          {renderGuidance(currentStateGuidance)}
+        </p>
       </div>
 
-      {/* 2. 고객의 통신 성향 매칭 */}
-      <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/5 p-4 text-xs sm:text-sm">
-        <h5 className="font-extrabold text-indigo-700 dark:text-indigo-300">고객의 통신 성향 매칭</h5>
-        <p className="mt-2 leading-relaxed text-primary font-semibold">{dispositionMatchingText}</p>
+      {/* 2. 모잇이 분석한 유저님의 소비 스타일 💡 */}
+      <div className="rounded-xl border border-[#2A6CB6]/20 bg-[#2A6CB6]/5 p-4 text-xs sm:text-sm space-y-3">
+        <h5 className="font-bold text-[#1E3ABA] text-sm">
+          모잇이 분석한 유저님의 소비 스타일 💡
+        </h5>
+        <p className="leading-relaxed text-[#1F2937] font-medium">
+          유저님은{" "}
+          <span className="font-bold text-[#1E3ABA]">
+            {desiredCompanyType === "mvno"
+              ? "고정 비용 최소화 추천"
+              : desiredCompanyType === "mno"
+                ? "품질 및 결합 혜택 우선 추천"
+                : "위약금 대비 실질 이득 추천"}
+          </span>
+          {desiredCompanyType === "mvno"
+            ? "을 받으셨어요! 매달 들어가는 통신비를 짠테크처럼 똑똑하게 줄이는 걸 선호하시네요! 💰✨"
+            : desiredCompanyType === "mno"
+              ? "을 받으셨어요! 통신 3사의 빵빵한 결합 혜택과 속속들이 막힘없는 품질을 최우선으로 생각하시네요! ⚡📶"
+              : "을 받으셨어요! 약정 승계나 위약금을 떼고도 최종적으로 이득이 되는 알짜 선택을 원하시네요! 🔍🎯"}
+        </p>
+        <p className="leading-relaxed text-[#6B7280] font-normal whitespace-pre-line border-t border-[#2A6CB6]/10 pt-2.5">
+          {dispositionMatchingText}
+        </p>
       </div>
 
       {/* 3. 요금 비교 카드 */}
       <div>
-        <h5 className="text-xs font-black text-muted-foreground uppercase tracking-wider mb-3">요금 비교 리포트</h5>
+        <h5 className="text-xs font-bold text-[#6B7280] uppercase tracking-wider mb-3">요금 비교 리포트</h5>
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* 왼쪽 카드 - 유저의 현재 요약 */}
+          {/* 왼쪽 카드 - 유저의 현재 요약 (흰색 배경 + 회색 테두리) */}
           {startState === "all_same" ? (
-            /* 통합 카드 */
-            <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-muted/10 p-4">
-              <span className="text-[10px] font-extrabold text-muted-foreground uppercase">CURRENT STATE (통합)</span>
-              <div className="space-y-1.5 text-xs text-primary mt-2">
-                <div className="flex justify-between border-b border-border/30 pb-1">
-                  <span className="text-muted-foreground">현재 통신사</span>
-                  <span className="font-extrabold">{currentCarrierLabel}</span>
+            <div className="flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-4 h-full shadow-sm">
+              <div>
+                <span className="text-[10px] font-bold text-[#6B7280] uppercase">현재 사용 중인 요금 (통합)</span>
+                <div className="space-y-1.5 text-xs text-[#1F2937] mt-2">
+                  <div className="flex justify-between border-b border-gray-100 pb-1">
+                    <span className="text-[#6B7280]">현재 통신사</span>
+                    <span className="font-medium text-[#1F2937]">{currentCarrierLabel}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-gray-100 pb-1">
+                    <span className="text-[#6B7280]">결합 형태</span>
+                    <span className="font-medium text-[#2A6CB6]">{currentStateComposition}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-gray-100 pb-1">
+                    <span className="text-[#6B7280]">결합 인원</span>
+                    <span className="font-medium text-[#1F2937]">{currentMembers}명</span>
+                  </div>
+                  <div className="flex justify-between border-b border-gray-100 pb-1">
+                    <span className="text-[#6B7280]">모바일 요금제</span>
+                    <span className="font-medium text-[#1F2937] truncate max-w-[150px]">{allMobilePlanText}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-gray-100 pb-1">
+                    <span className="text-[#6B7280] shrink-0">인터넷+IPTV 상품</span>
+                    <span className="font-medium text-[#1F2937] text-right ml-2">{allInternetPlanText} + {allTvPlanText}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-gray-100 pb-1">
+                    <span className="text-[#6B7280]">할인 정보</span>
+                    <span className="font-medium text-[#0F766E]">{allDiscountText}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-gray-100 pb-1">
+                    <span className="text-[#6B7280]">약정 상태</span>
+                    <span className="font-medium text-[#1F2937]">{allContractText}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-gray-100 pb-1">
+                    <span className="text-[#6B7280]">위약금</span>
+                    <span className="font-medium text-[#1F2937]">{penaltyAmount > 0 ? `${fmt(penaltyAmount)}원` : "0원"}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between border-b border-border/30 pb-1">
-                  <span className="text-muted-foreground">결합 형태</span>
-                  <span className="font-bold text-accent">{currentStateComposition}</span>
-                </div>
-                <div className="flex justify-between border-b border-border/30 pb-1">
-                  <span className="text-muted-foreground">결합 인원</span>
-                  <span className="font-bold">{currentMembers}명</span>
-                </div>
-                <div className="flex justify-between border-b border-border/30 pb-1">
-                  <span className="text-muted-foreground">모바일 요금제</span>
-                  <span className="font-bold truncate max-w-[150px]">{allMobilePlanText}</span>
-                </div>
-                <div className="flex justify-between border-b border-border/30 pb-1">
-                  <span className="text-muted-foreground shrink-0">인터넷+IPTV 상품</span>
-                  <span className="font-bold text-right ml-2">{allInternetPlanText} + {allTvPlanText}</span>
-                </div>
-                <div className="flex justify-between border-b border-border/30 pb-1">
-                  <span className="text-muted-foreground">할인 정보</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{allDiscountText}</span>
-                </div>
-                <div className="flex justify-between border-b border-border/30 pb-1">
-                  <span className="text-muted-foreground">약정 상태</span>
-                  <span className="font-bold">{allContractText}</span>
-                </div>
-                <div className="flex justify-between border-b border-border/30 pb-1">
-                  <span className="text-muted-foreground">위약금</span>
-                  <span className="font-extrabold text-amber-600">{penaltyAmount > 0 ? `${fmt(penaltyAmount)}원` : "0원"}</span>
-                </div>
-                <div className="flex justify-between pt-1">
-                  <span className="text-muted-foreground text-sm font-bold">월 납부 요금</span>
-                  <span className="text-sm font-black text-primary">{fmt(currentFee)}원</span>
-                </div>
+              </div>
+
+              <div className="flex justify-between border-t border-gray-200 pt-2 mt-3">
+                <span className="text-[#6B7280] text-sm font-bold">월 납부 요금</span>
+                <span className="text-sm font-bold text-[#1F2937]">{fmt(currentFee)}원</span>
               </div>
             </div>
           ) : startState === "part_same" ? (
-            /* 분리 카드 */
-            <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/10 p-4">
-              <span className="text-[10px] font-extrabold text-muted-foreground uppercase">CURRENT STATE (분리)</span>
-              
-              {/* 모바일 개별 카드 */}
-              <div className="rounded-lg border border-border/40 bg-card p-3 space-y-1 text-xs">
-                <div className="flex justify-between font-bold text-accent border-b border-border/30 pb-0.5 mb-1">
-                  <span>모바일</span>
-                  <span>{answers["bundle.ptaCarrier"] || answers["bundle.ptbCarrier"] || answers["bundle.ptcCarrier"] || "-"}</span>
+            <div className="flex flex-col justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 h-full shadow-sm">
+              <div>
+                <span className="text-[10px] font-bold text-[#6B7280] uppercase">현재 사용 중인 요금 (분리)</span>
+
+                {/* 모바일 개별 카드 */}
+                <div className="rounded-lg border border-gray-200 bg-[#F5F7FA] p-3 space-y-1 text-xs mt-2">
+                  <div className="flex justify-between font-bold text-[#2A6CB6] border-b border-gray-200 pb-0.5 mb-1">
+                    <span>모바일</span>
+                    <span>{answers["bundle.ptaCarrier"] || answers["bundle.ptbCarrier"] || answers["bundle.ptcCarrier"] || "-"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">요금제</span>
+                    <span className="font-medium text-[#1F2937] truncate max-w-[150px]">{partMobilePlanText}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">할인 정보</span>
+                    <span className="font-medium text-[#0F766E]">{partDiscountText}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">약정 상태</span>
+                    <span className="font-medium text-[#1F2937]">{partContractText}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-200 pt-1 mt-1 font-bold text-[#1F2937]">
+                    <span>월 요금</span>
+                    <span>{fmt(Number(answers["bundle.ptaMobileFee"] || answers["bundle.ptbMobileFee"] || answers["bundle.ptcMobileFee"] || 0))}원</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">요금제</span>
-                  <span className="font-bold truncate max-w-[150px]">{partMobilePlanText}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">할인 정보</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{partDiscountText}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">약정 상태</span>
-                  <span className="font-bold">{partContractText}</span>
-                </div>
-                <div className="flex justify-between border-t border-border/30 pt-1 mt-1 font-extrabold">
-                  <span>월 요금</span>
-                  <span>{fmt(Number(answers["bundle.ptaMobileFee"] || answers["bundle.ptbMobileFee"] || answers["bundle.ptcMobileFee"] || 0))}원</span>
+
+                {/* 인터넷+TV 상품 */}
+                <div className="rounded-lg border border-gray-200 bg-[#F5F7FA] p-3 space-y-1 text-xs mt-2">
+                  <div className="flex justify-between font-bold text-[#2A6CB6] border-b border-gray-200 pb-0.5 mb-1">
+                    <span>인터넷+TV 상품</span>
+                    <span>{answers["bundle.ptaComboCarrier"] || answers["bundle.ptbComboCarrier"] || answers["bundle.ptcComboCarrier"] || "-"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280] shrink-0">인터넷+IPTV 상품</span>
+                    <span className="font-medium text-[#1F2937] text-right ml-2">
+                      {partInternetPlanText}
+                      {partSelect !== "ptb" && ` + ${partTvPlanText}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">약정 상태</span>
+                    <span className="font-medium text-[#1F2937]">{getCustomContractText(answers[`bundle.${partSelect}ComboContract`] as string)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">위약금</span>
+                    <span className="font-medium text-[#1F2937]">{penaltyAmount > 0 ? `${fmt(penaltyAmount)}원` : "0원"}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-200 pt-1 mt-1 font-bold text-[#1F2937]">
+                    <span>월 요금</span>
+                    <span>{fmt(Number(answers["bundle.ptaComboFee"] || answers["bundle.ptbComboFee"] || answers["bundle.ptcComboFee"] || 0))}원</span>
+                  </div>
                 </div>
               </div>
 
-              {/* 인터넷+TV 상품 */}
-              <div className="rounded-lg border border-border/40 bg-card p-3 space-y-1 text-xs">
-                <div className="flex justify-between font-bold text-accent border-b border-border/30 pb-0.5 mb-1">
-                  <span>인터넷+TV 상품</span>
-                  <span>{answers["bundle.ptaComboCarrier"] || answers["bundle.ptbComboCarrier"] || answers["bundle.ptcComboCarrier"] || "-"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground shrink-0">인터넷+IPTV 상품</span>
-                  <span className="font-bold text-right ml-2">
-                    {partInternetPlanText}
-                    {partSelect !== "ptb" && ` + ${partTvPlanText}`}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">약정 상태</span>
-                  <span className="font-bold">{getCustomContractText(answers[`bundle.${partSelect}ComboContract`] as string)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">위약금</span>
-                  <span className="font-extrabold text-amber-600">{penaltyAmount > 0 ? `${fmt(penaltyAmount)}원` : "0원"}</span>
-                </div>
-                <div className="flex justify-between border-t border-border/30 pt-1 mt-1 font-extrabold">
-                  <span>월 요금</span>
-                  <span>{fmt(Number(answers["bundle.ptaComboFee"] || answers["bundle.ptbComboFee"] || answers["bundle.ptcComboFee"] || 0))}원</span>
-                </div>
-              </div>
-
-              <div className="flex justify-between pt-1 border-t border-border/30 mt-1 font-extrabold">
-                <span className="text-muted-foreground text-sm font-bold">월 납부 요금</span>
-                <span className="text-sm font-black text-primary">{fmt(currentFee)}원</span>
+              <div className="flex justify-between pt-2 border-t border-gray-200 mt-3 font-bold">
+                <span className="text-[#6B7280] text-sm font-bold">월 납부 요금</span>
+                <span className="text-sm font-bold text-[#1F2937]">{fmt(currentFee)}원</span>
               </div>
             </div>
           ) : (
-            /* 개별 카드 */
-            <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/10 p-4">
-              <span className="text-[10px] font-extrabold text-muted-foreground uppercase">CURRENT STATE (개별)</span>
+            <div className="flex flex-col justify-between gap-3 rounded-xl border border-gray-200 bg-white p-4 h-full shadow-sm">
+              <div>
+                <span className="text-[10px] font-bold text-[#6B7280] uppercase">현재 사용 중인 요금 (개별)</span>
 
-              {/* 모바일 개별 카드 */}
-              <div className="rounded-lg border border-border/40 bg-card p-3 space-y-1 text-xs">
-                <div className="flex justify-between font-bold text-accent border-b border-border/30 pb-0.5 mb-1">
-                  <span>모바일</span>
-                  <span>{answers["bundle.newACarrier"] || answers["bundle.newBCarrier"] || answers["bundle.diffCarrier"] || "선택됨"}</span>
+                <div className="rounded-lg border border-gray-200 bg-[#F5F7FA] p-3 space-y-1 text-xs mt-2">
+                  <div className="flex justify-between font-bold text-[#2A6CB6] border-b border-gray-200 pb-0.5 mb-1">
+                    <span>모바일</span>
+                    <span>{answers["bundle.newACarrier"] || answers["bundle.newBCarrier"] || answers["bundle.diffCarrier"] || "선택됨"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">요금제</span>
+                    <span className="font-medium text-[#1F2937] truncate max-w-[120px]">{answers["bundle.diffMobilePlan"] || answers["bundle.newAMobilePlan"] || answers["bundle.newBMobilePlan"] || "기본 요금제"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">데이터</span>
+                    <span className="font-medium text-[#1F2937]">{desiredDataLabel}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">할인</span>
+                    <span className="font-medium text-[#0F766E]">개별 할인 적용</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">약정</span>
+                    <span className="font-medium text-[#1F2937]">{getContractLabel(answers["bundle.diffContract"] || answers["bundle.newAContract"] || answers["bundle.newBContract"])}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-gray-200 pt-1 mt-1 font-bold text-[#1F2937]">
+                    <span>월 요금</span>
+                    <span>{fmt(answers["bundle.diffMobileFee"] || answers["bundle.newAMobileFee"] || answers["bundle.newBMobileFee"] || 0)}원</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">요금제</span>
-                  <span className="font-bold truncate max-w-[120px]">{answers["bundle.diffMobilePlan"] || answers["bundle.newAMobilePlan"] || answers["bundle.newBMobilePlan"] || "기본 요금제"}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">데이터</span>
-                  <span className="font-bold">{desiredDataLabel}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">할인</span>
-                  <span className="font-bold text-emerald-600">개별 할인 적용</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">약정</span>
-                  <span className="font-bold">{getContractLabel(answers["bundle.diffContract"] || answers["bundle.newAContract"] || answers["bundle.newBContract"])}</span>
-                </div>
-                <div className="flex justify-between border-t border-border/30 pt-1 mt-1 font-extrabold">
-                  <span>월 요금</span>
-                  <span>{fmt(answers["bundle.diffMobileFee"] || answers["bundle.newAMobileFee"] || answers["bundle.newBMobileFee"] || 0)}원</span>
-                </div>
+
+                {startState === "all_diff" && answers["bundle.diffInternetFee"] && (
+                  <div className="rounded-lg border border-gray-200 bg-[#F5F7FA] p-3 space-y-1 text-xs mt-2">
+                    <div className="flex justify-between font-bold text-[#2A6CB6] border-b border-gray-200 pb-0.5 mb-1">
+                      <span>인터넷</span>
+                      <span>{answers["bundle.diffInternetCarrier"] || "선택됨"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#6B7280]">상품명</span>
+                      <span className="font-medium text-[#1F2937] truncate max-w-[120px]">{answers["bundle.diffInternetProduct"] || "초고속 인터넷"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#6B7280]">속도</span>
+                      <span className="font-medium text-[#1F2937]">{desiredSpeedLabel}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#6B7280]">약정</span>
+                      <span className="font-medium text-[#1F2937]">{getContractLabel(answers["bundle.diffInternetContract"])}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-gray-200 pt-1 mt-1 font-bold text-[#1F2937]">
+                      <span>월 요금</span>
+                      <span>{fmt(answers["bundle.diffInternetFee"] || 0)}원</span>
+                    </div>
+                  </div>
+                )}
+
+                {startState === "all_diff" && answers["bundle.diffTvFee"] && (
+                  <div className="rounded-lg border border-gray-200 bg-[#F5F7FA] p-3 space-y-1 text-xs mt-2">
+                    <div className="flex justify-between font-bold text-[#2A6CB6] border-b border-gray-200 pb-0.5 mb-1">
+                      <span>IPTV</span>
+                      <span>{answers["bundle.diffTvCarrier"] || "선택됨"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#6B7280]">상품명</span>
+                      <span className="font-medium text-[#1F2937] truncate max-w-[120px]">{answers["bundle.diffTvProduct"] || "IPTV 기본형"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#6B7280]">약정</span>
+                      <span className="font-medium text-[#1F2937]">{getContractLabel(answers["bundle.diffTvContract"])}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-gray-200 pt-1 mt-1 font-bold text-[#1F2937]">
+                      <span>월 요금</span>
+                      <span>{fmt(answers["bundle.diffTvFee"] || 0)}원</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* 인터넷 개별 카드 */}
-              {startState === "all_diff" && answers["bundle.diffInternetFee"] && (
-                <div className="rounded-lg border border-border/40 bg-card p-3 space-y-1 text-xs">
-                  <div className="flex justify-between font-bold text-accent border-b border-border/30 pb-0.5 mb-1">
-                    <span>인터넷</span>
-                    <span>{answers["bundle.diffInternetCarrier"] || "선택됨"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">상품명</span>
-                    <span className="font-bold truncate max-w-[120px]">{answers["bundle.diffInternetProduct"] || "초고속 인터넷"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">속도</span>
-                    <span className="font-bold">{desiredSpeedLabel}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">약정</span>
-                    <span className="font-bold">{getContractLabel(answers["bundle.diffInternetContract"])}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-border/30 pt-1 mt-1 font-extrabold">
-                    <span>월 요금</span>
-                    <span>{fmt(answers["bundle.diffInternetFee"] || 0)}원</span>
-                  </div>
-                </div>
-              )}
-
-              {/* IPTV 개별 카드 */}
-              {startState === "all_diff" && answers["bundle.diffTvFee"] && (
-                <div className="rounded-lg border border-border/40 bg-card p-3 space-y-1 text-xs">
-                  <div className="flex justify-between font-bold text-accent border-b border-border/30 pb-0.5 mb-1">
-                    <span>IPTV</span>
-                    <span>{answers["bundle.diffTvCarrier"] || "선택됨"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">상품명</span>
-                    <span className="font-bold truncate max-w-[120px]">{answers["bundle.diffTvProduct"] || "IPTV 기본형"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">약정</span>
-                    <span className="font-bold">{getContractLabel(answers["bundle.diffTvContract"])}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-border/30 pt-1 mt-1 font-extrabold">
-                    <span>월 요금</span>
-                    <span>{fmt(answers["bundle.diffTvFee"] || 0)}원</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-between border-t border-border/30 pt-2 mt-1 font-extrabold">
-                <span className="text-muted-foreground text-sm font-bold">월 납부 요금</span>
-                <span className="text-sm font-black text-primary">{fmt(currentFee)}원</span>
+              <div className="flex justify-between border-t border-gray-200 pt-2 mt-3 font-bold">
+                <span className="text-[#6B7280] text-sm font-bold">월 납부 요금</span>
+                <span className="text-sm font-bold text-[#1F2937]">{fmt(currentFee)}원</span>
               </div>
             </div>
           )}
 
-          {/* 오른쪽 카드 - AI가 유저의 성향에 맞게 추천하는 상품의 요약 */}
+          {/* 오른쪽 카드 - 추천 상품 요약 (강조: bg-[#2A6CB6]/5 + border-2 border-[#1E3ABA]/30) */}
           {showUnifiedRecommendation ? (
-            /* 통합 추천 카드 */
-            <div className="relative rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4 shadow-sm">
-              <div className="absolute -top-2.5 right-3 rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-black text-white shadow-sm">
-                SELECTED SPEC
-              </div>
-              <span className="text-[10px] font-extrabold text-indigo-600 uppercase">AI RECOMMENDED (통합)</span>
+            <div className="relative flex flex-col justify-between rounded-xl border-2 border-[#1E3ABA]/30 bg-[#2A6CB6]/5 p-4 shadow-sm h-full">
+              <div>
+                <div className="absolute -top-2.5 right-3 rounded-full bg-[#1E3ABA] px-2.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                  SELECTED SPEC
+                </div>
+                <span className="text-[10px] font-bold text-[#1E3ABA] uppercase">추천하는 요금제 (통합)</span>
 
-              <div className="space-y-1.5 text-xs text-indigo-900 dark:text-indigo-200 mt-2">
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">추천 통신사</span>
-                  <span className="font-extrabold">{recommendedCarrierLabel}</span>
+                <div className="space-y-1.5 text-xs text-[#1F2937] mt-2">
+                  <div className="flex justify-between border-b border-[#2A6CB6]/15 pb-1">
+                    <span className="text-[#6B7280]">추천 통신사</span>
+                    <span className="font-bold text-[#1F2937]">{recommendedCarrierLabel}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#2A6CB6]/15 pb-1">
+                    <span className="text-[#6B7280]">추천 결합 형태</span>
+                    <span className="font-bold text-[#2A6CB6]">{recommendedBundleType}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#2A6CB6]/15 pb-1">
+                    <span className="text-[#6B7280]">추천 모바일</span>
+                    <span className="font-bold text-[#1F2937] truncate max-w-[150px]">{recommendedMobilePlan}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#2A6CB6]/15 pb-1">
+                    <span className="text-[#6B7280]">추천 인터넷</span>
+                    <span className="font-bold text-[#1F2937]">{recommendedInternetPlan}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#2A6CB6]/15 pb-1">
+                    <span className="text-[#6B7280]">추천 IPTV</span>
+                    <span className="font-bold text-[#1F2937]">{recommendedTvPlan}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#2A6CB6]/15 pb-1">
+                    <span className="text-[#6B7280]">가입 혜택</span>
+                    <span className="font-bold text-[#1E3ABA]">{signupBenefit}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#2A6CB6]/15 pb-1">
+                    <span className="text-[#6B7280]">월 절감액</span>
+                    <span className="font-black text-[#1E3ABA] text-sm">{fmt(monthlySaving)}원</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#2A6CB6]/15 pb-1">
+                    <span className="text-[#6B7280]">연 절감액</span>
+                    <span className="font-black text-[#1E3ABA] text-sm">{fmt(yearlySaving)}원</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#2A6CB6]/15 pb-1">
+                    <span className="text-[#6B7280]">진짜 이득 시작</span>
+                    <span className="font-bold text-[#2A6CB6]">{paybackPeriod > 0 ? `${paybackPeriod + 1}개월 차부터` : "교체 즉시"}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">추천 결합 형태</span>
-                  <span className="font-bold text-accent">{recommendedBundleType}</span>
-                </div>
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">추천 모바일</span>
-                  <span className="font-bold truncate max-w-[150px]">{recommendedMobilePlan}</span>
-                </div>
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">추천 인터넷</span>
-                  <span className="font-bold">{recommendedInternetPlan}</span>
-                </div>
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">추천 IPTV</span>
-                  <span className="font-bold">{recommendedTvPlan}</span>
-                </div>
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">가입 혜택</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{signupBenefit}</span>
-                </div>
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">월 절감액</span>
-                  <span className="font-extrabold text-emerald-600">{fmt(monthlySaving)}원</span>
-                </div>
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">연 절감액</span>
-                  <span className="font-extrabold text-emerald-600">{fmt(yearlySaving)}원</span>
-                </div>
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">손익분기점</span>
-                  <span className="font-bold text-primary">{paybackPeriod > 0 ? `${paybackPeriod}개월` : "즉시 이득"}</span>
-                </div>
-                <div className="flex justify-between pt-1">
-                  <span className="text-muted-foreground text-sm font-bold">예상 월 요금</span>
-                  <span className="text-sm font-black text-indigo-600">{fmt(selectedPrice)}원</span>
-                </div>
+              </div>
+
+              <div className="flex justify-between border-t border-[#2A6CB6]/20 pt-2 mt-3">
+                <span className="text-[#6B7280] text-sm font-bold">예상 월 요금</span>
+                <span className="text-base font-black text-[#1E3ABA]">{fmt(selectedPrice)}원</span>
               </div>
             </div>
           ) : (
-            /* 분리 추천 카드 */
-            <div className="relative rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4 shadow-sm flex flex-col gap-3">
-              <div className="absolute -top-2.5 right-3 rounded-full bg-indigo-600 px-2 py-0.5 text-[9px] font-black text-white shadow-sm">
-                SELECTED SPEC
-              </div>
-              <span className="text-[10px] font-extrabold text-indigo-600 uppercase">AI RECOMMENDED (분리)</span>
+            <div className="relative rounded-xl border-2 border-[#1E3ABA]/30 bg-[#2A6CB6]/5 p-4 shadow-sm flex flex-col gap-3 h-full justify-between">
+              <div>
+                <div className="absolute -top-2.5 right-3 rounded-full bg-[#1E3ABA] px-2.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
+                  SELECTED SPEC
+                </div>
+                <span className="text-[10px] font-bold text-[#1E3ABA] uppercase">추천하는 요금제 (분리)</span>
 
-              {/* 모바일 추천 */}
-              <div className="rounded-lg border border-indigo-500/20 bg-card p-3 space-y-1 text-xs">
-                <div className="flex justify-between font-bold text-indigo-600 border-b border-indigo-500/10 pb-0.5 mb-1">
-                  <span>추천 모바일</span>
-                  <span>{recommendedCarrierLabel}</span>
+                <div className="rounded-lg border border-[#2A6CB6]/20 bg-white p-3 space-y-1 text-xs mt-2">
+                  <div className="flex justify-between font-bold text-[#2A6CB6] border-b border-[#2A6CB6]/10 pb-0.5 mb-1">
+                    <span>추천 모바일</span>
+                    <span>{recommendedCarrierLabel}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">추천 요금제</span>
+                    <span className="font-medium text-[#1F2937] truncate max-w-[120px]">{recommendedMobilePlan}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">데이터</span>
+                    <span className="font-medium text-[#1F2937]">{desiredDataLabel}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-[#2A6CB6]/10 pt-1 mt-1 font-bold text-[#1F2937]">
+                    <span>월 요금</span>
+                    <span>{fmt(Math.round(selectedPrice * 0.4))}원</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">추천 요금제</span>
-                  <span className="font-bold truncate max-w-[120px]">{recommendedMobilePlan}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">데이터</span>
-                  <span className="font-bold">{desiredDataLabel}</span>
-                </div>
-                <div className="flex justify-between border-t border-indigo-500/10 pt-1 mt-1 font-extrabold">
-                  <span>월 요금</span>
-                  <span>{fmt(Math.round(selectedPrice * 0.4))}원</span>
-                </div>
-              </div>
 
-              {/* 인터넷 + IPTV 추천 */}
-              <div className="rounded-lg border border-indigo-500/20 bg-card p-3 space-y-1 text-xs">
-                <div className="flex justify-between font-bold text-indigo-600 border-b border-indigo-500/10 pb-0.5 mb-1">
-                  <span>인터넷 + IPTV</span>
-                  <span>{recommendedCarrierLabel}</span>
+                <div className="rounded-lg border border-[#2A6CB6]/20 bg-white p-3 space-y-1 text-xs mt-2">
+                  <div className="flex justify-between font-bold text-[#2A6CB6] border-b border-[#2A6CB6]/10 pb-0.5 mb-1">
+                    <span>인터넷 + IPTV</span>
+                    <span>{recommendedCarrierLabel}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">인터넷</span>
+                    <span className="font-medium text-[#1F2937]">{recommendedInternetPlan}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">IPTV</span>
+                    <span className="font-medium text-[#1F2937]">{recommendedTvPlan}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280]">속도</span>
+                    <span className="font-medium text-[#1F2937]">{desiredSpeedLabel}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-[#2A6CB6]/10 pt-1 mt-1 font-bold text-[#1F2937]">
+                    <span>월 요금</span>
+                    <span>{fmt(Math.round(selectedPrice * 0.6))}원</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">인터넷</span>
-                  <span className="font-bold">{recommendedInternetPlan}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">IPTV</span>
-                  <span className="font-bold">{recommendedTvPlan}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">속도</span>
-                  <span className="font-bold">{desiredSpeedLabel}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Wi-Fi</span>
-                  <span className="font-bold">기가 와이파이 기본 제공</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">셋톱박스</span>
-                  <span className="font-bold">최신 스마트 셋톱박스 무료</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">가입 혜택</span>
-                  <span className="font-bold text-emerald-600">최대 47만원 상당 현금/상품권 지원</span>
-                </div>
-                <div className="flex justify-between border-t border-indigo-500/10 pt-1 mt-1 font-extrabold">
-                  <span>월 요금</span>
-                  <span>{fmt(Math.round(selectedPrice * 0.6))}원</span>
+
+                <div className="border-t border-[#2A6CB6]/15 pt-2 mt-2 space-y-1.5 text-xs text-[#1F2937]">
+                  <div className="flex justify-between border-b border-[#2A6CB6]/10 pb-1">
+                    <span className="text-[#6B7280]">월 절감액</span>
+                    <span className="font-black text-[#1E3ABA] text-sm">{fmt(monthlySaving)}원</span>
+                  </div>
+                  <div className="flex justify-between border-b border-[#2A6CB6]/10 pb-1">
+                    <span className="text-[#6B7280]">진짜 이득 시작</span>
+                    <span className="font-bold text-[#2A6CB6]">{paybackPeriod > 0 ? `${paybackPeriod + 1}개월 차부터` : "교체 즉시"}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* 분리 추천 요약 */}
-              <div className="border-t border-indigo-500/15 pt-2 mt-1 space-y-1.5 text-xs text-indigo-900 dark:text-indigo-200">
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">월 절감액</span>
-                  <span className="font-extrabold text-emerald-600">{fmt(monthlySaving)}원</span>
-                </div>
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">연 절감액</span>
-                  <span className="font-extrabold text-emerald-600">{fmt(yearlySaving)}원</span>
-                </div>
-                <div className="flex justify-between border-b border-indigo-500/10 pb-1">
-                  <span className="text-muted-foreground">손익분기점</span>
-                  <span className="font-bold text-primary">{paybackPeriod > 0 ? `${paybackPeriod}개월` : "즉시 이득"}</span>
-                </div>
-                <div className="flex justify-between pt-1">
-                  <span className="text-muted-foreground text-sm font-bold">예상 월 요금</span>
-                  <span className="text-sm font-black text-indigo-600">{fmt(selectedPrice)}원</span>
-                </div>
+              <div className="flex justify-between border-t border-[#2A6CB6]/20 pt-2 mt-3">
+                <span className="text-[#6B7280] text-sm font-bold">예상 월 요금</span>
+                <span className="text-base font-black text-[#1E3ABA]">{fmt(selectedPrice)}원</span>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* 4. AI 분석 */}
-      <div className="border-t border-border/40 pt-4 flex flex-col gap-3">
+      {/* 4. AI 분석 & 위약금/손익 계산기 */}
+      <div className="border-t border-[#2A6CB6]/20 pt-4 flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <Sparkles className="text-indigo-500" size={16} />
-          <span className="text-sm font-black text-primary">AI 진단 및 분석</span>
+          <Sparkles className="text-[#2A6CB6]" size={16} />
+          <span className="text-sm font-bold text-[#1E3ABA]">모잇 AI의 손익 진단 리포트 💡</span>
         </div>
-        <div className="rounded-xl border border-indigo-500/10 bg-indigo-500/5 p-4 text-xs sm:text-sm space-y-2">
-          <div className="flex justify-between border-b border-indigo-500/15 pb-1.5">
-            <span className="text-muted-foreground font-bold">한줄 진단</span>
-            <span className="font-black text-indigo-600 dark:text-indigo-400">{oneLineDiagnosis}</span>
-          </div>
-          <div className="flex flex-col gap-1 border-b border-indigo-500/15 pb-1.5">
-            <span className="text-muted-foreground font-bold">추천 이유</span>
-            <ul className="list-disc pl-4 space-y-0.5 font-medium text-primary">
-              {monthlySaving > 0 ? (
-                <li>현재보다 <span className="font-black text-emerald-600">{fmt(monthlySaving)}원</span> 절약됩니다.</li>
+
+        <div className="rounded-xl border border-[#2A6CB6]/20 bg-[#2A6CB6]/5 p-4 text-xs sm:text-sm space-y-3">
+
+          {/* AI 분석 & 손익 진단 팁 박스 ('모잇의 팩트 체크' 박스) */}
+          <div className="bg-[#A8E6CF]/30 border border-[#A8E6CF] p-3.5 rounded-xl text-xs text-[#1F2937] font-normal leading-relaxed space-y-1.5">
+            <div className="font-bold text-sm text-[#1E3ABA] flex items-center gap-1">
+              💬 모잇의 팩트 체크
+            </div>
+
+            {paybackPeriod > 0 ? (
+              signupBenefit ? (
+                <p>
+                  지금 바꾸시면 이전보다 매달 <strong className="text-[#1E3ABA] font-black">{fmt(monthlySaving)}원</strong>씩 아끼실 수 있어요!
+                  발생하는 위약금({fmt(penaltyAmount)}원)은 제공되는 <strong className="text-[#1E3ABA] font-black">{signupBenefit}</strong> 혜택으로 즉시 메꿀 수 있어서, 사실상 <strong className="text-[#1E3ABA] font-black">첫 달부터 바로 남는 장사</strong>예요! 💰✨
+                </p>
               ) : (
-                <li>현재 요금이 최적화된 최저가 수준으로 매우 저렴합니다.</li>
-              )}
-              {paybackPeriod > 0 && (
-                <li>위약금은 <span className="font-black text-amber-600">{paybackPeriod}개월</span>이면 회수 가능합니다.</li>
-              )}
-              <li>품질은 현재와 비슷한 수준입니다.</li>
-            </ul>
+                <p>
+                  지금 갈아타시면 이전보다 매달 <strong className="text-[#1E3ABA] font-black">{fmt(monthlySaving)}원</strong>씩 고정비를 아끼게 돼요!
+                  위약금({fmt(penaltyAmount)}원)은 <strong className="text-[#2A6CB6] font-bold">{paybackPeriod}개월</strong> 이용 시 깔끔하게 회수되고, <strong className="text-[#1E3ABA] font-black">{paybackPeriod + 1}개월 차부터는 전부 유저님의 순수익</strong>이 됩니다! 💡👍
+                </p>
+              )
+            ) : (
+              <p>
+                위약금 부담이 전혀 없는 상태예요! 지금 바꾸시면 미룰 이유 없이 이전보다 매달 <strong className="text-[#1E3ABA] font-black">{fmt(monthlySaving)}원</strong> (1년에 <strong className="text-[#1E3ABA] font-black">{fmt(yearlySaving)}원</strong>)씩 바로 순수익으로 챙기실 수 있어요! 🎉
+              </p>
+            )}
           </div>
-          <div className="flex justify-between pt-1">
-            <span className="text-muted-foreground font-bold">주요 지표</span>
-            <div className="text-right space-y-0.5 font-medium">
-              <div>절감액: <span className="font-black text-emerald-600">{fmt(monthlySaving)}원</span> (Base)</div>
-              <div>연 절감액: <span className="font-black text-emerald-600">{fmt(yearlySaving)}원</span></div>
-              <div>손익분기점: <span className="font-black text-indigo-600">{paybackPeriod > 0 ? `${paybackPeriod}개월` : "즉시 이득 (0개월)"}</span></div>
+
+          {/* 와닿는 숫자로 보는 계산서 */}
+          <div className="space-y-2 pt-1 font-normal text-[#1F2937]">
+            <div className="flex justify-between items-center text-xs sm:text-sm">
+              <span className="text-[#6B7280]">· 현재 내는 월 통신비</span>
+              <span className="font-bold text-[#1F2937]">{fmt(currentFee)}원</span>
+            </div>
+
+            <div className="flex justify-between items-center text-xs sm:text-sm">
+              <span className="text-[#6B7280]">· 앞으로 내실 월 추천 요금</span>
+              <span className="font-bold text-[#1E3ABA]">{fmt(selectedPrice)}원 (매달 {fmt(monthlySaving)}원 절약)</span>
+            </div>
+
+            {penaltyAmount > 0 && (
+              <div className="flex justify-between items-center text-xs sm:text-sm">
+                <span className="text-[#6B7280]">· 지금 바꿀 때 발생하는 위약금</span>
+                <span className="font-bold text-rose-500">-{fmt(penaltyAmount)}원 (1회성)</span>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center text-xs sm:text-sm border-t border-dashed border-[#2A6CB6]/20 pt-2">
+              <span className="text-[#6B7280] font-bold">· 위약금 채우는 본전 기간</span>
+              <span className="font-bold text-[#2A6CB6]">
+                {paybackPeriod > 0 ? `${paybackPeriod}개월 이용 시 본전 완수` : "위약금 없음 (즉시 이득)"}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center text-xs sm:text-sm">
+              <span className="text-[#6B7280] font-bold">· 진짜 내 주머니 이득 시작시점</span>
+              <span className="font-black text-[#1E3ABA]">
+                {paybackPeriod > 0 ? `👉 ${paybackPeriod + 1}개월 차부터 매달 아낀 돈 전부 순이익!` : "👉 이번 달부터 바로 순이익!"}
+              </span>
             </div>
           </div>
+
+          {/* 친근한 모잇의 팁 코멘트 */}
+          <div className="bg-white border border-[#2A6CB6]/20 p-3 rounded-lg text-xs text-[#1F2937] font-normal leading-relaxed">
+            💬 <strong className="text-[#2A6CB6]">모잇의 솔직 팁:</strong>{" "}
+            {paybackPeriod > 0 ? (
+              <>
+                지금 해지하면 위약금 <strong>{fmt(penaltyAmount)}원</strong>이 나와서 당장은 아깝게 느껴지실 수 있어요. 하지만 매달 <strong>{fmt(monthlySaving)}원</strong>씩 아끼기 때문에 <strong>{paybackPeriod}개월</strong>만 지나면 위약금을 완벽히 털어내고, <strong>{paybackPeriod + 1}개월 차부터는 아낀 돈이 전부 유저님 순수 이득</strong>으로 차곡차곡 쌓여요!
+              </>
+            ) : (
+              <>
+                위약금 부담이 없거나 약정이 거의 끝난 상태예요! 지금 바꾸시면 미룰 이유 없이 매달 <strong>{fmt(monthlySaving)}원</strong>씩 고스란히 지갑을 지킬 수 있어요!
+              </>
+            )}
+          </div>
+
         </div>
       </div>
 
-      {/* 5. 손익계산 */}
-      <div className="border-t border-border/40 pt-4 flex flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="text-emerald-500" size={16} />
-          <span className="text-sm font-black text-primary">손익계산 및 종합 솔루션</span>
-        </div>
-        <div className="rounded-xl border border-emerald-500/10 bg-emerald-500/5 p-4 text-xs sm:text-sm">
-          {currentFee <= selectedPrice ? (
-            /* Case 1: Current plan is cheaper */
-            isExpired ? (
-              /* Case 1A: Cheaper but no contract (expired) */
-              <p className="leading-relaxed text-primary/90 font-medium">
-                현재 이용 중이신 요금제(월 <span className="font-black text-indigo-600">{fmt(currentFee)}원</span>)가 추천드리는 AI 상품(월 <span className="font-black text-indigo-600">{fmt(selectedPrice)}원</span>)보다 월 요금 기준으로는 더 저렴합니다. 따라서 매달 나가는 고정비 관점에서는 현재 요금제를 잘 유지하고 계신 상태입니다.
-                <br /><br />
-                다만, 현재 <strong>약정이 만료된 무약정 상태</strong>이므로, 지금 다른 통신사 상품으로 변경하시면 요금이 약간 차이 나더라도 <strong>최대 47만원 상당의 가입 사은품 혜택 및 현금 리워드</strong>를 챙기실 수 있습니다! 장기적인 총 지출 관점에서는 신규 가입 혜택을 챙겨 갈아타시는 것이 최종적으로 유저님께 <strong>더 큰 경제적 이득</strong>이 될 수 있으니 신중히 고려해 보시기를 적극 추천합니다.
-              </p>
-            ) : (
-              /* Case 1B: Cheaper and has contract */
-              <p className="leading-relaxed text-primary/90 font-medium">
-                유저님이 현재 납부 중이신 요금제(월 <span className="font-black text-emerald-600">{fmt(currentFee)}원</span>)는 추천드리는 AI 최저가 요금제 조합(월 <span className="font-black text-indigo-600">{fmt(selectedPrice)}원</span>)보다도 저렴하여, <strong>기존 결합 할인을 극대화하여 가장 알뜰하게 이용하고 계십니다!</strong>
-                <br /><br />
-                약정이 아직 남아있고 중도 해지 위약금도 발생하므로, 무리해서 요금제를 변경하시기보다는 <strong>현재의 결합 및 약정 상태를 그대로 쭉 유지하시는 것이 가장 현명하고 유리한 선택</strong>입니다.
-              </p>
-            )
-          ) : (
-            /* Case 2: Recommended plan is cheaper */
-            !knowPenalty ? (
-              /* Case 2A: Recommended cheaper but doesn't know penalty */
-              <p className="leading-relaxed text-primary/90 font-medium">
-                추천해 드리는 AI 상품(월 <span className="font-black text-indigo-600">{fmt(selectedPrice)}원</span>)으로 변경 시, 현재 요금제(월 <span className="font-black text-emerald-600">{fmt(currentFee)}원</span>) 대비 매달 무려 <span className="font-black text-emerald-600">{fmt(monthlySaving)}원</span>을 절약할 수 있어 <strong>연간 {fmt(yearlySaving)}원</strong>의 큰 고정비 절감 효과를 기대할 수 있습니다.
-                <br /><br />
-                다만, <strong>현재 기존 통신사의 해지 위약금 정보를 입력하지 않으셨거나 모르는 상태</strong>로 확인됩니다. 추천 요금제가 더 저렴하므로, <strong>기존 사용 중이신 통신사 고객센터를 통해 약정 기간 상태와 정확한 해지 위약금(할인반환금)을 꼭 확인</strong>해 보시길 강력히 권장합니다. 위약금이 매월 절약액보다 작거나 가입 사은품 범위 내라면 즉시 갈아타시는 것이 절대적으로 이득입니다.
-              </p>
-            ) : penaltyAmount === 0 || isExpired ? (
-              /* Case 2B: Recommended cheaper and no penalty/expired */
-              <p className="leading-relaxed text-primary/90 font-medium">
-                현재 남은 약정이 없거나 위약금이 발생하지 않아 통신사를 변경하는 즉시 지출을 획기적으로 줄일 수 있어요! 
-                지금 환승하시면 매달 절약액 <span className="font-black text-emerald-600">{fmt(monthlySaving)}원</span> / 연간 <span className="font-black text-emerald-600">{fmt(yearlySaving)}원</span>의 고정비를 조건 없이 고스란히 아낄 수 있습니다. 
-                <br /><br />
-                해지 패널티가 전혀 없는 상태이므로 미룰 이유 없이 <strong>지금 추천해 드린 상품으로 변경하시는 것이 가장 유리</strong>합니다.
-              </p>
-            ) : paybackPeriod <= 6 ? (
-              /* Case 2C: Recommended cheaper and has penalty, but quick payback (<= 6 months) */
-              <p className="leading-relaxed text-primary/90 font-medium">
-                지금 통신사를 바꾸면 해지 위약금 <span className="font-black text-amber-600">{fmt(penaltyAmount)}원</span>이 발생하지만, 매달 줄어드는 요금이 무려 <span className="font-black text-emerald-600">{fmt(monthlySaving)}원</span>에 달해 딱 <span className="font-black text-indigo-600">{paybackPeriod}개월</span>만 유지하면 위약금 지출을 전액 회수할 수 있습니다!
-                <br /><br />
-                손익분기점이 지난 이후부터는 매달 아끼는 고정비가 전부 유저님의 순수 이득으로 쌓이게 됩니다. 특히 신규 가입 시 제공되는 <strong>{signupBenefit}</strong> 혜택을 활용하시면 초기 위약금 부담을 즉시 상쇄하고도 남으므로, <strong>지금 즉시 갈아타시는 것이 가장 현명한 선택</strong>입니다.
-              </p>
-            ) : (
-              /* Case 2D: Recommended cheaper and has penalty, but slow payback (> 6 months) */
-              <p className="leading-relaxed text-primary/90 font-medium">
-                추천해 드리는 AI 상품이 현재 요금제보다 저렴하여 매달 <span className="font-black text-emerald-600">{fmt(monthlySaving)}원</span>을 아낄 수 있지만, 중도 해지 시 발생하는 위약금(<span className="font-black text-amber-600">{fmt(penaltyAmount)}원</span>)이 너무 커서 이를 모두 회수하고 손익분기점에 도달하기까지 무려 <span className="font-black text-indigo-600">{paybackPeriod}개월</span>이나 걸립니다.
-                <br /><br />
-                지금 당장 해지하여 환승하는 것은 오히려 단기적인 금전 손실을 유발하므로, <strong>현재 결합상품을 일단 그대로 유지</strong>하시길 권장합니다. 약정 만료일이 6개월 이하로 남아서 위약금이 대폭 줄어드는 시점에 다시 환승 진단을 받아보시는 것이 훨씬 더 현명합니다.
-              </p>
-            )
-          )}
-        </div>
-      </div>
-
-      {/* 5-1. 남은 약정 기간별 위약금 시뮬레이션 (isRemaining) */}
-      {isRemaining && (
-        <div className="mt-2 rounded-xl border border-border/60 bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-border/40 pb-2.5">
-            <AlertTriangle className="text-amber-500" size={16} />
-            <h4 className="text-xs font-black text-primary">
-              남은 약정 기간별 위약금 시뮬레이션
-            </h4>
-          </div>
-
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-border/50 bg-muted/40">
-                  <th className="py-2.5 px-3 font-bold text-muted-foreground w-1/4">구분</th>
-                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">12개월 남았을 때</th>
-                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">24개월 남았을 때</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                <tr>
-                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">추정 위약금</td>
-                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
-                    {fmt(penalty12)}원
-                  </td>
-                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
-                    {fmt(penalty24)}원
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">손익분기점 (BEP)</td>
-                  <td className="py-2.5 px-3 font-bold text-primary text-center">
-                    {bep12 !== null ? `${bep12}개월` : "회수 불가"}
-                  </td>
-                  <td className="py-2.5 px-3 font-bold text-primary text-center">
-                    {bep24 !== null ? `${bep24}개월` : "회수 불가"}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">최종 진단</td>
-                  <td className="py-2.5 px-3 text-center">
-                    <span className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-black ${
-                      bep12 !== null && bep12 <= 12
-                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                    }`}>
-                      {bep12 !== null && bep12 <= 12 ? "💡 조건부 변경" : "⚠️ 신중 권장"}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-center">
-                    <span className="inline-block rounded-lg bg-destructive/15 px-2.5 py-1 text-[11px] font-black text-destructive">
-                      ⛔ 지금 바꾸면 손해 (비추천)
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/80 border-t border-border/30 pt-2 font-medium">
-            ※ 위 내용은 현재 사용 중인 요금 기준 약정 기간별 추정 위약금이며, 실제 위약금은 통신사 정책에 따라 다를 수 있습니다.
-          </p>
-        </div>
-      )}
-
-      {/* 4. 부가서비스 링크 버튼 */}
+      {/* 5. 부가서비스 링크 버튼 */}
       <div className="flex flex-col gap-2.5">
         <a
           href={getCarrierLinkUrl(recommendedCarrier)}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 rounded-xl bg-brand-surface py-3 text-xs font-black text-brand-surface-foreground shadow-sm transition-all hover:bg-brand-surface/90 hover:scale-[1.01] active:scale-[0.99]"
+          className="flex items-center justify-center gap-2 rounded-xl bg-[#1E3ABA] hover:bg-[#2A6CB6] py-3 text-xs font-black text-white shadow-sm transition-all hover:scale-[1.01] active:scale-[0.99]"
         >
           {recommendedCarrierLabel} 결합상품 할인 혜택 및 상세 조건 확인 <ExternalLink size={13} />
         </a>
-        <p className="text-[10px] text-center text-muted-foreground/60 leading-normal">
+        <p className="text-[10px] text-center text-[#6B7280] leading-normal">
           본 리포트는 고객님이 입력하신 정보를 바탕으로 모잇(MOIT)에서 계산한 참고용 자료입니다. 실제 가입 시점의 결합 조건 및 프로모션에 따라 다를 수 있습니다.
         </p>
       </div>

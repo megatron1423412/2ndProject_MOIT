@@ -43,15 +43,14 @@ export default function ChatSidebarSection({
       </button>
       <div className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
         <div className="min-h-0 overflow-hidden">
-          <div className="relative mt-2 rounded-lg border border-[var(--sidebar-group-border)] bg-[var(--sidebar-group-bg)] px-2 py-1.5 pl-5">
-            <span aria-hidden="true" className="absolute bottom-3 left-3 top-3 w-px bg-[var(--sidebar-tree-line)]" />
+          <div className="relative mt-2 rounded-lg border border-[var(--sidebar-group-border)] bg-[var(--sidebar-group-bg)] px-2 py-1.5">
             <div className="space-y-1">
               {category.subCategories.map((item) => (
                 <ChatSidebarItem
                   key={item.id}
                   item={item}
                   isActive={item.id === activeSubCategoryId}
-                  showTreeConnector
+                  showTreeConnector={false}
                   onSelect={onSelectSubCategory}
                 />
               ))}

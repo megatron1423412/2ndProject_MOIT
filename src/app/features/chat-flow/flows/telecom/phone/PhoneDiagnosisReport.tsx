@@ -213,83 +213,7 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
         </p>
       </div>
 
-      {/* 2-1. 약정 확인 경고 안내 */}
-      {isContractRemaining && (
-        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex gap-3 items-start">
-          <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
-          <div className="text-xs leading-relaxed">
-            <p className="font-black text-amber-600 dark:text-amber-400">📌 변경 전 확인사항</p>
-            <p className="mt-1 text-muted-foreground font-medium">
-              현재 약정이 남아 있는 것으로 확인되었습니다. 요금제 변경 또는 통신사 이동 전 위약금 및 약정 조건을 확인하시기 바랍니다.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* 2-2. 남은 약정 기간별 위약금 시뮬레이션 */}
-      {isContractRemaining && (
-        <div className="mt-4 rounded-xl border border-border/60 bg-card p-4 shadow-sm">
-          <div className="flex items-center gap-2 border-b border-border/40 pb-2.5">
-            <AlertTriangle className="text-amber-500" size={16} />
-            <h4 className="text-xs font-black text-primary">
-              남은 약정 기간별 위약금 시뮬레이션
-            </h4>
-          </div>
-
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-border/50 bg-muted/40">
-                  <th className="py-2.5 px-3 font-bold text-muted-foreground w-1/4">구분</th>
-                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">12개월 남았을 때</th>
-                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">24개월 남았을 때</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                <tr>
-                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">추정 위약금</td>
-                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
-                    {fmt(penalty12)}원
-                  </td>
-                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
-                    {fmt(penalty24)}원
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">손익분기점 (BEP)</td>
-                  <td className="py-2.5 px-3 font-bold text-primary text-center">
-                    {bep12 !== null ? `${bep12}개월` : "회수 불가"}
-                  </td>
-                  <td className="py-2.5 px-3 font-bold text-primary text-center">
-                    {bep24 !== null ? `${bep24}개월` : "회수 불가"}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">최종 진단</td>
-                  <td className="py-2.5 px-3 text-center">
-                    <span className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-black ${
-                      bep12 !== null && bep12 <= 12
-                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                    }`}>
-                      {bep12 !== null && bep12 <= 12 ? "💡 조건부 변경" : "⚠️ 신중 권장"}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-center">
-                    <span className="inline-block rounded-lg bg-destructive/15 px-2.5 py-1 text-[11px] font-black text-destructive">
-                      ⛔ 지금 바꾸면 손해 (비추천)
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/80 border-t border-border/30 pt-2 font-medium">
-            ※ 위 내용은 현재 사용 중인 요금 기준 약정 기간별 추정 위약금이며, 실제 위약금은 통신사 정책에 따라 다를 수 있습니다.
-          </p>
-        </div>
-      )}
+      {/* 3. 현재 사용 중인 요금 vs 추천 요금제 비교 카드 */}
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         {/* 기존 요금제 */}
         <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
@@ -396,6 +320,84 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
           )}
         </div>
       </div>
+
+      {/* 4. 약정 확인 경고 안내 */}
+      {isContractRemaining && (
+        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex gap-3 items-start">
+          <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={16} />
+          <div className="text-xs leading-relaxed">
+            <p className="font-black text-amber-600 dark:text-amber-400">📌 변경 전 확인사항</p>
+            <p className="mt-1 text-muted-foreground font-medium">
+              현재 약정이 남아 있는 것으로 확인되었습니다. 요금제 변경 또는 통신사 이동 전 위약금 및 약정 조건을 확인하시기 바랍니다.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 5. 남은 약정 기간별 위약금 시뮬레이션 */}
+      {isContractRemaining && (
+        <div className="mt-4 rounded-xl border border-border/60 bg-card p-4 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-border/40 pb-2.5">
+            <AlertTriangle className="text-amber-500" size={16} />
+            <h4 className="text-xs font-black text-primary">
+              남은 약정 기간별 위약금 시뮬레이션
+            </h4>
+          </div>
+
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border/50 bg-muted/40">
+                  <th className="py-2.5 px-3 font-bold text-muted-foreground w-1/4">구분</th>
+                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">12개월 남았을 때</th>
+                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">24개월 남았을 때</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">추정 위약금</td>
+                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
+                    {fmt(penalty12)}원
+                  </td>
+                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
+                    {fmt(penalty24)}원
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">손익분기점 (BEP)</td>
+                  <td className="py-2.5 px-3 font-bold text-primary text-center">
+                    {bep12 !== null ? `${bep12}개월` : "회수 불가"}
+                  </td>
+                  <td className="py-2.5 px-3 font-bold text-primary text-center">
+                    {bep24 !== null ? `${bep24}개월` : "회수 불가"}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">최종 진단</td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-black ${
+                      bep12 !== null && bep12 <= 12
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                    }`}>
+                      {bep12 !== null && bep12 <= 12 ? "💡 조건부 변경" : "⚠️ 신중 권장"}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className="inline-block rounded-lg bg-destructive/15 px-2.5 py-1 text-[11px] font-black text-destructive">
+                      ⛔ 지금 바꾸면 손해 (비추천)
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/80 border-t border-border/30 pt-2 font-medium">
+            ※ 위 내용은 현재 사용 중인 요금 기준 약정 기간별 추정 위약금이며, 실제 위약금은 통신사 정책에 따라 다를 수 있습니다.
+          </p>
+        </div>
+      )}
 
       {/* 3. 금액 변동 */}
       <div className="mt-5 rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-4">

@@ -51,7 +51,7 @@ export default function CollapsedSidebarRail({
 
               <div className={`grid w-full transition-[grid-template-rows,opacity] duration-200 ease-out ${isOpen ? "mt-2 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                 <div className="min-h-0 overflow-hidden">
-                  <div className="relative mx-auto flex w-[48px] flex-col items-center gap-2 rounded-xl border border-[var(--sidebar-group-border)] bg-[var(--sidebar-group-bg)] px-1 py-2 before:absolute before:-top-3 before:left-1/2 before:h-3 before:w-px before:bg-[var(--sidebar-tree-line)]">
+                  <div className="relative mx-auto flex w-[48px] flex-col items-center gap-2 rounded-xl border border-[var(--sidebar-group-border)] bg-[var(--sidebar-group-bg)] px-1 py-2">
                     {category.subCategories.map((item) => {
                       const isActive = item.id === activeSubCategoryId;
                       return (
@@ -64,7 +64,7 @@ export default function CollapsedSidebarRail({
                           title={item.title}
                           className={`relative flex h-9 w-9 items-center justify-center rounded-md border outline-none transition-all hover:bg-[var(--sidebar-item-hover)] focus-visible:ring-2 focus-visible:ring-sidebar-ring ${
                             isActive
-                              ? "border-[var(--sidebar-item-active)] bg-[var(--sidebar-item-active)] text-[var(--sidebar-item-active-text)] shadow-sm before:absolute before:-left-[5px] before:h-4 before:w-1 before:rounded-full before:bg-[var(--sidebar-item-active)]"
+                              ? "border-[var(--sidebar-item-active)] bg-[var(--sidebar-item-active)] text-[var(--sidebar-item-active-text)] shadow-sm"
                               : "border-transparent text-sidebar-foreground/75"
                           }`}
                         >

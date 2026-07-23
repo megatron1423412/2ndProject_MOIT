@@ -24,21 +24,12 @@ export default function CategoryIcon({ fallback, iconPath, size = 18, className 
   }
 
   return (
-    <span className={`relative inline-flex shrink-0 ${className}`} style={{ width: size, height: size }} aria-hidden="true">
-      <img src={iconPath} alt="" onError={() => setCanUseAsset(false)} className="sr-only" />
-      <span
-        className="h-full w-full bg-current"
-        style={{
-          maskImage: `url(${iconPath})`,
-          maskRepeat: "no-repeat",
-          maskPosition: "center",
-          maskSize: "contain",
-          WebkitMaskImage: `url(${iconPath})`,
-          WebkitMaskRepeat: "no-repeat",
-          WebkitMaskPosition: "center",
-          WebkitMaskSize: "contain",
-        }}
-      />
-    </span>
+    <img
+      src={iconPath}
+      alt=""
+      onError={() => setCanUseAsset(false)}
+      className={`inline-block shrink-0 object-contain ${className}`}
+      style={{ width: size, height: size }}
+    />
   );
 }

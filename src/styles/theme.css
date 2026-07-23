@@ -1,106 +1,225 @@
+/* =========================================================
+   Tailwind CSS v4 다크모드 배리언트 설정
+   ========================================================= */
 @custom-variant dark (&:is(.dark *));
 
+/* =========================================================
+   ☀️ 라이트 모드 (Light Mode)
+   ========================================================= */
 :root {
+  /* [기본 레이아웃 및 폰트 설정] */
   --font-size: 16px;
-  --background: #F2F6FC;
-  --app-surface: #F8FAFD;
-  --elevated: #ffffff;
-  --hover-background: #EAF2FB;
-  --brand-surface: #1B3A5C;
-  --brand-surface-foreground: #ffffff;
-  --foreground: #111827;
-  --card: #ffffff;
-  --card-foreground: #111827;
-  --popover: #ffffff;
-  --popover-foreground: #111827;
-  --primary: #1B3A5C;
-  --primary-foreground: #ffffff;
-  --secondary: #EEF4FF;
-  --secondary-foreground: #1B3A5C;
-  --muted: #E4EBF5;
-  --muted-foreground: #6B7A9A;
-  --accent: #00B87A;
-  --accent-foreground: #ffffff;
-  --destructive: #EF4444;
-  --destructive-foreground: #ffffff;
-  --border: rgba(26, 58, 92, 0.1);
-  --input: transparent;
-  --input-background: #EEF4FF;
-  --switch-background: #a0b4cc;
+  /* 루트 폰트 크기 */
   --font-weight-medium: 500;
+  /* 중간 굵기 (버튼, 제목 등) */
   --font-weight-normal: 400;
+  /* 일반 굵기 (본문, input 등) */
+  --radius: 0.625rem;
+  /* 카드, 버튼 모서리 둥글기 기본값 (10px) */
+
+  /* [배경 및 영역 바탕색] */
+  --background: #f5f7fa;
+  /* 전체 화면 메인 배경색 */
+  --app-surface: #F8FAFD;
+  /* 메인 앱 컨텐츠 수면 배경색 */
+  --elevated: #ffffff;
+  /* 붕 떠있는 팝업, 모달, 드롭다운 배경색 */
+  --hover-background: #EAF2FB;
+  /* 일반 리스트/버튼에 마우스 올렸을 때(Hover) 배경색 */
+
+  /* [브랜드 & 메인 액션] */
+  --brand-surface: #1B3A5C;
+  /* 브랜드 상단바/헤더 영역 배경색 */
+  --brand-surface-foreground: #ffffff;
+  /* 브랜드 상단바/헤더 내부 글자색 */
+  --primary: #1B3A5C;
+  /* 메인 버튼 및 주요 액션 포인트 컬러 */
+  --primary-foreground: #ffffff;
+  /* 메인 버튼 내부 글자색 */
+  --secondary: #EEF4FF;
+  /* 보조 버튼, 은은한 서브 박스 배경색 */
+  --secondary-foreground: #1B3A5C;
+  /* 보조 버튼 내부 글자색 */
+
+  /* [본문 텍스트 & 카드/팝업] */
+  --foreground: #111827;
+  /* 기본 본문 글자색 */
+  --card: #ffffff;
+  /* 카드 컴포넌트 배경색 */
+  --card-foreground: #111827;
+  /* 카드 내부 글자색 */
+  --popover: #ffffff;
+  /* 툴팁, 팝업창 배경색 */
+  --popover-foreground: #111827;
+  /* 팝업창 내부 글자색 */
+
+  /* [뮤트 & 포인트 강조] */
+  --muted: #E4EBF5;
+  /* 비활성화 영역, 구분선 배경 */
+  --muted-foreground: #6B7A9A;
+  /* 설명글, 날짜, 서브 텍스트 글자색 메인 호버 글자색 */
+  --accent: #60a5fa;
+  /* 포인트 강조 영역 배경/아이콘 컬러 (초록) */
+  --accent-foreground: #ffffff;
+  /* 포인트 강조 영역 위 글자색 */
   --ring: #00B87A;
+  /* input 포커스 시 생기는 테두리 외곽선 링 */
+
+  /* [상태 경고 & 폼 요소] */
+  --destructive: #EF4444;
+  /* 삭제, 경고, 에러 버튼 (빨간색) */
+  --destructive-foreground: #ffffff;
+  /* 경고 버튼 내부 글자색 */
+  --border: rgba(26, 58, 92, 0.1);
+  /* 카드 및 구획 간의 테두리 구분선 */
+  --input: transparent;
+  /* input 기본 테두리 */
+  --input-background: #EEF4FF;
+  /* input 입력창 안쪽 배경색 */
+  --switch-background: #a0b4cc;
+  /* 토글 스위치 배경색 */
+
+  /* [차트 컬러] */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
+
+  /* [사이드바 (Sidebar) 전용 - ★ 호버/선택시 글자색 위치 ★] */
   --sidebar: oklch(0.985 0 0);
+  /* 사이드바 배경색 */
   --sidebar-foreground: oklch(0.145 0 0);
+  /* 사이드바 기본 글자색 */
   --sidebar-primary: #030213;
+  /* 사이드바 메인 포인트 */
   --sidebar-primary-foreground: oklch(0.985 0 0);
+
   --sidebar-accent: oklch(0.97 0 0);
+  /* 사이드바 메뉴 호버 시 배경색 */
+
+  /* ★★★ [찾으시던 부분 1] 사이드바 메뉴에 마우스 올렸을 때(Hover) 글자색 ★★★ */
   --sidebar-accent-foreground: oklch(0.205 0 0);
+
   --sidebar-border: oklch(0.922 0 0);
+  /* 사이드바 테두리 */
   --sidebar-ring: oklch(0.708 0 0);
+  /* 사이드바 포커스 링 */
   --sidebar-group-bg: color-mix(in srgb, var(--accent) 7%, var(--sidebar));
+  /* 그룹 배경 */
   --sidebar-group-border: color-mix(in srgb, var(--accent) 28%, var(--sidebar-border));
+  /* 그룹 테두리 */
   --sidebar-tree-line: color-mix(in srgb, var(--accent) 40%, var(--sidebar-border));
+  /* 트리 연결선 */
+
   --sidebar-item-hover: var(--sidebar-accent);
+  /* 호버 시 적용할 배경 변수 연결 */
   --sidebar-item-active: var(--accent);
+  /* 메뉴 '클릭/선택(Active)' 되었을 때 배경색 (--accent=00B87A 초록) */
+
+  /* ★★★ [찾으시던 부분 2] 메뉴가 '클릭/선택(Active)' 되었을 때 글자색 ★★★ */
   --sidebar-item-active-text: var(--accent-foreground);
 }
 
+/* =========================================================
+   🌙 다크 모드 (Dark Mode)
+   ========================================================= */
 .dark {
-  --background: #202832;
-  --app-surface: #24303B;
-  --elevated: #303C49;
-  --hover-background: #384653;
-  --brand-surface: #263B4D;
-  --brand-surface-foreground: #EAF2F7;
-  --foreground: #E7EDF4;
-  --card: #2A3440;
-  --card-foreground: #E7EDF4;
-  --popover: #303C49;
-  --popover-foreground: #E7EDF4;
-  --primary: #E7EDF4;
-  --primary-foreground: #24303B;
-  --secondary: #344250;
-  --secondary-foreground: #E7EDF4;
-  --muted: #3A4653;
-  --muted-foreground: #B8C4D1;
-  --accent: #35D69B;
-  --accent-foreground: #173226;
-  --destructive: #F87171;
-  --destructive-foreground: #FFF3F3;
-  --border: rgba(202, 214, 226, 0.16);
-  --input: #344250;
-  --input-background: #344250;
-  --ring: #35D69B;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
+
+  /* [다크 모드 배경 및 영역] */
+  --background: #202832;
+  /* 다크모드 메인 배경색 */
+  --app-surface: #24303B;
+  /* 다크모드 메인 컨텐츠 배경색 */
+  --elevated: #303C49;
+  /* 다크모드 팝업, 모달 배경색 */
+  --hover-background: #384653;
+  /* 다크모드 일반 호버 배경색 */
+
+  /* [다크 모드 브랜드 & 메인] */
+  --brand-surface: #263B4D;
+  /* 다크모드 브랜드 상단바 */
+  --brand-surface-foreground: #EAF2F7;
+  --foreground: #E7EDF4;
+  /* 다크모드 본문 글자색 */
+  --card: #2A3440;
+  /* 다크모드 카드 배경색 */
+  --card-foreground: #E7EDF4;
+  /* 다크모드 카드 글자색 */
+  --popover: #303C49;
+  /* 다크모드 팝업 배경색 */
+  --popover-foreground: #E7EDF4;
+
+  --primary: #E7EDF4;
+  /* 다크모드 메인 버튼 배경색 */
+  --primary-foreground: #24303B;
+  /* 다크모드 메인 버튼 글자색 */
+  --secondary: #344250;
+  /* 다크모드 보조 버튼 배경색 */
+  --secondary-foreground: #E7EDF4;
+
+  /* [다크 모드 뮤트 & 포인트] */
+  --muted: #3A4653;
+  /* 비활성화 영역 배경 */
+  --muted-foreground: #B8C4D1;
+  /* 보조 설명글 텍스트 */
+  --accent: #35D69B;
+  /* 다크모드 포인트 배경색 (민트) */
+  --accent-foreground: #173226;
+  /* 다크모드 포인트 위 글자색 */
+
+  /* [다크 모드 상태 & 폼] */
+  --destructive: #F87171;
+  /* 다크모드 삭제/경고 버튼 */
+  --destructive-foreground: #FFF3F3;
+  --border: rgba(202, 214, 226, 0.16);
+  /* 다크모드 테두리선 */
+  --input: #344250;
+  --input-background: #344250;
+  /* 다크모드 input 배경색 */
+  --ring: #35D69B;
+  /* 다크모드 포커스 링 */
+
+  /* [다크 모드 차트] */
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
+
+  /* [다크 모드 사이드바 - ★ 호버/선택시 글자색 위치 ★] */
   --sidebar: #27323E;
+  /* 다크 사이드바 배경색 */
   --sidebar-foreground: #E7EDF4;
+  /* 다크 사이드바 기본 글자색 */
   --sidebar-primary: #35D69B;
   --sidebar-primary-foreground: #173226;
+
   --sidebar-accent: #344250;
+  /* 다크 사이드바 메뉴 호버 시 배경색 */
+
+  /* ★★★ [찾으시던 부분 3] 다크모드 사이드바 메뉴 호버 시 글자색 ★★★ */
   --sidebar-accent-foreground: #E7EDF4;
+
   --sidebar-border: rgba(202, 214, 226, 0.14);
   --sidebar-ring: #35D69B;
   --sidebar-group-bg: color-mix(in srgb, var(--accent) 10%, var(--sidebar));
   --sidebar-group-border: color-mix(in srgb, var(--accent) 32%, var(--sidebar-border));
   --sidebar-tree-line: color-mix(in srgb, var(--accent) 44%, var(--sidebar-border));
+
   --sidebar-item-hover: var(--sidebar-accent);
   --sidebar-item-active: var(--accent);
+  /* 다크모드 선택된 메뉴 배경색 (--accent=35D69B 민트) */
+
+  /* ★★★ [찾으시던 부분 4] 다크모드 선택된 메뉴 위 글자색 ★★★ */
   --sidebar-item-active-text: var(--accent-foreground);
 }
 
+/* =========================================================
+   Tailwind CSS v4 테마 변수 매핑 (@theme inline)
+   ========================================================= */
 @theme inline {
   --color-background: var(--background);
   --color-app-surface: var(--app-surface);
@@ -133,20 +252,28 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
+  /* 모서리 라디우스 (Border Radius) 유틸리티 매핑 */
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* 사이드바 관련 테마 매핑 */
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  /* ★ 호버 글자색 테마 연동 */
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* =========================================================
+   기본 스타일 덮어쓰기 (@layer base)
+   ========================================================= */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -157,9 +284,9 @@
   }
 
   /**
-  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
-  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
-  */
+   * Default typography styles for HTML elements (h1-h4, p, label, button, input).
+   * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+   */
 
   html {
     font-size: var(--font-size);

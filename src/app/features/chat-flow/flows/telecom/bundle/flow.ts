@@ -290,7 +290,7 @@ function resolveRecommendedBundlePlans(
           let carrier = "SK";
           if (c.carrier === "KT") carrier = "KT";
           else if (c.carrier === "LGU+" || c.carrier === "LGU") carrier = "LGU";
-          
+
           extractedMnoPlans.push({
             id: `mock-mob-${c.id}`,
             name: `[${c.carrier}] ${c.mobilePlan}`,
@@ -879,7 +879,7 @@ function MonthlyFeeInput(args: {
     type: "number-input",
     message: args.message,
     answerKey: args.answerKey,
-    placeholder: args.placeholder || "예: 55000",
+    placeholder: args.placeholder || "실제 납부액을 입력해주세요.",
     min: 0,
     unit: "원",
     next: args.next,
@@ -904,7 +904,7 @@ function PlanCheckMethod(args: {
     options: [
       {
         value: "direct-choose",
-        label: "직접 고를래요(리스트 보기)",
+        label: "🔍 제가 직접 골라볼게요!",
         next: listStepId,
       },
     ],
@@ -935,21 +935,27 @@ function PlanCheckMethod(args: {
         return a.price - b.price;
       });
 
-      const topPlans = isMobile
-        ? rangePlans.slice(0, 4)
-        : sortedByFeeProximity.slice(0, 2);
+      const topPlans = sortedByFeeProximity.slice(0, 1);
 
-      const cards = topPlans.map((plan, idx) => ({
-        value: plan.id,
-        label: `[추천 ${idx + 1}순위] ${plan.name} (월 ${plan.price.toLocaleString("ko-KR")}원)`,
-        next: args.next,
-      }));
+      const cards = topPlans.map((plan) => {
+        let specStr = "";
+        if (isMobile) {
+          specStr = `\n${plan.data || "기본제공"}, ${plan.networkType || "5G"}, ${plan.voice || "음성 무제한"}, ${plan.sms || "문자 기본제공"}`;
+        } else if (plan.speed || plan.tvPlan) {
+          specStr = `\n${plan.speed || ""}${plan.speed && plan.tvPlan ? ", " : ""}${plan.tvPlan || ""}`;
+        }
+        return {
+          value: plan.id,
+          label: `${plan.name} 월 ${plan.price.toLocaleString("ko-KR")}원${specStr}`,
+          next: args.next,
+        };
+      });
 
       return [
         ...cards,
         {
           value: "direct-choose",
-          label: "직접 고를래요(리스트 보기)",
+          label: "🔍 제가 직접 골라볼게요!",
           next: listStepId,
         },
       ];
@@ -1187,10 +1193,10 @@ function PenaltyQuestion(args: {
     message: args.message,
     answerKey: args.answerKey,
     options: [
-      { value: "yes", label: "알고 있습니다", next: args.yesNext },
+      { value: "yes", label: "알고있음", next: args.yesNext },
       {
         value: "no",
-        label: args.isMobile ? "잘 모르겠습니다 (건너뛰기)" : "잘 모르겠습니다",
+        label: args.isMobile ? "모르겠음(건너뛰기)" : "모르겠음(건너뛰기)",
         next: args.noNext,
       },
     ],
@@ -1208,7 +1214,7 @@ function PenaltyInput(args: {
     type: "number-input",
     message: args.message,
     answerKey: args.answerKey,
-    placeholder: "예: 100000",
+    placeholder: "실제 납부액을 입력해주세요.",
     min: 0,
     unit: "원",
     next: args.next,
@@ -1231,7 +1237,7 @@ function buildMobileFlow(args: {
   const steps: FlowStep[] = [
     CarrierSelect({
       id: `${prefix}1`,
-      message: "현재 사용 중인 모바일 통신사를 선택해 주세요.",
+      message: "지금 쓰고 계신 모바일 통신사를 알려주시겠어요? 📱",
       answerKey: `${namespace}.${answerPrefix}Carrier`,
       options: [
         { value: "SKT", label: "SKT" },
@@ -1263,14 +1269,14 @@ function buildMobileFlow(args: {
   steps.push(
     MonthlyFeeInput({
       id: `${prefix}2`,
-      message: "현재 모바일 요금으로 매달 내고 계신 실납부액을 입력해 주세요.",
+      message: "매달 실제로 내고 계신 모바일 요금을 입력해 주세요. 절약은 정확한 숫자에서 시작돼요! 💰",
       answerKey: `${namespace}.${answerPrefix}MobileFee`,
-      placeholder: "예: 55000",
+      placeholder: "실제 납부액을 입력해주세요.",
       next: `${prefix}3`,
     }),
     ...PlanCheckMethod({
       id: `${prefix}3`,
-      message: "현재 이용 중인 요금제 확인 방식을 선택해 주세요.",
+      message: "지금 사용 중이신 요금제가 혹시 요 제품이 맞는지 한번 확인해 주시겠어요? 📱👍",
       answerKey: `${namespace}.${answerPrefix}PlanCheck`,
       answerPrefix,
       isMobile: true,
@@ -1279,18 +1285,19 @@ function buildMobileFlow(args: {
     {
       id: `${prefix}4`,
       type: "multi-choice",
-      message: "현재 받고 계신 할인 옵션을 선택해 주세요.",
+      message: "받고 계신 할인 옵션이 있다면 골라주세요! 작은 할인 하나까지 빠짐없이 챙겨드릴게요 ✅",
       answerKey: `${namespace}.${answerPrefix}Discount`,
       options: [
         { value: "선택약정", label: "선택약정 25% 할인 받는 중" },
         { value: "가족결합", label: "가족 결합 할인 중" },
+        { value: "no-discount", label: "할인 안 받음" },
         { value: "모름", label: "잘 모르겠음" },
       ],
       next: `${prefix}5`,
     },
     ContractStatus({
       id: `${prefix}5`,
-      message: "현재 핸드폰 가입 약정 기간 상태가 어떻게 되시나요?",
+      message: "핸드폰 약정은 지금 어떤 상태인가요?",
       answerKey: `${namespace}.${answerPrefix}Contract`,
       isMobile: true,
       next: `${prefix}6`,
@@ -1298,7 +1305,7 @@ function buildMobileFlow(args: {
     }),
     PenaltyQuestion({
       id: `${prefix}6`,
-      message: "현재 해지 시 발생하는 예상 위약금을 알고 계시나요?",
+      message: "혹시 지금 해지하면 위약금이 얼마나 나오는지 알고 계세요? 모르셔도 괜찮아요, 그에 맞춰 진단해 드릴게요!",
       answerKey: `${namespace}.${answerPrefix}KnowPenalty`,
       yesNext: `${prefix}7`,
       noNext: nextForNoPenalty,
@@ -1306,10 +1313,10 @@ function buildMobileFlow(args: {
     }),
     PenaltyInput({
       id: `${prefix}7`,
-      message: "알고 계신 예상 위약금 금액을 입력해 주세요.",
+      message: "알고 계신 예상 위약금 금액을 입력해 주세요. 꼼꼼하게 반영해 드릴게요 ✍️",
       answerKey: `${namespace}.${answerPrefix}Penalty`,
       next: nextForPenalty,
-    })
+    }),
   );
 
   return steps;
@@ -1340,30 +1347,48 @@ function buildInternetFlow(args: {
     ];
 
   const carrierMessage = isCombo
-    ? "현재 사용 중인 인터넷/TV 결합 통신사를 선택해 주세요."
-    : "현재 사용 중인 인터넷 통신사를 선택해 주세요.";
+    ? "지금 쓰고 계신 인터넷·TV 결합 통신사를 골라주세요 🏠"
+    : "지금 쓰고 계신 인터넷 통신사를 골라주세요 🌐";
 
   const feeMessage = isCombo
-    ? "인터넷과 TV를 합쳐 매달 납부하시는 결합 실납부액을 입력해 주세요."
-    : "인터넷 요금으로 매달 납부하시는 실납부액을 입력해 주세요.";
+    ? "인터넷과 TV를 합쳐서 매달 내고 계신 금액을 입력해 주세요 💰"
+    : "인터넷 요금으로 매달 내고 계신 금액을 입력해 주세요 💰";
 
   const planCheckMessage = isCombo
-    ? "결합 상품 요금제 확인 방식을 선택해 주세요."
-    : "인터넷 요금제 확인 방식을 선택해 주세요.";
+    ? "결합 상품 요금제는 어떤 방법으로 확인해 볼까요? 🔍"
+    : "인터넷 요금제는 어떤 방법으로 확인해 볼까요? 🔍";
 
   const contractMessage = isCombo
-    ? "인터넷/TV 결합 상품의 약정 기간 상태를 선택해 주세요."
-    : "인터넷 상품의 약정 기간 상태를 선택해 주세요.";
+    ? "인터넷/TV 결합 상품의 약정은 어떤 상태인가요?"
+    : "인터넷 상품의 약정은 어떤 상태인가요?";
 
   const penaltyMessage = isCombo
-    ? "유선 상품 해지 시 발생하는 위약금 정보를 알고 계시나요?"
-    : "인터넷 해지 시 발생하는 위약금 정보를 알고 계시나요?";
+    ? "유선 상품은 해지 시 위약금이 나올 수 있어요. 혹시 금액을 알고 계세요?"
+    : "인터넷은 해지 시 위약금이 나올 수 있어요. 혹시 금액을 알고 계세요?";
 
   const penaltyInputMessage = isCombo
-    ? "유선 상품의 예상 위약금 금액을 입력해 주세요."
-    : "인터넷의 예상 위약금 금액을 입력해 주세요.";
+    ? "유선 상품의 예상 위약금 금액을 입력해 주세요 ✍️"
+    : "인터넷의 예상 위약금 금액을 입력해 주세요 ✍️";
 
-  const steps: FlowStep[] = [];
+  const intro1Id = `${prefix}_intro_1`;
+  const intro2Id = `${prefix}_intro_2`;
+  const firstStepId = skipCarrierSelect ? `${prefix}2` : `${prefix}1`;
+
+  const steps: FlowStep[] = [
+    {
+      id: intro1Id,
+      type: "assistant-message",
+      message: "모바일 정보는 완벽하게 입력 완료했어요! 📱👍",
+      next: intro2Id,
+    },
+    {
+      id: intro2Id,
+      type: "assistant-message",
+      message: "다음 단계로 TV+인터넷 결합 정보를 살짝 확인해 볼게요! 📺🌐✨",
+      next: firstStepId,
+    },
+  ];
+
   if (!skipCarrierSelect) {
     steps.push(
       CarrierSelect({
@@ -1381,7 +1406,7 @@ function buildInternetFlow(args: {
       id: `${prefix}2`,
       message: feeMessage,
       answerKey: `${namespace}.${answerPrefix}Fee`,
-      placeholder: isCombo ? "예: 35000" : "예: 25000",
+      placeholder: isCombo ? "실제 납부액을 입력해주세요." : "실제 납부액을 입력해주세요.",
       next: `${prefix}3`,
     }),
     ...PlanCheckMethod({
@@ -1429,7 +1454,7 @@ function buildTvFlow(args: {
   return [
     CarrierSelect({
       id: `${prefix}1`,
-      message: "현재 이용 중인 IPTV 통신사를 선택해 주세요.",
+      message: "지금 이용 중인 IPTV 통신사를 골라주세요 📺",
       answerKey: `${namespace}.${answerPrefix}Carrier`,
       options: [
         { value: "B tv", label: "B tv" },
@@ -1441,21 +1466,21 @@ function buildTvFlow(args: {
     }),
     MonthlyFeeInput({
       id: `${prefix}2`,
-      message: "TV 상품 이용 요금으로 매달 납부하시는 금액을 입력해 주세요.",
+      message: "TV 상품으로 매달 내고 계신 금액을 입력해 주세요 💰",
       answerKey: `${namespace}.${answerPrefix}Fee`,
-      placeholder: "예: 15000",
+      placeholder: "실제 납부액을 입력해주세요.",
       next: `${prefix}3`,
     }),
     ...PlanCheckMethod({
       id: `${prefix}3`,
-      message: "TV 상품 요금제 확인 방식을 선택해 주세요.",
+      message: "TV 요금제는 어떤 방법으로 확인해 볼까요? 🔍",
       answerKey: `${namespace}.${answerPrefix}PlanCheck`,
       answerPrefix,
       next: `${prefix}4`,
     }),
     ContractStatus({
       id: `${prefix}4`,
-      message: "TV 상품의 약정 기간 상태를 선택해 주세요.",
+      message: "TV 상품의 약정은 어떤 상태인가요?",
       answerKey: `${namespace}.${answerPrefix}Contract`,
       isMobile: false,
       next: `${prefix}5`,
@@ -1463,7 +1488,7 @@ function buildTvFlow(args: {
     }),
     PenaltyQuestion({
       id: `${prefix}5`,
-      message: "TV 상품 해지 시 발생하는 위약금 정보를 알고 계시나요?",
+      message: "TV는 해지 시 위약금이 나올 수 있어요. 혹시 금액을 알고 계세요?",
       answerKey: `${namespace}.${answerPrefix}KnowPenalty`,
       yesNext: `${prefix}6`,
       noNext: nextForNoPenalty,
@@ -1471,7 +1496,7 @@ function buildTvFlow(args: {
     }),
     PenaltyInput({
       id: `${prefix}6`,
-      message: "TV 상품의 예상 위약금 금액을 입력해 주세요.",
+      message: "TV 상품의 예상 위약금 금액을 입력해 주세요 ✍️",
       answerKey: `${namespace}.${answerPrefix}Penalty`,
       next: nextForPenalty,
     }),
@@ -1911,17 +1936,37 @@ const steps: FlowStep[] = [
   // [Part 1] 현재 사용자 정보 입력 파트
   // -------------------------------------------------------------
 
+  // [Part 1 - 0번] 시작 안내 챗봇 대사
+  {
+    id: "bundle-intro-1",
+    type: "assistant-message",
+    message: "안녕하세요! 유저님의 똑똑한 지갑 파수꾼, 모잇이에요! ✨",
+    next: "bundle-intro-2",
+  },
+  {
+    id: "bundle-intro-2",
+    type: "assistant-message",
+    message: "지금 갖고 계신 결합상품 혜택을 꼼꼼하게 진단해 드릴까요? 💡 딱 맞는 최적의 솔루션을 찾아드릴 테니, 먼저 간단한 정보부터 차근차근 확인해 볼게요! 👍",
+    next: "bundle-intro-3",
+  },
+  {
+    id: "bundle-intro-3",
+    type: "assistant-message",
+    message: "첫 번째 단계로, 현재 모바일을 어떻게 이용하고 계시는지 살짝 확인해 볼게요! 📱💡",
+    next: "Q_START",
+  },
+
   // 1번 질문 ID: Q_START
   {
     id: "Q_START",
     type: "single-choice",
-    message: "결합상품의 통신사가 같나요?",
+    message: "지금 쓰고 계신 모바일 통신사를 알려주시겠어요? 📱",
     answerKey: `${namespace}.startState`,
     options: [
-      { value: "all_same", label: "전부 같아요", next: "Q_ALL_M1" },
-      { value: "part_same", label: "일부만 같아요", next: "Q_PART_SELECT" },
-      { value: "all_diff", label: "다 달라요", next: "Q_DIFF_START" },
-      { value: "new_start", label: "새로 시작해요", next: "Q_NEW_SELECT" },
+      { value: "all_same", label: "전부 같아요 🎯", next: "Q_ALL_M1" },
+      { value: "part_same", label: "일부만 같아요 🧩", next: "Q_PART_SELECT" },
+      { value: "all_diff", label: "모두 달라요 🔀", next: "Q_DIFF_START" },
+      { value: "new_start", label: "새로 가입해요 ✨", next: "Q_NEW_SELECT" },
     ],
   },
 
@@ -1929,8 +1974,8 @@ const steps: FlowStep[] = [
   ...buildMobileFlow({
     prefix: "Q_ALL_M",
     answerPrefix: "all",
-    nextForNoPenalty: "Q_ALL_I2",
-    nextForPenalty: "Q_ALL_I2",
+    nextForNoPenalty: "Q_ALL_I_intro_1",
+    nextForPenalty: "Q_ALL_I_intro_1",
   }),
 
   // 전부 같아요 유선(인터넷+TV) 입력 6단계
@@ -1938,8 +1983,8 @@ const steps: FlowStep[] = [
     prefix: "Q_ALL_I",
     answerPrefix: "allCombo",
     isCombo: true,
-    nextForNoPenalty: "Q_P2_1",
-    nextForPenalty: "Q_P2_1",
+    nextForNoPenalty: "bundle-p2-intro-1",
+    nextForPenalty: "bundle-p2-intro-1",
     skipCarrierSelect: true,
   }),
 
@@ -1947,12 +1992,12 @@ const steps: FlowStep[] = [
   {
     id: "Q_PART_SELECT",
     type: "single-choice",
-    message: "일부 결합 상품의 구체적인 형태를 선택해 주세요.",
+    message: "쓰고 계신 결합 상품이 구체적으로 어떤 형태인지 골라주세요 🔗",
     answerKey: `${namespace}.partSelect`,
     options: [
-      { value: "pta", label: "모바일(개인) / 인터넷 + IPTV", next: "Q_PTA_M1" },
-      { value: "ptc", label: "모바일(다인) / 인터넷 + IPTV", next: "Q_PTC_M1" },
-      { value: "ptb", label: "모바일 + 인터넷", next: "Q_PTB_M1" },
+      { value: "pta", label: "📱 1인 결합 (모바일 1회선 / 인터넷+TV)", next: "Q_PTA_M1" },
+      { value: "ptc", label: "👨‍👩‍👧‍👦 다인/가족 결합 (모바일 여러 회선 / 인터넷+TV)", next: "Q_PTA_M1" },
+      { value: "ptb", label: "🌐 인터넷 전용 결합 (모바일 + 인터넷 / TV 제외)", next: "Q_PTB_M1" },
     ],
   },
 
@@ -1960,8 +2005,8 @@ const steps: FlowStep[] = [
   ...buildMobileFlow({
     prefix: "Q_PTA_M",
     answerPrefix: "pta",
-    nextForNoPenalty: "Q_PTA_I1",
-    nextForPenalty: "Q_PTA_I1",
+    nextForNoPenalty: "Q_PTA_I_intro_1",
+    nextForPenalty: "Q_PTA_I_intro_1",
     skipMembers: true,
   }),
 
@@ -1970,16 +2015,16 @@ const steps: FlowStep[] = [
     prefix: "Q_PTA_I",
     answerPrefix: "ptaCombo",
     isCombo: true,
-    nextForNoPenalty: "Q_P2_1",
-    nextForPenalty: "Q_P2_1",
+    nextForNoPenalty: "bundle-p2-intro-1",
+    nextForPenalty: "bundle-p2-intro-1",
   }),
 
   // PTB 모바일 입력 7단계
   ...buildMobileFlow({
     prefix: "Q_PTB_M",
     answerPrefix: "ptb",
-    nextForNoPenalty: "Q_PTB_I1",
-    nextForPenalty: "Q_PTB_I1",
+    nextForNoPenalty: "Q_PTB_I_intro_1",
+    nextForPenalty: "Q_PTB_I_intro_1",
     skipMembers: true,
   }),
 
@@ -1988,16 +2033,16 @@ const steps: FlowStep[] = [
     prefix: "Q_PTB_I",
     answerPrefix: "ptbCombo",
     isCombo: true,
-    nextForNoPenalty: "Q_P2_1",
-    nextForPenalty: "Q_P2_1",
+    nextForNoPenalty: "bundle-p2-intro-1",
+    nextForPenalty: "bundle-p2-intro-1",
   }),
 
   // PTC 모바일 입력 7단계
   ...buildMobileFlow({
     prefix: "Q_PTC_M",
     answerPrefix: "ptc",
-    nextForNoPenalty: "Q_PTC_I1",
-    nextForPenalty: "Q_PTC_I1",
+    nextForNoPenalty: "Q_PTC_I_intro_1",
+    nextForPenalty: "Q_PTC_I_intro_1",
   }),
 
   // PTC 유선 입력 6단계
@@ -2005,15 +2050,15 @@ const steps: FlowStep[] = [
     prefix: "Q_PTC_I",
     answerPrefix: "ptcCombo",
     isCombo: true,
-    nextForNoPenalty: "Q_P2_1",
-    nextForPenalty: "Q_P2_1",
+    nextForNoPenalty: "bundle-p2-intro-1",
+    nextForPenalty: "bundle-p2-intro-1",
   }),
 
   // 🔵 [다 달라요 패스]
   {
     id: "Q_DIFF_START",
     type: "multi-choice",
-    message: "현재 개별적으로 사용 중인 서비스를 선택해주세요.",
+    message: "결합 없이 따로 쓰고 계신 서비스가 있다면 골라주세요 ✅",
     answerKey: `${namespace}.diffServices`,
     options: [
       { value: "phone", label: "모바일" },
@@ -2030,7 +2075,7 @@ const steps: FlowStep[] = [
       { answerKey: `${namespace}.diffServices`, operator: "includes", value: "internet", next: "Q_DIFF_I1" },
       { answerKey: `${namespace}.diffServices`, operator: "includes", value: "iptv", next: "Q_DIFF_T1" },
     ],
-    defaultNext: "Q_P2_1",
+    defaultNext: "bundle-p2-intro-1",
   },
 
   // 1-1. 모바일 입력 7단계
@@ -2047,7 +2092,7 @@ const steps: FlowStep[] = [
       { answerKey: `${namespace}.diffServices`, operator: "includes", value: "internet", next: "Q_DIFF_I1" },
       { answerKey: `${namespace}.diffServices`, operator: "includes", value: "iptv", next: "Q_DIFF_T1" },
     ],
-    defaultNext: "Q_P2_1",
+    defaultNext: "bundle-p2-intro-1",
   },
 
   // 1-2. 인터넷 약정/위약금 수집 6단계
@@ -2064,15 +2109,15 @@ const steps: FlowStep[] = [
     conditions: [
       { answerKey: `${namespace}.diffServices`, operator: "includes", value: "iptv", next: "Q_DIFF_T1" },
     ],
-    defaultNext: "Q_P2_1",
+    defaultNext: "bundle-p2-intro-1",
   },
 
   // 1-3. TV 약정/위약금 수집 6단계
   ...buildTvFlow({
     prefix: "Q_DIFF_T",
     answerPrefix: "diffTv",
-    nextForNoPenalty: "Q_P2_1",
-    nextForPenalty: "Q_P2_1",
+    nextForNoPenalty: "bundle-p2-intro-1",
+    nextForPenalty: "bundle-p2-intro-1",
   }),
 
   // ⚫ [새로 시작해요 패스]
@@ -2091,8 +2136,8 @@ const steps: FlowStep[] = [
   ...buildMobileFlow({
     prefix: "Q_4A_M",
     answerPrefix: "newA",
-    nextForNoPenalty: "Q_P2_1",
-    nextForPenalty: "Q_P2_1",
+    nextForNoPenalty: "bundle-p2-intro-1",
+    nextForPenalty: "bundle-p2-intro-1",
     skipMembers: true,
   }),
 
@@ -2100,19 +2145,29 @@ const steps: FlowStep[] = [
   ...buildMobileFlow({
     prefix: "Q_4B_M",
     answerPrefix: "newB",
-    nextForNoPenalty: "Q_P2_1",
-    nextForPenalty: "Q_P2_1",
+    nextForNoPenalty: "bundle-p2-intro-1",
+    nextForPenalty: "bundle-p2-intro-1",
     skipMembers: true,
   }),
 
-  // -------------------------------------------------------------
-  // [Part 2] 원하는 요금제 및 서비스 조건 선택 파트
-  // -------------------------------------------------------------
+  // [Part 2 - 0번] Part 2 전환 챗봇 안내 대사
+  {
+    id: "bundle-p2-intro-1",
+    type: "assistant-message",
+    message: "여기까지 유저님이 지금 사용 중이신 정보를 알차게 잘 모았어요! 📝✨",
+    next: "bundle-p2-intro-2",
+  },
+  {
+    id: "bundle-p2-intro-2",
+    type: "assistant-message",
+    message: "이제 유저님의 찰떡 생활 습관과 딱 맞는 최적의 요금제를 찾아볼 차례예요! 차근차근 함께 골라볼까요? 💡👍",
+    next: "Q_P2_1",
+  },
 
   {
     id: "Q_P2_1",
     type: "multi-choice",
-    message: "결합 상품 조합 형태 선택 (다중선택)",
+    message: "어떤 조합으로 묶어볼까요? 원하시는 만큼 골라주세요! (다중선택 가능) 🔗",
     answerKey: `${namespace}.desiredProducts`,
     options: [
       { value: "phone", label: "이동전화" },
@@ -2125,7 +2180,7 @@ const steps: FlowStep[] = [
   {
     id: "Q_P2_2",
     type: "single-choice",
-    message: "가장 중요하게 생각하는 것은?\n[안내] 위약금 미입력 시 정확한 진단 어려움\n제일 저렴한 상품 중심으로 추천",
+    message: "[모잇의 안내] 위약금을 입력하지 않으시면 정확한 진단이 어려울 수 있어요.\n그런 경우엔 가장 저렴한 상품 중심으로 추천해 드릴게요 💰",
     answerKey: `${namespace}.desiredCompanyType`,
     options: [
       { value: "mvno", label: "고정 비용 최소화 추천 (알뜰폰/케이블 최저가 위주로 추천)", next: "Q_P2_3_ROUTE" },
@@ -2161,7 +2216,7 @@ const steps: FlowStep[] = [
   {
     id: "Q_P2_DATA",
     type: "single-choice",
-    message: "원하시는 모바일 데이터 사용량 조사",
+    message: "평소에 자주 쓰시는 데이터 양이나, 딱 원하시는 데이터 스타일이 있으신가요? 📱✨",
     answerKey: `${namespace}.desiredData`,
     options: [
       { value: "unlimited", label: "무제한 필요 (헤비 유저)" },
@@ -2184,7 +2239,7 @@ const steps: FlowStep[] = [
   {
     id: "Q_P2_MEMBERS",
     type: "single-choice",
-    message: "이동전화 결합 인원을 알려주세요",
+    message: "이번에 같이 묶어서 할인받으실 모바일 회선(인원)은 총 몇 명인가요? 👨‍👩‍👧‍👦💡",
     answerKey: `${namespace}.desiredMembers`,
     options: [
       { value: "1인", label: "1인" },
@@ -2208,7 +2263,7 @@ const steps: FlowStep[] = [
   {
     id: "Q_P2_SPEED",
     type: "single-choice",
-    message: "선호하시거나 원하시는 인터넷 속도 사양을 선택해 주세요.",
+    message: "자주 쓰시던 인터넷 속도나, 딱 원하시는 인터넷 사양이 있다면 알려주세요! 🌐⚡",
     answerKey: `${namespace}.desiredSpeed`,
     options: [
       { value: "100Mbps", label: "100Mbps (웹서핑·유튜브)" },
@@ -2221,19 +2276,19 @@ const steps: FlowStep[] = [
   {
     id: "Q_P2_4",
     type: "assistant-message",
-    message: "원하는 정보 입력 완료",
+    message: "필요한 정보를 모두 받았어요! 이제 모잇이 열심히 계산해 볼게요 🔍",
     next: "bundle-recommendation-api",
   },
 
   {
     id: "bundle-recommendation-api",
     type: "single-choice",
-    message: "고객님의 조건을 분석하여 선정한 최적의 추천 요금제 리스트입니다.",
+    message: "짜잔! 알려주신 조건을 꼼꼼히 분석해서 딱 맞는 요금제만 챙겨왔어요 ✨",
     answerKey: `${namespace}.selectedRecommendedPlan`,
     options: [
       {
         value: "direct-choose",
-        label: "직접 고를래요 (전체 리스트 보기)",
+        label: "🔍 제가 직접 골라볼게요!",
         next: "bundle-all-plans-select",
       },
     ],
@@ -2245,7 +2300,7 @@ const steps: FlowStep[] = [
         const skylifeCombos = filterSkylifeCombinations(answers);
         const helloCombos = filterHelloCombinations(answers);
 
-        const topMvno = getRatioBalancedMvnoCombos(skylifeCombos, helloCombos, 6);
+        const topMvno = getRatioBalancedMvnoCombos(skylifeCombos, helloCombos, 4);
 
         return [
           ...topMvno.map((combo, idx) => ({
@@ -2255,7 +2310,7 @@ const steps: FlowStep[] = [
           })),
           {
             value: "direct-choose",
-            label: "직접 고를래요 (전체 리스트 보기)",
+            label: "🔍 제가 직접 골라볼게요!",
             next: "bundle-all-plans-select",
           },
         ];
@@ -2289,7 +2344,7 @@ const steps: FlowStep[] = [
           })),
           {
             value: "direct-choose",
-            label: "직접 고를래요 (전체 리스트 보기)",
+            label: "🔍 제가 직접 골라볼게요!",
             next: "bundle-all-plans-select",
           },
         ];
@@ -2326,7 +2381,7 @@ const steps: FlowStep[] = [
           })),
           {
             value: "direct-choose",
-            label: "직접 고를래요 (전체 리스트 보기)",
+            label: "🔍 제가 직접 골라볼게요!",
             next: "bundle-all-plans-select",
           },
         ];
@@ -2344,7 +2399,7 @@ const steps: FlowStep[] = [
         })),
         {
           value: "direct-choose",
-          label: "직접 고를래요 (전체 리스트 보기)",
+          label: "🔍 제가 직접 골라볼게요!",
           next: "bundle-all-plans-select",
         },
       ];
@@ -2355,7 +2410,7 @@ const steps: FlowStep[] = [
   {
     id: "bundle-all-plans-select",
     type: "single-choice",
-    message: "추천 요금제 외에 선택 가능한 전체 요금제 리스트입니다. 원하시는 요금제를 선택해 주세요.",
+    message: "추천 요금제 외에 선택할 수 있는 전체 요금제도 준비했어요. 원하시는 요금제를 골라주세요 ✅",
     answerKey: `${namespace}.manualSelectedPlan`,
     options: [],
     optionsResolver: (answers) => {
@@ -2376,7 +2431,7 @@ const steps: FlowStep[] = [
           })),
           {
             value: "none-of-them",
-            label: "목록에 없음 (금액 기준으로만 진단)",
+            label: "목록에 없음 🔍 (금액으로 간단 진단! 💡)",
             next: "bundle-result",
           },
         ];
@@ -2410,7 +2465,7 @@ const steps: FlowStep[] = [
           })),
           {
             value: "none-of-them",
-            label: "목록에 없음 (금액 기준으로만 진단)",
+            label: "목록에 없음 🔍 (금액으로 간단 진단! 💡)",
             next: "bundle-result",
           },
         ];
@@ -2445,7 +2500,7 @@ const steps: FlowStep[] = [
           })),
           {
             value: "none-of-them",
-            label: "목록에 없음 (금액 기준으로만 진단)",
+            label: "목록에 없음 🔍 (금액으로 간단 진단! 💡)",
             next: "bundle-result",
           },
         ];
@@ -2467,7 +2522,7 @@ const steps: FlowStep[] = [
         })),
         {
           value: "none-of-them",
-          label: "목록에 없음 (금액 기준으로만 진단)",
+          label: "목록에 없음 🔍 (금액으로 간단 진단! 💡)",
           next: "bundle-result",
         },
       ];
@@ -2478,7 +2533,7 @@ const steps: FlowStep[] = [
   {
     id: "bundle-result",
     type: "result",
-    message: "입력하신 정보를 바탕으로 산출된 최적의 결합 상품 추천 리포트입니다.",
+    message: "입력해 주신 정보로 최적의 결합 상품 추천 리포트를 완성했어요! 얼마나 아낄 수 있는지 확인해 보세요 💰",
     next: "bundle-ask-grade",
   },
 
@@ -2488,7 +2543,7 @@ const steps: FlowStep[] = [
   {
     id: "bundle-ask-grade",
     type: "single-choice",
-    message: "고객님의 요금 절감액을 분석하여 소비 패턴 등급을 진단받으시겠습니까?",
+    message: "여기서 끝이 아니에요! 절감액을 바탕으로 소비 패턴 등급도 진단받아 보시겠어요? 💡",
     answerKey: `${namespace}.askGrade`,
     options: [
       { value: "yes", label: "YES", next: "bundle-grade-result" },
@@ -2500,7 +2555,7 @@ const steps: FlowStep[] = [
   {
     id: "bundle-grade-result",
     type: "result",
-    message: "소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다.",
+    message: "소비 패턴 등급 진단 완료! 결과 등급 카드가 나왔어요. 지금 확인해 보세요 ✨",
   },
 
   {
@@ -2513,6 +2568,6 @@ export const bundleFlow: FlowDefinition = {
   id: "bundle-flow",
   subCategoryId: "bundle",
   categoryId: "telecom",
-  startStepId: "Q_START",
+  startStepId: "bundle-intro-1",
   steps: composeFlow(steps),
 };
