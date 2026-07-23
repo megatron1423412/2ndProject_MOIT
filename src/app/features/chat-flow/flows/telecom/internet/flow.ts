@@ -110,7 +110,7 @@ const opening: FlowStep[] = [
     message: "현재 사용하시는 인터넷 요금제가 맞을까요?",
     answerKey: `${namespace}.confirmedPlan`,
     options: [
-      { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "internet-current-plans-list" },
+      { value: "direct-choose", label: "직접 고를래요(리스트 보기)", next: "internet-current-plans-list" },
       { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "internet-custom-plan-input" },
     ],
     optionsResolver: (answers) => {
@@ -137,7 +137,7 @@ const opening: FlowStep[] = [
 
       return [
         ...matched.map(m => ({ value: m.value, label: m.label, next: "internet-contract-period" })),
-        { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "internet-current-plans-list" },
+        { value: "direct-choose", label: "직접 고를래요(리스트 보기)", next: "internet-current-plans-list" },
         { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "internet-custom-plan-input" },
       ];
     },

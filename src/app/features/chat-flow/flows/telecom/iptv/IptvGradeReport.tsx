@@ -74,6 +74,9 @@ export default function IptvGradeReport({ result, onEndChat }: IptvGradeReportPr
     gradeTheme = { bg: "bg-orange-500/5", text: "text-orange-600 dark:text-orange-400", border: "border-orange-500/20", ring: "ring-orange-500/30" };
   }
 
+  const contractPeriod = (answers["iptv.userContractStatus"] || answers["iptv.contractPeriod"] || "") as string;
+  const isRemaining = contractPeriod === "remaining" || contractPeriod === "under2y" || contractPeriod === "under1y";
+
   return (
     <div className={`w-full max-w-sm rounded-2xl border p-6 shadow-md transition-all hover:shadow-lg relative ${gradeTheme.bg} ${gradeTheme.border}`}>
       
@@ -109,6 +112,19 @@ export default function IptvGradeReport({ result, onEndChat }: IptvGradeReportPr
           {gradeReason}
         </p>
       </div>
+
+      {/* 약정 기간 남음 특별 안내 문구 */}
+      {isRemaining && (
+        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs leading-relaxed">
+          <p className="font-bold text-amber-600 dark:text-amber-400 mb-1">
+            유저님! 위에 표시된 등급은 약정 기간과 위약금이 없는 상태를 기준으로 산출된 등급이에요! 💡
+          </p>
+          <p className="text-muted-foreground font-medium">
+            현재 약정이 남아있다면, 발생하는 위약금이 남은 기간 동안 아끼는 총금액보다 커서 해지 손실이 더 발생할 수 있어요.<br />
+            실제 이득을 보시려면 통신사 고객센터나 앱에서 정확한 위약금을 먼저 꼭 확인해 보세요! 👍
+          </p>
+        </div>
+      )}
 
       {/* 절감 비율 프로그레스 바 */}
       {saving > 0 && (

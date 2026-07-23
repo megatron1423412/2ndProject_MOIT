@@ -627,7 +627,7 @@ export const getInternetPlansForCarrier = (carrier: string) => {
 
   return database.map(plan => ({
     value: plan.id,
-    label: `[${groupLabel}] ${carrierLabel} ${plan.name} (${plan.speed}, 월 ${plan.prices.discount3y.toLocaleString("ko-KR")}원)`,
+    label: `[${groupLabel}] ${plan.name} 월 ${plan.prices.discount3y.toLocaleString("ko-KR")}원\n${plan.speed}, 3년 약정, 광인터넷, WiFi 포함`,
     price: plan.prices.discount3y
   }));
 };

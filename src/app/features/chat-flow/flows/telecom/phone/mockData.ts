@@ -24,14 +24,16 @@ export const MOCK_RECOMMENDED_PLANS = [
 export const fetchPlansFromApi = (carrier: string, currentFee: number) => {
   if (carrier === "skt") {
     return [
+      { value: "plan-api-skt-8", label: `[SKT] 5G 맞춤 54GB · 월 65,000원 · 데이터 54GB (소진 시 1Mbps) · 음성 무제한 · 문자 기본제공 (5G)`, price: 65000 },
+      { value: "plan-api-skt-9", label: `[SKT] 5G 맞춤 74GB · 월 68,000원 · 데이터 74GB (소진 시 1Mbps) · 음성 무제한 · 문자 기본제공 (5G)`, price: 68000 },
+      { value: "plan-api-skt-5", label: `[SKT] T플랜 에센스 · 월 69,000원 · 데이터 100GB (소진 시 5Mbps) · 음성 무제한 · 문자 기본제공 (LTE)`, price: 69000 },
+      { value: "plan-api-skt-10", label: `[SKT] 5G 맞춤 99GB · 월 70,000원 · 데이터 99GB (소진 시 1Mbps) · 음성 무제한 · 문자 기본제공 (5G)`, price: 70000 },
       { value: "plan-api-skt-1", label: `[SKT] 5G 레귤러 · 월 69,000원 · 데이터 110GB (소진 시 5Mbps) · 음성 무제한 · 문자 기본제공 (5G)`, price: 69000 },
       { value: "plan-api-skt-2", label: `[SKT] 5G 언택트 62 · 월 62,000원 · 데이터 200GB (소진 시 5Mbps) · 음성 무제한 · 문자 기본제공 (5G)`, price: 62000 },
       { value: "plan-api-skt-3", label: `[SKT] 5G 레귤러플러스 · 월 79,000원 · 데이터 250GB (소진 시 5Mbps) · 음성 무제한 · 문자 기본제공 (5G)`, price: 79000 },
       { value: "plan-api-skt-4", label: `[SKT] 5G 슬림 · 월 55,000원 · 데이터 11GB (소진 시 1Mbps) · 음성 무제한 · 문자 기본제공 (5G)`, price: 55000 },
-      { value: "plan-api-skt-5", label: `[SKT] T플랜 에센스 · 월 69,000원 · 데이터 100GB (소진 시 5Mbps) · 음성 무제한 · 문자 기본제공 (LTE)`, price: 69000 },
       { value: "plan-api-skt-6", label: `[SKT] T플랜 안심4G · 월 50,000원 · 데이터 4GB (소진 시 1Mbps) · 음성 무제한 · 문자 기본제공 (LTE)`, price: 50000 },
       { value: "plan-api-skt-7", label: `[SKT] 5G 맞춤 24GB · 월 59,000원 · 데이터 24GB (소진 시 1Mbps) · 음성 무제한 · 문자 기본제공 (5G)`, price: 59000 },
-      { value: "plan-api-skt-8", label: `[SKT] 5G 맞춤 54GB · 월 65,000원 · 데이터 54GB (소진 시 1Mbps) · 음성 무제한 · 문자 기본제공 (5G)`, price: 65000 },
     ];
   }
 
@@ -258,74 +260,145 @@ export const getPlanSpec = (
     ? carrierMatch[1]
     : carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : carrier === "mvno" ? "알뜰폰" : carrier;
 
-  // QoS 파싱
+  // 라벨 형태 분류 및 개별 항목 파트 추출
+  let dataPart = "";
+  let voicePart = "";
+  let smsPart = "";
+
+  const newlineSplit = cleanName.split("\n");
+  if (newlineSplit.length > 1) {
+    const specs = newlineSplit[1].split(",").map(s => s.trim());
+    if (specs.length >= 1) dataPart = specs[0] || "";
+    if (specs.length >= 3) voicePart = specs[2] || "";
+    if (specs.length >= 4) smsPart = specs[3] || "";
+  } else {
+    const dataMatch = cleanName.match(/데이터\s*([^·\n]+)/i);
+    if (dataMatch) dataPart = dataMatch[1].trim();
+
+    const voiceMatch = cleanName.match(/음성\s*([^·\n]+)/i);
+    if (voiceMatch) voicePart = voiceMatch[1].trim();
+
+    const smsMatch = cleanName.match(/문자\s*([^·\n]+)/i);
+    if (smsMatch) smsPart = smsMatch[1].trim();
+  }
+
+  // QoS 파싱 (dataPart 또는 cleanName 기준)
   let hasQos = false;
   let qosSpeed: string | undefined = undefined;
-  const qosMatch = cleanName.match(/(\d+(?:Mbps|kbps))/i);
+  const qosTarget = dataPart || cleanName;
+  const qosMatch = qosTarget.match(/(\d+(?:Mbps|kbps))/i);
   if (qosMatch) {
     hasQos = true;
     qosSpeed = qosMatch[1];
-  } else if (cleanName.includes("소진 시") || cleanName.includes("QoS")) {
+  } else if (qosTarget.includes("소진 시") || qosTarget.includes("QoS")) {
     hasQos = true;
     qosSpeed = "1Mbps";
   }
 
-  // 데이터 용량 파싱 (7GB, 6GB, 100GB, 110GB 등)
+  // 데이터 용량 파싱
   let dataStr = "";
   let dataMB = 10240;
 
-  const gbMatch = cleanName.match(/(\d+(?:\.\d+)?)\s*GB/i);
-  const mbMatch = cleanName.match(/(\d+)\s*MB/i);
+  if (dataPart) {
+    dataStr = dataPart;
+    const gbMatch = dataPart.match(/(\d+(?:\.\d+)?)\s*GB/i);
+    const mbMatch = dataPart.match(/(\d+)\s*MB/i);
 
-  if (cleanName.includes("무제한") || cleanName.includes("무한")) {
-    dataMB = 102400;
-    dataStr = qosSpeed ? `무제한 (소진 시 ${qosSpeed})` : "무제한";
-  } else if (gbMatch) {
-    const valGB = parseFloat(gbMatch[1]);
-    dataMB = Math.round(valGB * 1024);
-    if (qosSpeed) {
-      dataStr = `${valGB}GB (소진 시 ${qosSpeed})`;
-    } else {
-      dataStr = `${valGB}GB`;
-    }
-  } else if (mbMatch) {
-    dataMB = parseInt(mbMatch[1], 10);
-    dataStr = `${dataMB}MB`;
-  } else {
-    const val = (dataVolume || "").toLowerCase();
-    if (val === "unlimited" || val.includes("100gb") || val.includes("over")) {
-      dataStr = "무제한 (100GB + 5Mbps)";
+    if (dataPart.includes("일5GB") || dataPart.includes("일 5GB")) {
+      dataMB = 153600;
+    } else if (gbMatch) {
+      dataMB = Math.round(parseFloat(gbMatch[1]) * 1024);
+    } else if (mbMatch) {
+      dataMB = parseInt(mbMatch[1], 10);
+    } else if (dataPart.includes("무제한") || dataPart.includes("무한")) {
       dataMB = 102400;
-    } else if (val === "high" || val.includes("50gb")) {
-      dataStr = "75GB (소진 시 1Mbps)";
-      dataMB = 76800;
+    }
+  } else {
+    // fallback cleanName 파싱 (단, 음성/문자 무제한과 혼동되지 않도록 '데이터' 전용 탐색)
+    const cleanNoQos = cleanName
+      .replace(/\(소진\s*시[^)]*\)/gi, "")
+      .replace(/\b5G\b/g, "")
+      .replace(/\b4G\b/g, "")
+      .replace(/\bLTE\b/gi, "");
+
+    const dataGbMatch = cleanNoQos.match(/데이터\s*(\d+(?:\.\d+)?)\s*GB/i) || cleanNoQos.match(/(\d+(?:\.\d+)?)\s*GB/i);
+    const dataMbMatch = cleanNoQos.match(/데이터\s*(\d+)\s*MB/i) || cleanNoQos.match(/(\d+)\s*MB/i);
+
+    if (cleanNoQos.includes("데이터 무제한") || cleanNoQos.includes("데이터 무한")) {
+      dataMB = 102400;
+      dataStr = qosSpeed ? `무제한 (소진 시 ${qosSpeed})` : "무제한";
+    } else if (dataGbMatch) {
+      const valGB = parseFloat(dataGbMatch[1]);
+      dataMB = Math.round(valGB * 1024);
+      dataStr = qosSpeed ? `${valGB}GB (소진 시 ${qosSpeed})` : `${valGB}GB`;
+    } else if (dataMbMatch) {
+      dataMB = parseInt(dataMbMatch[1], 10);
+      dataStr = `${dataMB}MB`;
     } else {
-      dataStr = "15GB (소진 시 400kbps)";
-      dataMB = 15360;
+      const val = (dataVolume || "").toLowerCase();
+      if (val === "unlimited" || val.includes("100gb") || val.includes("over")) {
+        dataStr = "무제한 (100GB + 5Mbps)";
+        dataMB = 102400;
+      } else if (val === "high" || val.includes("50gb")) {
+        dataStr = "75GB (소진 시 1Mbps)";
+        dataMB = 76800;
+      } else {
+        dataStr = "15GB (소진 시 400kbps)";
+        dataMB = 15360;
+      }
     }
   }
 
-  // 음성 및 문자 제공량 파싱
+  // 음성 제공량 파싱
   let voiceMin = 9999;
   let voiceStr = "기본제공 (무제한)";
-  const voiceMatch = cleanName.match(/음성\s*(\d+)\s*분/) || cleanName.match(/(\d+)\s*분/);
-  if (voiceMatch) {
-    voiceMin = parseInt(voiceMatch[1], 10);
-    voiceStr = `${voiceMin}분`;
-  } else if (cleanName.includes("음성 무제한") || cleanName.includes("무제한") || cleanName.includes("기본제공") || cleanName.includes("기본 제공")) {
-    voiceMin = 9999;
-    voiceStr = "기본제공 (무제한)";
+
+  if (voicePart) {
+    const minMatch = voicePart.match(/(\d+)\s*분/) || voicePart.match(/^(\d+)$/);
+    if (minMatch) {
+      voiceMin = parseInt(minMatch[1], 10);
+      voiceStr = `${voiceMin}분`;
+    } else if (voicePart.includes("무제한") || voicePart.includes("기본")) {
+      voiceMin = 9999;
+      voiceStr = "기본제공 (무제한)";
+    } else {
+      voiceStr = voicePart;
+    }
+  } else {
+    const vMatch = cleanName.match(/음성\s*(\d+)\s*분/);
+    if (vMatch) {
+      voiceMin = parseInt(vMatch[1], 10);
+      voiceStr = `${voiceMin}분`;
+    } else if (cleanName.includes("음성 무제한") || cleanName.includes("음성 기본")) {
+      voiceMin = 9999;
+      voiceStr = "기본제공 (무제한)";
+    }
   }
 
+  // 문자 제공량 파싱
   let smsCount = 9999;
   let smsStr = "기본제공 (무제한)";
-  const smsMatch = cleanName.match(/문자\s*(\d+)\s*건/) || cleanName.match(/(\d+)\s*건/);
-  if (smsMatch) {
-    smsCount = parseInt(smsMatch[1], 10);
-    smsStr = `${smsCount}건`;
-  } else if (cleanName.includes("문자 기본제공") || cleanName.includes("기본제공") || cleanName.includes("기본 제공") || cleanName.includes("무제한")) {
-    smsCount = 9999;
-    smsStr = "기본제공 (무제한)";
+
+  if (smsPart) {
+    const countMatch = smsPart.match(/(\d+)\s*건/) || smsPart.match(/^(\d+)$/);
+    if (countMatch) {
+      smsCount = parseInt(countMatch[1], 10);
+      smsStr = `${smsCount}건`;
+    } else if (smsPart.includes("무제한") || smsPart.includes("기본")) {
+      smsCount = 9999;
+      smsStr = "기본제공 (무제한)";
+    } else {
+      smsStr = smsPart;
+    }
+  } else {
+    const sMatch = cleanName.match(/문자\s*(\d+)\s*건/);
+    if (sMatch) {
+      smsCount = parseInt(sMatch[1], 10);
+      smsStr = `${smsCount}건`;
+    } else if (cleanName.includes("문자 기본제공") || cleanName.includes("문자 무제한")) {
+      smsCount = 9999;
+      smsStr = "기본제공 (무제한)";
+    }
   }
 
   let officialLink = "https://www.tworld.co.kr";
@@ -333,14 +406,9 @@ export const getPlanSpec = (
   if (carrierLabel.includes("LGU") || carrierLabel.includes("유플러스")) officialLink = "https://www.lguplus.com";
   if (carrierLabel.includes("알뜰") || carrierLabel.includes("이야기") || carrierLabel.includes("스카이")) officialLink = "https://www.mvnohub.kr";
 
-  let displayName = cleanName;
-  const parenMatch = cleanName.match(/\(([^)]+)\)$/);
-  if (parenMatch) {
-    displayName = parenMatch[1].replace(/\s*·\s*(LTE|5G|4G)\s*$/i, "").trim();
-  } else {
-    const parts = cleanName.replace(/\[.*?\]\s*/, "").split(/\s*·\s*/);
-    displayName = parts[0] || cleanName;
-  }
+  const rawTitle = cleanName.replace(/\[.*?\]\s*/, "");
+  const firstPart = rawTitle.split(/\s*·\s*/)[0].split("\n")[0].trim();
+  const displayName = firstPart || cleanName;
 
   return {
     carrier: carrierLabel,

@@ -177,6 +177,12 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
   const isHighRange = dataDiffMB >= 15360 && dataDiffMB < 30720;
   const isUltraRange = dataDiffMB >= 30720;
 
+  // 약정 기간 남음 시 위약금 시뮬레이션 연산
+  const penalty12 = Math.round(currentFee * 3.5);
+  const penalty24 = Math.round(currentFee * 7.5);
+  const bep12 = priceDiff > 0 ? Math.ceil(penalty12 / priceDiff) : null;
+  const bep24 = priceDiff > 0 ? Math.ceil(penalty24 / priceDiff) : null;
+
   return (
     <div className="w-full max-w-2xl rounded-2xl border border-border/80 bg-gradient-to-b from-card to-background p-6 shadow-md transition-all hover:shadow-lg">
       
@@ -219,6 +225,71 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
           </div>
         </div>
       )}
+
+      {/* 2-2. 남은 약정 기간별 위약금 시뮬레이션 */}
+      {isContractRemaining && (
+        <div className="mt-4 rounded-xl border border-border/60 bg-card p-4 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-border/40 pb-2.5">
+            <AlertTriangle className="text-amber-500" size={16} />
+            <h4 className="text-xs font-black text-primary">
+              남은 약정 기간별 위약금 시뮬레이션
+            </h4>
+          </div>
+
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border/50 bg-muted/40">
+                  <th className="py-2.5 px-3 font-bold text-muted-foreground w-1/4">구분</th>
+                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">12개월 남았을 때</th>
+                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">24개월 남았을 때</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">추정 위약금</td>
+                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
+                    {fmt(penalty12)}원
+                  </td>
+                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
+                    {fmt(penalty24)}원
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">손익분기점 (BEP)</td>
+                  <td className="py-2.5 px-3 font-bold text-primary text-center">
+                    {bep12 !== null ? `${bep12}개월` : "회수 불가"}
+                  </td>
+                  <td className="py-2.5 px-3 font-bold text-primary text-center">
+                    {bep24 !== null ? `${bep24}개월` : "회수 불가"}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">최종 진단</td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-black ${
+                      bep12 !== null && bep12 <= 12
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                    }`}>
+                      {bep12 !== null && bep12 <= 12 ? "💡 조건부 변경" : "⚠️ 신중 권장"}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className="inline-block rounded-lg bg-destructive/15 px-2.5 py-1 text-[11px] font-black text-destructive">
+                      ⛔ 지금 바꾸면 손해 (비추천)
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/80 border-t border-border/30 pt-2 font-medium">
+            ※ 위 내용은 현재 사용 중인 요금 기준 약정 기간별 추정 위약금이며, 실제 위약금은 통신사 정책에 따라 다를 수 있습니다.
+          </p>
+        </div>
+      )}
       <div className="mt-5 grid gap-4 sm:grid-cols-2">
         {/* 기존 요금제 */}
         <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
@@ -251,13 +322,13 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
             <div className="flex justify-between">
               <span className="text-muted-foreground">무료 통화 시간</span>
               <span className="font-bold text-primary">
-                {currentSpec.voiceMin === 9999 ? "무제한" : `${currentSpec.voiceMin}분`}
+                {currentSpec.voice || (currentSpec.voiceMin === 9999 ? "기본제공 (무제한)" : `${currentSpec.voiceMin}분`)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">무료 문자 건수</span>
               <span className="font-bold text-primary">
-                {currentSpec.smsCount === 9999 ? "기본제공" : `${currentSpec.smsCount}건`}
+                {currentSpec.sms || (currentSpec.smsCount === 9999 ? "기본제공 (무제한)" : `${currentSpec.smsCount}건`)}
               </span>
             </div>
           </div>
@@ -311,13 +382,13 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">무료 통화 시간</span>
                   <span className="font-bold text-primary">
-                    {recommendedSpec.voiceMin === 9999 ? "무제한" : `${recommendedSpec.voiceMin}분`}
+                    {recommendedSpec.voice || (recommendedSpec.voiceMin === 9999 ? "기본제공 (무제한)" : `${recommendedSpec.voiceMin}분`)}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">무료 문자 건수</span>
                   <span className="font-bold text-primary">
-                    {recommendedSpec.smsCount === 9999 ? "기본제공" : `${recommendedSpec.smsCount}건`}
+                    {recommendedSpec.sms || (recommendedSpec.smsCount === 9999 ? "기본제공 (무제한)" : `${recommendedSpec.smsCount}건`)}
                   </span>
                 </div>
               </div>

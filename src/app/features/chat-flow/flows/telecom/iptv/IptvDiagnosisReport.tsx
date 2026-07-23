@@ -73,6 +73,12 @@ export default function IptvDiagnosisReport({ result }: IptvDiagnosisReportProps
   // ② 지출형 공식: 선택 요금 - 기존 요금
   const spendingDiff = selectedPrice - currentPriceInput;
 
+  // 약정 기간 남음 시 위약금 시뮬레이션 연산
+  const penalty12 = Math.round(currentPriceInput * 3.5);
+  const penalty24 = Math.round(currentPriceInput * 7.5);
+  const bep12 = savingDiff > 0 ? Math.ceil(penalty12 / savingDiff) : null;
+  const bep24 = savingDiff > 0 ? Math.ceil(penalty24 / savingDiff) : null;
+
   // 약정 상태 판별 변수
   const isExpired = contractPeriod === "expired";
   const isRemaining = contractPeriod === "remaining";
@@ -301,6 +307,71 @@ export default function IptvDiagnosisReport({ result }: IptvDiagnosisReportProps
               <span className="font-extrabold text-primary">반드시 현재 이용 중이신 통신사 고객센터를 통해 남은 위약금을 먼저 조회·확인</span>하신 후 가입을 진행해 주시기 바랍니다.
             </p>
           </div>
+        </div>
+      )}
+
+      {/* 4-2. 남은 약정 기간별 위약금 시뮬레이션 (isRemaining) */}
+      {isRemaining && (
+        <div className="mt-5 rounded-xl border border-border/60 bg-card p-4 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-border/40 pb-2.5">
+            <AlertTriangle className="text-amber-500" size={16} />
+            <h4 className="text-xs font-black text-primary">
+              남은 약정 기간별 위약금 시뮬레이션
+            </h4>
+          </div>
+
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border/50 bg-muted/40">
+                  <th className="py-2.5 px-3 font-bold text-muted-foreground w-1/4">구분</th>
+                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">12개월 남았을 때</th>
+                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">24개월 남았을 때</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">추정 위약금</td>
+                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
+                    {fmt(penalty12)}원
+                  </td>
+                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
+                    {fmt(penalty24)}원
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">손익분기점 (BEP)</td>
+                  <td className="py-2.5 px-3 font-bold text-primary text-center">
+                    {bep12 !== null ? `${bep12}개월` : "회수 불가"}
+                  </td>
+                  <td className="py-2.5 px-3 font-bold text-primary text-center">
+                    {bep24 !== null ? `${bep24}개월` : "회수 불가"}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">최종 진단</td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-black ${
+                      bep12 !== null && bep12 <= 12
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                    }`}>
+                      {bep12 !== null && bep12 <= 12 ? "💡 조건부 변경" : "⚠️ 신중 권장"}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className="inline-block rounded-lg bg-destructive/15 px-2.5 py-1 text-[11px] font-black text-destructive">
+                      ⛔ 지금 바꾸면 손해 (비추천)
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/80 border-t border-border/30 pt-2 font-medium">
+            ※ 위 내용은 현재 사용 중인 요금 기준 약정 기간별 추정 위약금이며, 실제 위약금은 통신사 정책에 따라 다를 수 있습니다.
+          </p>
         </div>
       )}
 

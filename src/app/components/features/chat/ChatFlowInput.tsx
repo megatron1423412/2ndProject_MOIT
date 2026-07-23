@@ -77,35 +77,64 @@ const getPlanDetails = (value: string, label: string, subCategoryId: string) => 
 };
 
 export function parsePlanLabel(label: string) {
-  if (!label) return { cleanLabel: "", mvnoCarrier: "", name: "", priceStr: "", data: "", networkType: "" };
+  if (!label) return { cleanLabel: "", mvnoCarrier: "", name: "", priceStr: "", data: "", networkType: "", voice: "", sms: "" };
 
   const cleanLabel = label.replace(/^\[추천\s*\d+순위\]\s*/, "");
-  const brandMatch = cleanLabel.match(/^\[(.*?)\]/);
-  const mvnoCarrier = brandMatch ? brandMatch[1] : "";
-  const restLabel = brandMatch ? cleanLabel.replace(/^\[.*?\]\s*/, "") : cleanLabel;
 
-  const priceMatch = label.match(/월\s*([\d,]+원)/);
-  const priceStr = priceMatch ? priceMatch[1] : "";
-
-  let name = restLabel;
+  let mvnoCarrier = "";
+  let name = "";
+  let priceStr = "";
   let data = "";
   let networkType = "";
+  let voice = "";
+  let sms = "";
 
-  if (restLabel.includes(" · ")) {
+  // 통신사 브랜드 추출 [SKT], [KT], [이야기모바일(SKT)] 등
+  const brandMatch = cleanLabel.match(/^\[(.*?)\]/);
+  if (brandMatch) {
+    mvnoCarrier = brandMatch[1];
+  }
+  const restLabel = brandMatch ? cleanLabel.replace(/^\[.*?\]\s*/, "") : cleanLabel;
+
+  // 가격 추출
+  const priceMatch = label.match(/월\s*([\d,]+원)/) || label.match(/([\d,]+원)/);
+  if (priceMatch) {
+    priceStr = priceMatch[1];
+  }
+
+  // 1. 개행문자(\n) 구분 파싱
+  if (restLabel.includes("\n")) {
+    const [line1, line2] = restLabel.split("\n").map(s => s.trim());
+    name = line1.replace(/월\s*[\d,]+원/, "").replace(/[\d,]+원/, "").replace(/\(\s*\)/, "").trim();
+
+    const parts = line2 ? line2.split(",").map(s => s.trim()) : [];
+    data = parts[0] || "";
+    networkType = parts[1] || "";
+    voice = parts[2] || "";
+    sms = parts[3] || "";
+  }
+  // 2. 가운데점( · ) 구분 파싱
+  else if (restLabel.includes(" · ")) {
     const parts = restLabel.split(" · ").map(s => s.trim());
     name = parts[0];
+
     for (let i = 1; i < parts.length; i++) {
       const part = parts[i];
       if (/월\s*[\d,]+원/.test(part)) continue;
-      if (part === "LTE" || part === "5G" || part === "4G") {
-        networkType = part;
-      } else if (part.includes("GB") || part.includes("MB") || part.includes("무제한") || part.includes("무한")) {
-        data = part;
-      } else if (!data) {
-        data = part;
+
+      if (part === "LTE" || part === "5G" || part === "4G" || part === "(5G)" || part === "(LTE)") {
+        networkType = part.replace(/[()]/g, "");
+      } else if (part.includes("데이터") || part.includes("GB") || part.includes("MB") || part.includes("일5GB") || part.includes("일 5GB") || part.includes("무제한")) {
+        if (!data) data = part.replace(/^데이터\s*/, "");
+      } else if (part.includes("음성") || part.includes("통화") || part.includes("집/이동전화")) {
+        voice = part;
+      } else if (part.includes("문자")) {
+        sms = part;
       }
     }
-  } else {
+  }
+  // 3. 단일 텍스트 파싱 fallback
+  else {
     name = restLabel.replace(/\s*\(월\s*[\d,]+원\)/, "").trim();
     name = name.replace(/\s*-\s*월\s*[\d,]+원/, "").trim();
 
@@ -118,13 +147,26 @@ export function parsePlanLabel(label: string) {
     else if (/LTE/i.test(name) || /4G/i.test(name)) networkType = "LTE";
   }
 
+  // data에 '음성'이나 '문자' 단어가 잘못 안 섞이도록 보정
+  if (data.includes("음성") || data.includes("문자")) {
+    if (data.includes("음성") && !voice) {
+      voice = data;
+      data = "";
+    } else if (data.includes("문자") && !sms) {
+      sms = data;
+      data = "";
+    }
+  }
+
   return {
     cleanLabel,
     mvnoCarrier,
     name,
     priceStr,
     data,
-    networkType
+    networkType,
+    voice,
+    sms
   };
 }
 
@@ -505,14 +547,25 @@ export default function ChatFlowInput({
                     )}
                   </div>
 
-                  {(parsed.data || parsed.networkType) && (
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground pt-0.5">
-                      {parsed.data && <span>데이터: <strong className="text-foreground font-semibold">{parsed.data}</strong></span>}
-                      {parsed.data && parsed.networkType && <span className="opacity-40">·</span>}
-                      {parsed.networkType && (
-                        <span className="rounded bg-secondary px-1.5 py-0.2 text-[9px] font-bold text-foreground/80 uppercase border border-border/50">
-                          {parsed.networkType}
-                        </span>
+                  {(parsed.data || parsed.networkType || parsed.voice || parsed.sms) && (
+                    <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground pt-0.5">
+                      {(parsed.data || parsed.networkType) && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {parsed.data && <span>데이터: <strong className="text-foreground font-semibold">{parsed.data}</strong></span>}
+                          {parsed.data && parsed.networkType && <span className="opacity-40">·</span>}
+                          {parsed.networkType && (
+                            <span className="rounded bg-secondary px-1.5 py-0.2 text-[9px] font-bold text-foreground/80 uppercase border border-border/50">
+                              {parsed.networkType}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {(parsed.voice || parsed.sms) && (
+                        <div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground flex-wrap">
+                          {parsed.voice && <span>{parsed.voice}</span>}
+                          {parsed.voice && parsed.sms && <span className="opacity-40">·</span>}
+                          {parsed.sms && <span>{parsed.sms}</span>}
+                        </div>
                       )}
                     </div>
                   )}
@@ -539,16 +592,17 @@ export default function ChatFlowInput({
       step.id === "phone-current-plan-api" ||
       step.id === "internet-current-plan-api" ||
       step.id === "iptv-current-plan-api" ||
-      step.id === "bundle-current-plan-api"
+      step.id === "bundle-current-plan-api" ||
+      step.id.endsWith("-current-plan-api")
     ) {
       const options = step.id === "phone-current-plan-api" && (phonePlanOptions ?? frozenPlanOptionsRef.current)
         ? (phonePlanOptions ?? frozenPlanOptionsRef.current)!
         : step.options;
       const planOption = options.find(
-        (o) => o.value !== "direct-select" && o.value !== "direct-input"
+        (o) => o.value !== "direct-select" && o.value !== "direct-choose" && o.value !== "direct-input"
       );
       
-      const directSelectOption = options.find((o) => o.value === "direct-select");
+      const directSelectOption = options.find((o) => o.value === "direct-select" || o.value === "direct-choose");
       const directInputOption = options.find((o) => o.value === "direct-input");
 
       const userSelectedThis = planOption && answers && answers[step.answerKey] === planOption.value;
@@ -579,9 +633,22 @@ export default function ChatFlowInput({
                   {isHistorical ? (userSelectedThis ? "선택됨 ✓" : "") : "이 요금제 선택하기 →"}
                 </span>
               </div>
-              <h4 className="text-sm font-black text-primary transition-colors">
-                {planOption.label}
-              </h4>
+
+              {planOption.label.includes("\n") ? (
+                <div className="flex flex-col gap-1.5 my-1">
+                  <h4 className="text-sm font-black text-primary tracking-tight">
+                    {planOption.label.split("\n")[0]}
+                  </h4>
+                  <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1.5 leading-relaxed">
+                    {planOption.label.split("\n")[1]}
+                  </div>
+                </div>
+              ) : (
+                <h4 className="text-sm font-black text-primary transition-colors whitespace-pre-line leading-relaxed">
+                  {planOption.label}
+                </h4>
+              )}
+
               <p className="text-xs text-muted-foreground leading-normal">
                 고객님이 입력하신 납부 금액 정보를 기반으로 통신사 API에서 조회 및 추정한 기존 가입 요금제 스펙입니다.
               </p>
@@ -701,17 +768,27 @@ export default function ChatFlowInput({
                       </div>
                     )}
 
-                    {(parsed.data || parsed.networkType) && (
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground flex-wrap pt-0.5">
-                        {parsed.data && <span className="font-semibold text-foreground">{parsed.data}</span>}
-                        {parsed.data && parsed.networkType && <span className="opacity-40">·</span>}
-                        {parsed.networkType && (
-                          <span className="rounded bg-secondary px-1.5 py-0.2 text-[8px] font-bold uppercase text-foreground/80 border border-border/50">
-                            {parsed.networkType}
+                    <div className="flex flex-col gap-1 pt-1 border-t border-border/30 mt-1">
+                      {parsed.data && (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10.5px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                            {parsed.data}
                           </span>
-                        )}
+                          {parsed.networkType && (
+                            <span className="rounded bg-secondary px-1 py-0.2 text-[8px] font-bold uppercase text-foreground/80 border border-border/50">
+                              {parsed.networkType}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-1 text-[9.5px] font-medium text-muted-foreground flex-wrap pt-0.5">
+                        <span>{parsed.voice || "음성 무제한"}</span>
+                        <span className="opacity-40">·</span>
+                        <span>{parsed.sms || "문자 기본제공"}</span>
+                        {parsed.networkType && <span className="opacity-60">({parsed.networkType})</span>}
                       </div>
-                    )}
+                    </div>
                   </div>
 
                   <button

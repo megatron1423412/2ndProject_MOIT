@@ -36,7 +36,7 @@ import { MOCK_ALL_INTERNET_PLANS, SK_INTERNET_PLANS, KT_INTERNET_PLANS, LGU_INTE
 
 export default function InternetDiagnosisReport({ result }: InternetDiagnosisReportProps) {
   const answers = result.metadata?.answers || {};
-  
+
   const carrier = answers["internet.cableCarrier"] || answers["internet.commonCarrier"] || "KT";
   const currentFee = Number(answers["internet.fee"]) || 0;
 
@@ -44,15 +44,15 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
   const customPlan = answers["internet.customPlan"] as string;
 
   const foundPlan = SK_INTERNET_PLANS.find(p => p.id === confirmedPlanId) ||
-                    KT_INTERNET_PLANS.find(p => p.id === confirmedPlanId) ||
-                    LGU_INTERNET_PLANS.find(p => p.id === confirmedPlanId) ||
-                    HELLOVISION_INTERNET_PLANS.find(p => p.id === confirmedPlanId) ||
-                    SKYLIFE_INTERNET_PLANS.find(p => p.id === confirmedPlanId) ||
-                    KTHCN_INTERNET_PLANS.find(p => p.id === confirmedPlanId) ||
-                    DLIVE_INTERNET_PLANS.find(p => p.id === confirmedPlanId);
+    KT_INTERNET_PLANS.find(p => p.id === confirmedPlanId) ||
+    LGU_INTERNET_PLANS.find(p => p.id === confirmedPlanId) ||
+    HELLOVISION_INTERNET_PLANS.find(p => p.id === confirmedPlanId) ||
+    SKYLIFE_INTERNET_PLANS.find(p => p.id === confirmedPlanId) ||
+    KTHCN_INTERNET_PLANS.find(p => p.id === confirmedPlanId) ||
+    DLIVE_INTERNET_PLANS.find(p => p.id === confirmedPlanId);
 
   let currentSpeedKey = answers["internet.currentSpeed"] || (foundPlan ? String(foundPlan.speedMbps) : "500");
-  
+
   if (!answers["internet.currentSpeed"] && !foundPlan) {
     if (confirmedPlanId.includes("100Mbps") || confirmedPlanId.includes("100m")) {
       currentSpeedKey = "100";
@@ -109,7 +109,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
   };
 
   const recommendedPrice = standardPrices[recommendedSpeedKey] ?? 33000;
-  
+
   // 약정 만료 여부 혜택 설명
   const isExpired = contractPeriod === "expired";
   const isRemaining = contractPeriod === "under2y" || contractPeriod === "under1y";
@@ -129,12 +129,12 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
   const selectedContractLabel = contractLabelMap[contractKey] || "3년 약정";
 
   const foundSelectedPlan = SK_INTERNET_PLANS.find(p => p.id === selectedPlanRaw) ||
-                            KT_INTERNET_PLANS.find(p => p.id === selectedPlanRaw) ||
-                            LGU_INTERNET_PLANS.find(p => p.id === selectedPlanRaw) ||
-                            HELLOVISION_INTERNET_PLANS.find(p => p.id === selectedPlanRaw) ||
-                            SKYLIFE_INTERNET_PLANS.find(p => p.id === selectedPlanRaw) ||
-                            KTHCN_INTERNET_PLANS.find(p => p.id === selectedPlanRaw) ||
-                            DLIVE_INTERNET_PLANS.find(p => p.id === selectedPlanRaw);
+    KT_INTERNET_PLANS.find(p => p.id === selectedPlanRaw) ||
+    LGU_INTERNET_PLANS.find(p => p.id === selectedPlanRaw) ||
+    HELLOVISION_INTERNET_PLANS.find(p => p.id === selectedPlanRaw) ||
+    SKYLIFE_INTERNET_PLANS.find(p => p.id === selectedPlanRaw) ||
+    KTHCN_INTERNET_PLANS.find(p => p.id === selectedPlanRaw) ||
+    DLIVE_INTERNET_PLANS.find(p => p.id === selectedPlanRaw);
 
   let selectedPlanName = "";
   let selectedPrice = 0;
@@ -149,7 +149,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
     const isHcn = KTHCN_INTERNET_PLANS.some(p => p.id === selectedPlanRaw);
     const isDlive = DLIVE_INTERNET_PLANS.some(p => p.id === selectedPlanRaw);
     const groupLabel = isSk ? "SK" : isKt ? "KT" : isLgu ? "LG" : isHel ? "헬로비전" : isSky ? "스카이라이프" : isHcn ? "KT HCN" : isDlive ? "딜라이브" : "";
-    
+
     selectedPlanName = groupLabel ? `[${groupLabel}] ${foundSelectedPlan.name}` : foundSelectedPlan.name;
     selectedPrice = foundSelectedPlan.prices[contractKey as keyof typeof foundSelectedPlan.prices] ?? foundSelectedPlan.prices.discount3y;
     selectedSpeedText = foundSelectedPlan.speed;
@@ -189,7 +189,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
 
   return (
     <div className="w-full max-w-2xl rounded-2xl border border-border/80 bg-gradient-to-b from-card to-background p-6 shadow-md transition-all hover:shadow-lg">
-      
+
       {/* 상단 타이틀 */}
       <div className="flex flex-col gap-2 border-b border-border/60 pb-5">
         <div className="flex items-center gap-2">
@@ -234,7 +234,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
             <span className="text-lg font-black text-primary">{fmt(currentFee)}</span>
             <span className="text-xs text-muted-foreground">원/월</span>
           </div>
-          
+
           <div className="mt-4 border-t border-border/40 pt-3 flex flex-col gap-2 text-xs">
             <div className="flex justify-between">
               <span className="text-muted-foreground">사용 중인 속도</span>
@@ -391,11 +391,10 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
                 <tr>
                   <td className="py-2.5 px-3 font-semibold text-muted-foreground">최종 진단</td>
                   <td className="py-2.5 px-3 text-center">
-                    <span className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-black ${
-                      bep12 !== null && bep12 <= 12
+                    <span className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-black ${bep12 !== null && bep12 <= 12
                         ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                         : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                    }`}>
+                      }`}>
                       {bep12 !== null && bep12 <= 12 ? "💡 조건부 변경" : "⚠️ 신중 권장"}
                     </span>
                   </td>

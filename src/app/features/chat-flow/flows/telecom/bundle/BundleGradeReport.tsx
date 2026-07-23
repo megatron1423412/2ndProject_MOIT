@@ -102,6 +102,13 @@ export default function BundleGradeReport({ result, onEndChat }: BundleGradeRepo
   const showTrustBadge = answers["bundle.desiredCompanyType"] === "mvno";
   const showWarningBadge = answers["bundle.partSelect"] === "ptc" || (currentMembers !== "1인" && currentMembers !== "-");
 
+  const isRemaining = answers["bundle.allContract"] === "남음" || 
+    answers["bundle.ptaContract"] === "남음" || answers["bundle.ptaComboContract"] === "남음" || 
+    answers["bundle.ptbContract"] === "남음" || answers["bundle.ptbComboContract"] === "남음" || 
+    answers["bundle.ptcContract"] === "남음" || answers["bundle.ptcComboContract"] === "남음" || 
+    answers["bundle.diffContract"] === "남음" || answers["bundle.diffInternetContract"] === "남음" || answers["bundle.diffTvContract"] === "남음" || 
+    answers["bundle.newAContract"] === "남음" || answers["bundle.newBContract"] === "남음";
+
   return (
     <div className={`w-full max-w-sm rounded-2xl border p-6 shadow-md transition-all hover:shadow-lg relative flex flex-col gap-5 ${gradeInfo.theme.bg} ${gradeInfo.theme.border}`}>
       
@@ -144,6 +151,19 @@ export default function BundleGradeReport({ result, onEndChat }: BundleGradeRepo
           <p className="font-extrabold text-indigo-600 dark:text-indigo-400 leading-relaxed">{gradeInfo.status}</p>
         </div>
       </div>
+
+      {/* 약정 기간 남음 특별 안내 문구 */}
+      {isRemaining && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs leading-relaxed">
+          <p className="font-bold text-amber-600 dark:text-amber-400 mb-1">
+            유저님! 위에 표시된 등급은 약정 기간과 위약금이 없는 상태를 기준으로 산출된 등급이에요! 💡
+          </p>
+          <p className="text-muted-foreground font-medium">
+            현재 약정이 남아있다면, 발생하는 위약금이 남은 기간 동안 아끼는 총금액보다 커서 해지 손실이 더 발생할 수 있어요.<br />
+            실제 이득을 보시려면 통신사 고객센터나 앱에서 정확한 위약금을 먼저 꼭 확인해 보세요! 👍
+          </p>
+        </div>
+      )}
 
       {/* 절약 지표 */}
       <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-4 text-xs">

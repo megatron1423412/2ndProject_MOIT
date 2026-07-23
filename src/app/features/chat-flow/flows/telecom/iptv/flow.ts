@@ -225,7 +225,7 @@ const specific: FlowStep[] = [
     message: "현재 사용하시는 TV·IPTV 요금제가 맞을까요?",
     answerKey: `${namespace}.confirmedPlan`,
     options: [
-      { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "iptv-choose-current-list" },
+      { value: "direct-choose", label: "직접 고를래요(리스트 보기)", next: "iptv-choose-current-list" },
       { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "iptv-manual-name-input" },
     ],
     optionsResolver: (answers) => {
@@ -252,18 +252,19 @@ const specific: FlowStep[] = [
         });
       });
 
+      const carrierLabel = providerTypeLabelMap[providerType] ?? carrierCode;
       const apiOptions = bestPlan
         ? [
           {
             value: bestPlan.id,
-            label: `[추정] [${providerTypeLabelMap[providerType] ?? carrierCode}] ${bestPlan.name}`,
+            label: `[${carrierLabel}] ${bestPlan.name} 월 ${bestPrice.toLocaleString("ko-KR")}원\n${bestPlan.channels}개 채널, IPTV 일반형, 음성 지원, 셋톱박스 포함`,
           },
         ]
         : [];
 
       return [
         ...apiOptions,
-        { value: "direct-select", label: "해당되는 요금제가 없음 (리스트 보기)", next: "iptv-choose-current-list" },
+        { value: "direct-choose", label: "직접 고를래요(리스트 보기)", next: "iptv-choose-current-list" },
         { value: "direct-input", label: "직접 입력 (요금제명 직접 작성)", next: "iptv-manual-name-input" },
       ];
     },
