@@ -134,7 +134,7 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
 
   // 기존 요금제 스펙 & 추천 요금제 스펙 매칭 (유저가 추천 카드 또는 '직접 고를래요'에서 선택한 요금제 최우선 적용)
   const currentSpec = getPlanSpec(confirmedPlan, carrier, currentPlanFee, dataVolume);
-  
+
   const rawSelectedPlan = (answers["phone.manualSelectedPlan"] && answers["phone.manualSelectedPlan"] !== "direct-choose")
     ? (answers["phone.manualSelectedPlan"] as string)
     : (answers["phone.selectedRecommendedPlan"] as string) || "";
@@ -146,92 +146,8 @@ export default function PhoneDiagnosisReport({ result }: PhoneDiagnosisReportPro
   selectedPlanClean = selectedPlanClean.replace(/^\[추천\s*\d+순위\]\s*/, "").trim();
 
   let userSelectedSpec: PlanSpec | null = null;
-  if (selectedPlanClean && selectedPlanClean !== "rec-mock-1" && selectedPlanClean !== "direct-choose") {
-    // 1. ALL_MVNO_PLAN_SPECS 데이터셋 매칭 탐색
-    const mvnoMatch = ALL_MVNO_PLAN_SPECS.find(p =>
-      selectedPlanClean.includes(p.name) ||
-      selectedPlanClean.includes(`[${p.mvnoCarrier}] ${p.name}`)
-    );
-
-    if (mvnoMatch) {
-      userSelectedSpec = {
-        carrier: mvnoMatch.mvnoCarrier || mvnoMatch.carrier,
-        name: `[${mvnoMatch.mvnoCarrier}] ${mvnoMatch.name}`,
-        price: mvnoMatch.price,
-        ageLimit: mvnoMatch.ageLimit || "제한 없음",
-        signUpMethod: mvnoMatch.signUpMethod || "온라인/오프라인",
-        data: mvnoMatch.data,
-        dataValueMB: mvnoMatch.dataValueMB,
-        hasQos: mvnoMatch.hasQos,
-        qosSpeed: mvnoMatch.qosSpeed,
-        voice: mvnoMatch.voice,
-        voiceMin: mvnoMatch.voiceMin,
-        sms: mvnoMatch.sms,
-        smsCount: mvnoMatch.smsCount,
-        link: mvnoMatch.link || "https://www.mvnohub.kr",
-      };
-    } else {
-      // 2. 문자열 파싱 (메이저 3사 API 요금제 및 기타 선택 요금제)
-      const carrierMatch = selectedPlanClean.match(/\[(.*?)\]/);
-      const carrierTag = carrierMatch ? carrierMatch[1] : (carrier === "skt" ? "SKT" : carrier === "kt" ? "KT" : carrier === "lgu" ? "LGU+" : "알뜰폰");
-
-      const priceMatch = selectedPlanClean.match(/월\s*([\d,]+)원/);
-      const parsedPrice = priceMatch ? parseInt(priceMatch[1].replace(/,/g, ""), 10) : currentFee;
-
-      let dataValMB = 10240;
-      let dataStr = "기본 제공";
-      const gbMatch = selectedPlanClean.match(/(\d+(?:\.\d+)?)\s*GB/i);
-      const mbMatch = selectedPlanClean.match(/(\d+)\s*MB/i);
-      if (gbMatch) {
-        const valGB = parseFloat(gbMatch[1]);
-        dataValMB = Math.round(valGB * 1024);
-        dataStr = `${valGB}GB`;
-      } else if (mbMatch) {
-        dataValMB = parseInt(mbMatch[1], 10);
-        dataStr = `${dataValMB}MB`;
-      } else if (selectedPlanClean.includes("무제한") || selectedPlanClean.includes("무한")) {
-        dataValMB = 102400;
-        dataStr = "무제한";
-      }
-
-      let voiceMin = 9999;
-      let voiceStr = "무제한";
-      const voiceMatch = selectedPlanClean.match(/(\d+)\s*분/);
-      if (voiceMatch) {
-        voiceMin = parseInt(voiceMatch[1], 10);
-        voiceStr = `${voiceMin}분`;
-      }
-
-      let smsCount = 9999;
-      let smsStr = "기본제공";
-      const smsMatch = selectedPlanClean.match(/(\d+)\s*건/);
-      if (smsMatch) {
-        smsCount = parseInt(smsMatch[1], 10);
-        smsStr = `${smsCount}건`;
-      }
-
-      let link = "https://www.tworld.co.kr";
-      if (carrierTag.includes("KT")) link = "https://shop.kt.com";
-      if (carrierTag.includes("LGU") || carrierTag.includes("유플러스")) link = "https://www.lguplus.com";
-      if (carrierTag.includes("알뜰") || carrierTag.includes("이야기") || carrierTag.includes("스카이") || carrierTag.includes("헬로")) link = "https://www.mvnohub.kr";
-
-      userSelectedSpec = {
-        carrier: carrierTag,
-        name: selectedPlanClean,
-        price: parsedPrice,
-        ageLimit: "제한 없음",
-        signUpMethod: "온·오프라인 가능",
-        data: dataStr,
-        dataValueMB: dataValMB,
-        hasQos: selectedPlanClean.includes("안심") || selectedPlanClean.includes("QoS"),
-        qosSpeed: "1Mbps",
-        voice: voiceStr,
-        voiceMin,
-        sms: smsStr,
-        smsCount,
-        link,
-      };
-    }
+  if (selectedPlanClean && selectedPlanClean !== "direct-choose") {
+    userSelectedSpec = getPlanSpec(selectedPlanClean, carrier, currentFee, dataVolume);
   }
 
   const recommendedSpec = userSelectedSpec || (apiPlan && !selectedPlanClean ? apiPlan : getPlanSpec(selectedRecommendedPlan, carrier, currentFee, dataVolume));
