@@ -771,7 +771,8 @@ export interface ScoredInternetPlan {
 
 export const scoreAndRankInternetPlans = (
   contractKey: string,
-  answers: Record<string, any> = {}
+  answers: Record<string, any> = {},
+  ignoreCarrierMatch: boolean = false
 ): ScoredInternetPlan[] => {
   const rawCarrier = String(answers["internet.cableCarrier"] || answers["internet.commonCarrier"] || answers["carrier"] || "SK").toUpperCase();
   const desiredSpeedRaw = answers["internet.desiredSpeed"] || answers["desiredSpeed"] || "500Mbps";
@@ -813,18 +814,20 @@ export const scoreAndRankInternetPlans = (
   const scoredList: ScoredInternetPlan[] = [];
 
   for (const { code, plans } of carrierDBs) {
-    // 1. Carrier match score
+    // 1. Carrier match score (ignoreCarrierMatch가 true일 경우 통신사 필터링 무시)
     let carrierScore = 0;
-    if (rawCarrier === code) {
-      carrierScore = 2;
-    } else if (rawCarrier === "CABLE" && ["HELLOVISION", "SKYLIFE", "KTSKY", "KTHCN", "DLIVE"].includes(code)) {
-      carrierScore = 2;
-    } else if (rawCarrier === "SK" && code === "SK") {
-      carrierScore = 2;
-    } else if (rawCarrier === "KT" && (code === "KT" || code === "KTSKY")) {
-      carrierScore = 2;
-    } else if (rawCarrier === "LGU" && (code === "LGU" || code === "HELLOVISION")) {
-      carrierScore = 2;
+    if (!ignoreCarrierMatch) {
+      if (rawCarrier === code) {
+        carrierScore = 2;
+      } else if (rawCarrier === "CABLE" && ["HELLOVISION", "SKYLIFE", "KTSKY", "KTHCN", "DLIVE"].includes(code)) {
+        carrierScore = 2;
+      } else if (rawCarrier === "SK" && code === "SK") {
+        carrierScore = 2;
+      } else if (rawCarrier === "KT" && (code === "KT" || code === "KTSKY")) {
+        carrierScore = 2;
+      } else if (rawCarrier === "LGU" && (code === "LGU" || code === "HELLOVISION")) {
+        carrierScore = 2;
+      }
     }
 
     const availablePlans = plans.filter(p => isPlanAvailableInRegion(p, answers));
@@ -881,10 +884,7 @@ export const scoreAndRankInternetPlans = (
     if (a.hasExactContractPrice !== b.hasExactContractPrice) {
       return b.hasExactContractPrice - a.hasExactContractPrice;
     }
-    // (4) Fee closeness
-    if (a.priceDiff !== b.priceDiff) {
-      return a.priceDiff - b.priceDiff;
-    }
+    // (4) 요금 순서: 조건(통신사, 속도)을 충족하는 요금제 중 제일 저렴한 요금제 최우선 추천 (최저가 순 정렬)
     return a.price - b.price;
   });
 
@@ -966,7 +966,8 @@ export const MOCK_ALL_INTERNET_PLANS = [
 
 export const getFilteredAllInternetPlans = (contractKey: string, answers: Record<string, any> = {}) => {
   const contract = contractKey || "discount3y";
-  const ranked = scoreAndRankInternetPlans(contract, answers);
+  // "직접 고를래요 (전체 리스트 보기)" 선택 시 특정 통신사 편중 없이 속도/약정/가격 오름차순으로 전체 통신사 요금제 정렬
+  const ranked = scoreAndRankInternetPlans(contract, answers, true);
 
   const getCarrierLabel = (c: string) => {
     switch (c) {

@@ -164,6 +164,12 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
   const actualSaving = currentFee - selectedPrice;
   const selectedSpeedKey = answers["internet.desiredSpeed"] as string || recommendedSpeedKey;
 
+  // 약정 기간 남음 시 위약금 시뮬레이션 연산
+  const penalty12 = Math.round(currentFee * 3.5);
+  const penalty24 = Math.round(currentFee * 7.5);
+  const bep12 = actualSaving > 0 ? Math.ceil(penalty12 / actualSaving) : null;
+  const bep24 = actualSaving > 0 ? Math.ceil(penalty24 / actualSaving) : null;
+
   // 통신사 코드 감지 (결합 할인/사은품 링크용)
   let selectedCarrierCode = "";
   if (foundSelectedPlan) {
@@ -176,6 +182,10 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
     else if (DLIVE_INTERNET_PLANS.some(p => p.id === selectedPlanRaw)) selectedCarrierCode = "DLIVE";
   }
   const linkUrl = carrierUrlMap[selectedCarrierCode || answers["internet.cableCarrier"] || answers["internet.commonCarrier"] || ""] || "https://www.mvnohub.kr";
+
+  const currentSpeedText = foundPlan
+    ? foundPlan.speed
+    : (speedMap[currentSpeedKey] || (Number(currentSpeedKey) >= 1000 ? `최대 ${Number(currentSpeedKey) / 1000}Gbps` : `최대 ${currentSpeedKey}Mbps`));
 
   return (
     <div className="w-full max-w-2xl rounded-2xl border border-border/80 bg-gradient-to-b from-card to-background p-6 shadow-md transition-all hover:shadow-lg">
@@ -212,7 +222,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
         {/* 현재 인터넷 요약 카드 */}
         <div className="rounded-xl border border-border/60 bg-muted/10 p-4">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-muted-foreground uppercase">CURRENT STATE</span>
+            <span className="text-xs font-black text-primary">현재 사용 중인 요금</span>
             <span className="rounded bg-muted/60 px-2 py-0.5 text-[10px] font-bold text-muted-foreground">
               {carrierMap[carrier] || "통신사"}
             </span>
@@ -226,6 +236,10 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
           </div>
           
           <div className="mt-4 border-t border-border/40 pt-3 flex flex-col gap-2 text-xs">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">사용 중인 속도</span>
+              <span className="font-bold text-primary">{currentSpeedText}</span>
+            </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">인터넷 가구원</span>
               <span className="font-bold text-primary">{householdSize}명 사용</span>
@@ -249,7 +263,7 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
             CONFIRMED PLAN
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-blue-600 uppercase">SELECTED PLAN</span>
+            <span className="text-xs font-black text-blue-600">추천하는 요금제</span>
             <span className="rounded bg-blue-500/20 px-2 py-0.5 text-[10px] font-bold text-blue-600">
               최종 선택 요금제
             </span>
@@ -333,6 +347,71 @@ export default function InternetDiagnosisReport({ result }: InternetDiagnosisRep
               <span className="font-extrabold text-primary">반드시 현재 이용 중이신 통신사 고객센터를 통해 남은 위약금을 먼저 조회·확인</span>하신 후 가입을 진행해 주시기 바랍니다.
             </p>
           </div>
+        </div>
+      )}
+
+      {/* 4-2. 남은 약정 기간별 위약금 시뮬레이션 (isRemaining) */}
+      {isRemaining && (
+        <div className="mt-5 rounded-xl border border-border/60 bg-card p-4 shadow-sm">
+          <div className="flex items-center gap-2 border-b border-border/40 pb-2.5">
+            <AlertTriangle className="text-amber-500" size={16} />
+            <h4 className="text-xs font-black text-primary">
+              남은 약정 기간별 위약금 시뮬레이션
+            </h4>
+          </div>
+
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-border/50 bg-muted/40">
+                  <th className="py-2.5 px-3 font-bold text-muted-foreground w-1/4">구분</th>
+                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">12개월 남았을 때</th>
+                  <th className="py-2.5 px-3 font-bold text-primary w-3/8 text-center">24개월 남았을 때</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">추정 위약금</td>
+                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
+                    {fmt(penalty12)}원
+                  </td>
+                  <td className="py-2.5 px-3 font-extrabold text-primary text-center">
+                    {fmt(penalty24)}원
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">손익분기점 (BEP)</td>
+                  <td className="py-2.5 px-3 font-bold text-primary text-center">
+                    {bep12 !== null ? `${bep12}개월` : "회수 불가"}
+                  </td>
+                  <td className="py-2.5 px-3 font-bold text-primary text-center">
+                    {bep24 !== null ? `${bep24}개월` : "회수 불가"}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2.5 px-3 font-semibold text-muted-foreground">최종 진단</td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-black ${
+                      bep12 !== null && bep12 <= 12
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                    }`}>
+                      {bep12 !== null && bep12 <= 12 ? "💡 조건부 변경" : "⚠️ 신중 권장"}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 text-center">
+                    <span className="inline-block rounded-lg bg-destructive/15 px-2.5 py-1 text-[11px] font-black text-destructive">
+                      ⛔ 지금 바꾸면 손해 (비추천)
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground/80 border-t border-border/30 pt-2 font-medium">
+            ※ 위 내용은 현재 사용 중인 요금 기준 약정 기간별 추정 위약금이며, 실제 위약금은 통신사 정책에 따라 다를 수 있습니다.
+          </p>
         </div>
       )}
 

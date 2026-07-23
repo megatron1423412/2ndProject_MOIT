@@ -115,17 +115,17 @@ const opening: FlowStep[] = [
     ],
     optionsResolver: (answers) => {
       const carrier = (answers[`internet.cableCarrier`] || answers[`internet.commonCarrier`]) as string;
-      const currentFee = answers[`internet.fee`] as number;
-      
+      const currentFee = Number(answers[`internet.fee`] || 0);
+
       prefetchPlans(carrier);
 
       const cached = planCache[carrier] || [];
-      // 1순위 후보 (금액 차이 3,000원 이하 가장 가까운 요금제 하나만 추천)
-      let matched = cached
-        .filter(p => Math.abs(p.price - currentFee) <= 3000)
+      // 1순위 후보 (통신사 및 입력 금액에 가장 근접한 요금제 매칭)
+      let matched = [...cached]
+        .sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee))
         .slice(0, 1);
 
-      // 캐시에 결과가 아직 없거나 매칭되는 요금제가 없을 때, 입력 가격 기준 임시 요금제 카드를 항상 노출하여 카드 뷰를 유지합니다.
+      // 캐시에 결과가 아직 없거나 매칭되는 요금제가 없을 때, 입력 가격 기준 임시 요금제 카드를 노출합니다.
       if (matched.length === 0) {
         const apiPlans = fetchInternetPlansFromApi(carrier, currentFee);
         matched = apiPlans.map(p => ({
@@ -144,7 +144,7 @@ const opening: FlowStep[] = [
     next: "internet-contract-period"
   },
 
-  // [Part 1 - 3-1번] 🔄 입력 요금 기준 ±15,000원 범위 요금제 리스트 선택 스텝
+  // [Part 1 - 3-1번] 🔄 입력 요금 기준 근접 요금제 리스트 선택 스텝
   {
     id: "internet-current-plans-list",
     type: "single-choice",
@@ -155,15 +155,15 @@ const opening: FlowStep[] = [
     ],
     optionsResolver: (answers) => {
       const carrier = (answers[`internet.cableCarrier`] || answers[`internet.commonCarrier`]) as string;
-      const currentFee = answers[`internet.fee`] as number;
-      
+      const currentFee = Number(answers[`internet.fee`] || 0);
+
       prefetchPlans(carrier);
       const cached = planCache[carrier] || [];
 
-      // 유저 입력 요금 기준 ±15,000원 이하 요금제들 필터링
-      const matched = cached
-        .filter(p => Math.abs(p.price - currentFee) <= 15000)
-        .sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee));
+      // 유저 입력 요금 기준 가장 근접한 요금제 순 정렬 (최대 6개)
+      const matched = [...cached]
+        .sort((a, b) => Math.abs(a.price - currentFee) - Math.abs(b.price - currentFee))
+        .slice(0, 6);
 
       if (matched.length > 0) {
         return [
@@ -320,7 +320,10 @@ const specific: FlowStep[] = [
     type: "single-choice",
     message: "고객님의 조건을 분석하여 선정한 최적의 추천 요금제 리스트입니다.",
     answerKey: `${namespace}.selectedRecommendedPlan`,
-    options: MOCK_RECOMMENDED_INTERNET_PLANS,
+    options: [
+      ...MOCK_RECOMMENDED_INTERNET_PLANS,
+      { value: "direct-choose", label: "직접 고를래요 (전체 리스트 보기)", next: "internet-all-plans-select" }
+    ],
     optionsResolver: (answers) => {
       const carrier = answers["internet.cableCarrier"] || answers["internet.commonCarrier"] || "SK";
       const desiredSpeed = answers["internet.desiredSpeed"] || "500";
