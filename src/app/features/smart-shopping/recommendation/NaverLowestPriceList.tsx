@@ -14,7 +14,14 @@ interface Props {
 export default function NaverLowestPriceList({ items, onSelect, isFavorite, onToggleFavorite, isActive = true }: Props) {
   return (
     <section className="min-w-0 rounded-xl border border-border bg-card p-4 shadow-sm">
-      <div><p className="text-xs font-black text-emerald-600">NAVER 트렌드 상품</p><h3 className="mt-1 text-base font-black text-primary">인기 상품순 TOP 5</h3><p className="mt-1 text-xs text-muted-foreground">내부 데이터를 활용한 인기 상품 목록이며, 실제 네이버 쇼핑 인기 순위가 아닙니다.</p></div>
+      <div>
+        <div className="flex items-center gap-1.5">
+          <p className="text-xs font-black text-emerald-600">NAVER 트렌드 상품</p>
+          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-extrabold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">DUMMY</span>
+        </div>
+        <h3 className="mt-1 text-base font-black text-primary">인기 상품순 TOP 5</h3>
+        <p className="mt-1 text-xs text-muted-foreground">내부 데이터를 활용한 인기 상품 목록이며, 실제 네이버 쇼핑 인기 순위가 아닙니다.</p>
+      </div>
       {items.length === 0 && <p className="mt-4 rounded-lg bg-muted/30 p-4 text-sm text-muted-foreground">왼쪽 추천 결과와 겹치지 않는 내부 상품이 없습니다.</p>}
       <div className="mt-4 space-y-2">
         {items.map((item) => (

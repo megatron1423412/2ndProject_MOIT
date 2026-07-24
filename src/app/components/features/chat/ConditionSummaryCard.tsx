@@ -43,30 +43,30 @@ export default function ConditionSummaryCard({ text, stepId }: ConditionSummaryC
     : `${categoryName} 맞춤 진단 조건`;
 
   return (
-    <div className="w-full rounded-2xl border border-emerald-200/80 bg-[#F4FBF7] p-4 shadow-sm dark:border-emerald-800/40 dark:bg-emerald-950/30 select-none my-1">
+    <div className="w-full rounded-2xl border border-[#14B8A6]/30 bg-[#F4FBF7] p-4 shadow-sm dark:border-[#14B8A6]/40 dark:bg-[#14B8A6]/30 select-none my-1">
       {/* 1. 상단 태그 & 진단 안내 */}
       <div className="flex items-center justify-between gap-2">
-        <span className="inline-block rounded-md bg-[#E8F5E9] px-2.5 py-1 text-xs font-semibold text-[#2E7D32] dark:bg-emerald-900/60 dark:text-emerald-200">
+        <span className="inline-block rounded-md bg-[#14B8A6]/20 px-2.5 py-1 text-[10px] font-semibold text-[#14B8A6] dark:bg-[#14B8A6]/60 dark:text-[#14B8A6]">
           입력해 주신 조건 요약
         </span>
-        <span className="text-xs font-semibold text-[#2E7D32] dark:text-emerald-300 flex items-center gap-1">
+        <span className="text-[10px] font-semibold text-[#14B8A6] dark:text-[#14B8A6] flex items-center gap-1">
           조건 설정 완료 ✓
         </span>
       </div>
 
       {/* 2. 메인 타이틀 */}
-      <h4 className="mt-2.5 text-base font-bold text-slate-800 dark:text-slate-100">
+      <h4 className="mt-2.5 text-base font-black text-[#168D84] dark:text-[#168D84]">
         {mainTitle}
       </h4>
 
       {/* 3. 스펙 요약 내입 박스 */}
-      <div className="mt-3 rounded-xl border border-[#C8E6C9] bg-[#E8F5E9]/70 p-3.5 dark:border-emerald-800/50 dark:bg-emerald-950/40">
-        <div className="space-y-1.5 text-xs sm:text-sm font-semibold text-[#1B5E20] dark:text-emerald-200">
+      <div className="mt-3 rounded-xl border border-[#6E7581]/20 bg-[#6E7581]/10 p-3.5 dark:border-[#6E7581]/50 dark:bg-[#6E7581]/40">
+        <div className="space-y-1.5 text-[12px] font-semibold text-[#6E7581] dark:text-[#6E7581]">
           {items.map((item, idx) => (
             <div key={idx} className="flex items-start gap-1.5">
               <span className="opacity-70 flex-none">•</span>
               <span className="leading-snug">
-                <strong className="font-bold text-[#1B5E20] dark:text-emerald-100">{item.label}</strong>: {item.value}
+                <strong className="font-bold text-[12px] text-[#168D84] dark:text-emerald-100">{item.label}</strong>: {item.value}
               </span>
             </div>
           ))}
@@ -74,7 +74,7 @@ export default function ConditionSummaryCard({ text, stepId }: ConditionSummaryC
       </div>
 
       {/* 4. 하단 설명 문구 */}
-      <p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+      <p className="mt-3 text-[10px] leading-relaxed text-[#6E7581] dark:text-[#6E7581]">
         고객님이 입력하신 조건 정보를 기반으로 최적의 {categoryName} 라인업을 진단합니다.
       </p>
     </div>

@@ -210,7 +210,6 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const nextStep = () => {
     if (!selected) return;
     appendText("user-action", "다음 단계로");
-    appendText("assistant-text", "이 상품으로 무엇을 해볼까요? 원하는 다음 단계를 선택해주세요.");
     appendActionGroup("next");
     dispatch({ type: "choose-next-action" });
   };

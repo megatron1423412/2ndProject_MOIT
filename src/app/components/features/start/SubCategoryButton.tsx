@@ -11,47 +11,44 @@ interface SubCategoryButtonProps {
    - 여기에 없는 id는 기본값("h-24 w-24")으로 자동 처리됩니다.
 */
 const ICON_SIZE_MAP: Record<string, string> = {
-  "air-conditioner": "h-20 w-28 scale-130", // 에어컨: 가로로 길어서 가로폭 늘리고 살짝 확대
-  "tv": "h-24 w-24 scale-105",               // TV: 기본 형태 유지하며 미세 확대
-  "refrigerator": "h-26 w-20 scale-105",      // 냉장고: 세로형
-  "vacuum": "h-28 w-22 scale-95",            // 청소기: 작아 보일 경우 확대
-  "phone": "h-26 w-20 scale-95",             // 폰: 세로형
-  "internet": "h-22 w-26 scale-105",          // 인터넷
-  "iptv": "h-22 w-28 scale-115",              // IPTV
-  "bundle": "h-24 w-24 scale-100",            // 결합 상품
+  "air-conditioner": "h-20 w-20",
+  "tv": "h-20 w-15",
+  "refrigerator": "h-20 w-15",
+  "vacuum": "h-20 w-15",
+  "phone": "h-18 w-15",
+  "internet": "h-20 w-15",
+  "iptv": "h-18 w-18",
+  "bundle": "h-18 w-15",
 };
 
 export default function SubCategoryButton({ item, onSelect }: SubCategoryButtonProps) {
-  // item.id에 해당하는 크기 클래스를 가져오고, 없으면 기본값 적용
-  const customIconSize = ICON_SIZE_MAP[item.id] || "h-24 w-24";
+  const customIconSize = ICON_SIZE_MAP[item.id] || "h-18 w-18";
 
   return (
     <button
       type="button"
       onClick={() => onSelect(item)}
-      /* 💡 items-center, justify-center, text-center를 적용하여 카드 전체 및 텍스트를 중앙 정렬 */
-      className="group flex min-h-[180px] w-full flex-col items-center justify-center rounded-2xl border border-border bg-card p-5 text-center shadow-sm transition-all hover:border-accent/60 hover:bg-secondary/50 hover:shadow-md active:scale-[0.98]"
+      /* 💡 2x2 수직 그리드 카드 형태: 상단 아이콘 - 중앙 볼드 제목 - 하단 설명 텍스트 */
+      className="group flex min-h-[145px] w-[250px] flex-col items-center justify-between rounded-xl border border-slate-100 bg-white p-4 text-center shadow-xs transition-all hover:-translate-y-0.5 hover:border-[#60A5FA]/20 hover:shadow-md active:scale-[0.98] sm:p-5"
     >
-      {/* 1. 상단 구역: 아이콘 위치 조절 Zone */}
-      <div className="flex w-full justify-center">
-        {/* 상자 틀 자체는 h-25 w-25로 동일하게 잡아 정렬 맞춤 */}
-        <div className="flex h-25 w-25 shrink-0 items-center justify-center bg-transparent p-1">
-          <img 
-            src={item.iconPath || `/icons/${item.id}.png`} 
-            alt={item.title} 
-            /* 🎨 customIconSize 변수를 적용하여 개별 아이콘의 크기/비율만 변경 */
-            className={`${customIconSize} object-contain transition-transform duration-300 group-hover:scale-110`} 
+      {/* 1. 상단: 3D 아이콘 구역 (중앙 정렬) */}
+      <div className="flex w-full justify-center pt-1">
+        <div className="flex h-14 w-20 shrink-0 items-center justify-center bg-transparent">
+          <img
+            src={item.iconPath || `/icons/${item.id}.png`}
+            alt={item.title}
+            className={`${customIconSize} object-contain transition-transform duration-300 group-hover:scale-110`}
           />
         </div>
       </div>
 
-      {/* 2. 하단 구역: 타이틀 & 서브텍스트 (중앙 정렬) */}
-      <div className="mt-3 flex flex-col items-center justify-center space-y-1.5">
-        <h4 className="text-base font-black text-primary transition-colors group-hover:text-accent">
+      {/* 2. 중앙 및 하단: 타이틀(볼드) 및 설명 텍스트 */}
+      <div className="mt-5 flex flex-1 flex-col items-center justify-center space-y-1">
+        <h4 className="text-sm font-bold text-[#6E7581] transition-colors group-hover:text-[#1F2937] sm:text-base">
           {item.title}
         </h4>
-        
-        <p className="text-xs text-muted-foreground leading-relaxed break-keep text-center">
+
+        <p className="text-[11px] sm:text-xs leading-relaxed text-slate-500 break-keep text-center">
           {(item as any).description || `${item.title} 진단 및 맞춤 추천`}
         </p>
       </div>

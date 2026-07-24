@@ -65,14 +65,20 @@ export default function ChatSidebar({
        - bg-sidebar / text-sidebar-foreground: 사이드바 전용 배경색 및 기본 글자색
     */
     <aside className="flex h-full w-[292px] flex-shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      
+
       {/* 🎨 [프론트엔드 수정 가능 Zone 2: 사이드바 상단 헤더 영역]
          - border-b border-sidebar-border: 상단 구분선 스타일
          - p-4: 헤더 내부 패딩 여백 (p-3, p-5 등)
          - PanelLeftClose: lucide-react에서 다른 토글 아이콘(ChevronLeft, Menu 등)으로 교체 및 size={18} 수치 조정
       */}
-      <div className="flex items-center justify-between gap-3 border-b border-sidebar-border p-4">
-        <BrandHeader onClick={onBackToMain} />
+      <div className="flex items-center justify-between gap-2 border-b border-sidebar-border p-3.5">
+        <BrandHeader
+          onClick={onBackToMain}
+          layoutMode="stacked"
+          mascotSizeClass="h-15 sm:h-17 w-auto"
+          logoHeightClass="h-7 sm:h-10 w-auto"
+          sloganSizeClass="text-[10px] sm:text-[10px] font-bold text-slate-400"
+        />
         <IconButton label="사이드바 접기" onClick={onToggleCollapsed}>
           <PanelLeftClose size={18} />
         </IconButton>
@@ -86,15 +92,15 @@ export default function ChatSidebar({
       <div className="flex-1 overflow-y-auto px-3 py-4">
         <div className="space-y-5">
           {categories.map((category) =>
-              <ChatSidebarSection
-                key={category.id}
-                sectionTitle={category.sectionTitle}
-                category={category}
-                activeSubCategoryId={activeSubCategoryId}
-                isOpen={openCategoryIds.includes(category.id)}
-                onToggle={() => toggleCategory(category.id)}
-                onSelectSubCategory={onSelectSubCategory}
-              />
+            <ChatSidebarSection
+              key={category.id}
+              sectionTitle={category.sectionTitle}
+              category={category}
+              activeSubCategoryId={activeSubCategoryId}
+              isOpen={openCategoryIds.includes(category.id)}
+              onToggle={() => toggleCategory(category.id)}
+              onSelectSubCategory={onSelectSubCategory}
+            />
           )}
         </div>
       </div>

@@ -131,9 +131,17 @@ function InteractivePriceHistoryChart({ productId, points, style }: { productId:
 
   if (points.length === 0) {
     return (
-      <section className="h-full min-h-[200px] w-full flex flex-col rounded-lg border border-border bg-card p-3" data-price-history-card data-product-id={productId} style={style}>
-        <p className="text-[11px] font-black text-primary">역대 최저가 추이</p>
-        <div className="flex flex-1 min-h-0 items-center justify-center rounded-md bg-muted/20 px-4 text-center text-xs text-muted-foreground">저장된 가격 이력이 없습니다.</div>
+      <section className="h-full min-h-[220px] w-full flex flex-col justify-between rounded-2xl border border-slate-100/90 bg-white p-4 shadow-2xs" data-price-history-card data-product-id={productId} style={style}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <svg className="h-4 w-4 text-[#2A6CB6]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+            <h4 className="text-sm font-extrabold text-[#1F2937]">역대 최저가 추이</h4>
+          </div>
+          <span className="rounded-full bg-[#F5F7FA] px-2.5 py-0.5 text-xs font-medium text-slate-400">90일</span>
+        </div>
+        <div className="mt-4 flex flex-1 min-h-[140px] items-center justify-center rounded-xl bg-[#F5F7FA]/60 px-4 text-center text-xs text-slate-400">저장된 가격 이력이 없습니다.</div>
       </section>
     );
   }
@@ -147,13 +155,28 @@ function InteractivePriceHistoryChart({ productId, points, style }: { productId:
   const areaPath = points.length > 1 ? `M ${points[0].x} ${axisBaseline} L ${polyline.replaceAll(",", " ")} L ${points[points.length - 1].x} ${axisBaseline} Z` : null;
 
   return (
-    <section className="h-full min-h-[200px] w-full flex flex-col rounded-lg border border-border bg-card p-3" data-price-history-card data-product-id={productId} style={style}>
-      <p className="text-[11px] font-black text-primary">역대 최저가 추이</p>
+    <section className="h-full min-h-[220px] w-full flex flex-col justify-between rounded-2xl border border-slate-100/90 bg-white p-4 shadow-2xs" data-price-history-card data-product-id={productId} style={style}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <svg className="h-4 w-4 text-[#2A6CB6]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+          </svg>
+          <h4 className="text-sm font-extrabold text-[#1F2937]">역대 최저가 추이</h4>
+        </div>
+        <span className="rounded-full bg-[#F5F7FA] px-2.5 py-0.5 text-xs font-medium text-slate-400">90일</span>
+      </div>
+
       <div className="relative mt-1 flex-1 w-full flex items-center justify-center overflow-visible" onMouseLeave={() => setHoveredIndex(null)}>
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-full max-h-full overflow-visible" role="img" aria-label={`${productId} 저장 가격 이력 ${points.length}개`} data-price-chart-svg>
-          {areaPath && <path d={areaPath} fill="currentColor" opacity="0.12" className="text-accent" data-price-area data-area-baseline={axisBaseline} />}
-          {points.length > 1 && <polyline points={polyline} fill="none" stroke="currentColor" strokeWidth="3" className="text-accent" vectorEffect="non-scaling-stroke" />}
-          <line x1={PADDING.left} y1={PRICE_HISTORY_CHART_LAYOUT.axisY} x2={WIDTH - PADDING.right} y2={PRICE_HISTORY_CHART_LAYOUT.axisY} className="stroke-border" strokeWidth="1" data-price-axis-baseline />
+          <defs>
+            <linearGradient id={`chartGradient-${productId.replace(/[^a-zA-Z0-9_-]/g, "_")}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#2A6CB6" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#2A6CB6" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+          {areaPath && <path d={areaPath} fill={`url(#chartGradient-${productId.replace(/[^a-zA-Z0-9_-]/g, "_")})`} data-price-area data-area-baseline={axisBaseline} />}
+          {points.length > 1 && <polyline points={polyline} fill="none" stroke="#2A6CB6" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />}
+          <line x1={PADDING.left} y1={PRICE_HISTORY_CHART_LAYOUT.axisY} x2={WIDTH - PADDING.right} y2={PRICE_HISTORY_CHART_LAYOUT.axisY} stroke="#E2E8F0" strokeWidth="1" data-price-axis-baseline />
           {displayed && bubblePlacement && (
             <PricePointBubble point={displayed} placement={bubblePlacement} transient={transientIndex !== null} />
           )}
@@ -162,11 +185,11 @@ function InteractivePriceHistoryChart({ productId, points, style }: { productId:
             const isHistoricalLow = defaultIndex === index;
             return (
               <g key={`${point.date}-${index}`} data-price-point data-date={point.date} data-price={point.lowestPrice} data-historical-lowest={isHistoricalLow || undefined}>
-                {isDisplayed && <circle cx={point.x} cy={point.y} r="12" fill="currentColor" opacity="0.14" className="pointer-events-none text-accent" data-price-highlight-halo aria-hidden="true" />}
+                {isDisplayed && <circle cx={point.x} cy={point.y} r="10" fill="#2A6CB6" opacity="0.15" data-price-highlight-halo aria-hidden="true" />}
                 <circle
                   cx={point.x}
                   cy={point.y}
-                  r={isDisplayed ? 7 : 5}
+                  r={isDisplayed ? 6 : 4}
                   tabIndex={0}
                   role="button"
                   aria-label={`${point.date} ${won(point.lowestPrice)}`}
@@ -174,11 +197,11 @@ function InteractivePriceHistoryChart({ productId, points, style }: { productId:
                   onMouseLeave={() => setHoveredIndex(null)}
                   onFocus={() => setFocusedIndex(index)}
                   onBlur={() => setFocusedIndex(null)}
-                  className="cursor-pointer fill-card stroke-accent outline-none transition-all focus:stroke-[5px]"
-                  strokeWidth={isDisplayed ? 4 : 3}
+                  className="cursor-pointer fill-white stroke-[#2A6CB6] outline-none transition-all focus:stroke-[4px]"
+                  strokeWidth={isDisplayed ? 3 : 2}
                 />
                 {axisLabelIndexes.has(index) && (
-                  <text x={point.x} y={PRICE_HISTORY_CHART_LAYOUT.axisLabelY} textAnchor="middle" className="fill-muted-foreground text-sm">{formatPriceHistoryAxisDate(point.date)}</text>
+                  <text x={point.x} y={PRICE_HISTORY_CHART_LAYOUT.axisLabelY} textAnchor="middle" className="fill-slate-400 text-xs font-medium">{formatPriceHistoryAxisDate(point.date)}</text>
                 )}
               </g>
             );
@@ -205,10 +228,10 @@ function PricePointBubble({ point, placement, transient }: { point: PriceHistory
       data-bubble-center-x={placement.x + placement.width / 2}
       data-bubble-pointer-x={point.x}
     >
-      <path d={`M ${placement.anchorX - 6} ${bubbleBottom - 1} L ${placement.anchorX + 6} ${bubbleBottom - 1} L ${point.x} ${tailTipY} Z`} className="fill-card stroke-border" strokeWidth="1" data-price-bubble-pointer data-pointer-tip-x={point.x} data-pointer-tip-y={tailTipY} />
-      <rect x={placement.x} y={placement.y} width={placement.width} height={placement.height} rx="10" className="fill-card stroke-border drop-shadow-sm" strokeWidth="1" />
-      {transient && <text x={placement.x + placement.width / 2} y={placement.y + 21} textAnchor="middle" className="fill-muted-foreground text-xs font-bold">{point.date}</text>}
-      <text x={placement.x + placement.width / 2} y={placement.y + (transient ? 44 : 27)} textAnchor="middle" className="fill-primary text-sm font-black">{won(point.lowestPrice)}</text>
+      <path d={`M ${placement.anchorX - 5} ${bubbleBottom - 1} L ${placement.anchorX + 5} ${bubbleBottom - 1} L ${point.x} ${tailTipY} Z`} fill="white" stroke="#BFDBFE" strokeWidth="1" data-price-bubble-pointer data-pointer-tip-x={point.x} data-pointer-tip-y={tailTipY} />
+      <rect x={placement.x} y={placement.y} width={placement.width} height={placement.height} rx="8" fill="white" stroke="#BFDBFE" strokeWidth="1" className="drop-shadow-xs" />
+      {transient && <text x={placement.x + placement.width / 2} y={placement.y + 18} textAnchor="middle" className="fill-slate-400 text-[10px] font-semibold">{point.date}</text>}
+      <text x={placement.x + placement.width / 2} y={placement.y + (transient ? 38 : 25)} textAnchor="middle" className="fill-[#1E3ABA] text-xs font-extrabold">{won(point.lowestPrice)}</text>
     </g>
   );
 }

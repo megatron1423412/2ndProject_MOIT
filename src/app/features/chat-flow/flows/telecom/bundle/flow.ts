@@ -2564,6 +2564,7 @@ const steps: FlowStep[] = [
   },
 ];
 
+
 export const bundleFlow: FlowDefinition = {
   id: "bundle-flow",
   subCategoryId: "bundle",
@@ -2571,3 +2572,16 @@ export const bundleFlow: FlowDefinition = {
   startStepId: "bundle-intro-1",
   steps: composeFlow(steps),
 };
+
+{/*
+export const bundleFlow: FlowDefinition = {
+  id: "bundle-flow",
+  subCategoryId: "bundle",
+  categoryId: "telecom",
+  // 🛠️ [DELETE-FOR-DEV-TEST] START: 요금제 확인 카드 UI 개발 테스트용 시작점 지정 (원래값: "bundle-intro-1")
+  startStepId: "Q_ALL_M3",
+  // 🛠️ [DELETE-FOR-DEV-TEST] END
+  steps: composeFlow(steps),
+};*/}
+
+{/* Q_ALL_M3 */ }

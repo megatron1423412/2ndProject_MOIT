@@ -17,11 +17,20 @@ function renderFormattedText(text: string) {
           if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
             const innerText = part.slice(2, -2);
             const isBlueHeader = innerText.includes("모잇이 자동으로 챙겨드리는 것들이에요");
+            if (isBlueHeader) {
+              return (
+                <span
+                  key={partIdx}
+                  className="my-1 inline-block rounded-xl border border-[#1E3ABA] bg-[#1E3ABA] px-3.5 py-1.5 font-extrabold text-white shadow-2xs"
+                >
+                  {innerText}
+                </span>
+              );
+            }
             return (
               <strong
                 key={partIdx}
-                className={`font-bold ${isBlueHeader ? "text-[#1E3ABA]" : "text-foreground"}`}
-                style={isBlueHeader ? { color: "#1E3ABA" } : undefined}
+                className="font-bold text-foreground"
               >
                 {innerText}
               </strong>
@@ -91,6 +100,10 @@ export default function ChatMessage({
         step?.id?.endsWith("-summary"))
   );
 
+  const isAutoRulesMessage = Boolean(
+    isAi && displayText && displayText.includes("모잇이 자동으로 챙겨드리는 것들이에요")
+  );
+
   return (
     /* 🎨 [프론트엔드 수정 가능 Zone 1: 메시지 너비 및 전체 정렬]
        - max-w-[88%]: 말풍선의 최대 너비 비율 (예: max-w-[80%] 나 max-w-[90%])
@@ -127,10 +140,11 @@ export default function ChatMessage({
              - shadow-sm: 그림자 효과 (shadow-md, shadow-none 등)
           */}
           <div
-            className={`min-w-0 rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-sm ${isAi
-              ? "rounded-tl-sm border-border bg-card text-foreground"
-              : "rounded-tr-sm border-border bg-brand-surface text-brand-surface-foreground"
-              }`}
+            className={`min-w-0 rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-sm ${
+              isAi
+                ? "rounded-tl-sm border-border bg-card text-foreground"
+                : "rounded-tr-sm border-border bg-brand-surface text-brand-surface-foreground"
+            }`}
           >
             {/* 🎨 [프론트엔드 수정 가능 Zone 4: 텍스트 스타일]
                - leading-relaxed: 줄간격 조절 (leading-normal, leading-loose 등)
