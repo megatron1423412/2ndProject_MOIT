@@ -5,6 +5,36 @@ import type { AnswerInputStep, SubmittedFlowAnswer } from "../../../features/cha
 
 import type { FavoriteProduct, FavoriteDraft } from "../../../features/favorites/types";
 
+import ConditionSummaryCard from "./ConditionSummaryCard";
+
+function renderFormattedText(text: string) {
+  const lines = text.split("\n");
+  return lines.map((line, lineIdx) => {
+    const parts = line.split(/(\*\*.*?\*\*)/g);
+    return (
+      <React.Fragment key={lineIdx}>
+        {parts.map((part, partIdx) => {
+          if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+            const innerText = part.slice(2, -2);
+            const isBlueHeader = innerText.includes("모잇이 자동으로 챙겨드리는 것들이에요");
+            return (
+              <strong
+                key={partIdx}
+                className={`font-bold ${isBlueHeader ? "text-[#1E3ABA]" : "text-foreground"}`}
+                style={isBlueHeader ? { color: "#1E3ABA" } : undefined}
+              >
+                {innerText}
+              </strong>
+            );
+          }
+          return part;
+        })}
+        {lineIdx < lines.length - 1 && "\n"}
+      </React.Fragment>
+    );
+  });
+}
+
 export interface ChatMessageProps {
   sender: "ai" | "user";
   text?: string;
@@ -52,6 +82,14 @@ export default function ChatMessage({
   const hasBackSymbol = text && (text.endsWith("⤴️") || text.endsWith("⤴️ "));
   const displayText = hasBackSymbol ? text.replace(/⤴️\s*$/, "").trim() : text;
   const canGoBack = isAi && !isHistorical && onGoBack && answers && Object.keys(answers).length > 0;
+  const isSummaryMessage = Boolean(
+    isAi &&
+      displayText &&
+      (displayText.includes("입력해 주신 조건 요약") ||
+        displayText.includes("조건을 요약했어요") ||
+        displayText.includes("다음 조건으로") ||
+        step?.id?.endsWith("-summary"))
+  );
 
   return (
     /* 🎨 [프론트엔드 수정 가능 Zone 1: 메시지 너비 및 전체 정렬]
@@ -59,7 +97,7 @@ export default function ChatMessage({
        - gap 조정: CHAT_ASSISTANT_RAIL_GAP_CLASS 대신 gap-2, gap-3 등으로 아이콘과 말풍선 간격 수정 가능
     */
     <div className={`flex max-w-[88%] ${CHAT_ASSISTANT_RAIL_GAP_CLASS} ${isAi ? "self-start" : "self-end flex-row-reverse"}`} data-chat-turn={isAi ? "assistant" : "user"}>
-      
+
       {/* 🎨 [프론트엔드 수정 가능 Zone 2: AI 아바타 아이콘]
          - h-8, w-8: 아바타 크기 변경 가능
          - style의 linear-gradient: AI 로고 배경색 및 그라데이션 커스텀 (예: #1B3A5C -> 다른 브랜드 컬러)
@@ -80,7 +118,7 @@ export default function ChatMessage({
 
       <div className="relative min-w-0 max-w-full flex flex-col gap-1">
         <div className="flex max-w-full items-end gap-2">
-          
+
           {/* 🎨 [프론트엔드 수정 가능 Zone 3: 말풍선 디자인 & 패딩 & 배경색]
              - rounded-2xl / rounded-tl-sm / rounded-tr-sm: 말풍선 모서리 둥글기 모형 변경
              - px-4 py-3: 말풍선 내부 여백(Padding) 조절
@@ -89,18 +127,23 @@ export default function ChatMessage({
              - shadow-sm: 그림자 효과 (shadow-md, shadow-none 등)
           */}
           <div
-            className={`min-w-0 rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-sm ${
-              isAi
-                ? "rounded-tl-sm border-border bg-card text-foreground"
-                : "rounded-tr-sm border-border bg-brand-surface text-brand-surface-foreground"
-            }`}
+            className={`min-w-0 rounded-2xl border px-4 py-3 text-sm leading-relaxed shadow-sm ${isAi
+              ? "rounded-tl-sm border-border bg-card text-foreground"
+              : "rounded-tr-sm border-border bg-brand-surface text-brand-surface-foreground"
+              }`}
           >
             {/* 🎨 [프론트엔드 수정 가능 Zone 4: 텍스트 스타일]
                - leading-relaxed: 줄간격 조절 (leading-normal, leading-loose 등)
                - font-medium 등의 굵기 속성 추가 가능
             */}
-            {displayText && <p className="whitespace-pre-wrap">{displayText}</p>}
-            
+            {displayText && (
+              isSummaryMessage ? (
+                <ConditionSummaryCard text={displayText} stepId={step?.id} />
+              ) : (
+                <p className="whitespace-pre-wrap">{renderFormattedText(displayText)}</p>
+              )
+            )}
+
             {/* 자식 컴포넌트 간격 */}
             {children && <div className={displayText ? "mt-3" : ""}>{children}</div>}
 
@@ -128,41 +171,25 @@ export default function ChatMessage({
             )}
           </div>
 
-          {/* 🎨 [프론트엔드 수정 가능 Zone 6: '이전 조건 다시 입력' 턴 되돌리기 버튼]
-             - h-8 w-8: 버튼 크기
-             - rounded-full: 버튼 둥글기
-             - hover:bg-secondary: 마우스 호버 시 배경색 반응
-             - ⤴️ 텍스트 대신 Lucide 아이콘(RotateCcw, Undo2 등)으로 변경 가능
-          */}
-          {isAi && canUndo && onUndo && (
+          {/* 🎨 [프론트엔드 수정 가능 Zone 6 & 7: '이전으로 돌아가기' 통합 버튼] */}
+          {isAi && (canUndo || canGoBack) && (onUndo || onGoBack) && (
             <button
               type="button"
-              title="이전 조건 다시 입력"
-              aria-label="이전 조건 다시 입력"
-              disabled={undoDisabled}
-              onClick={onUndo}
-              className="mb-1 flex h-8 w-8 flex-none items-center justify-center rounded-full border border-border bg-card text-sm text-primary shadow-sm transition hover:border-accent hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:cursor-wait disabled:opacity-50"
+              onClick={canUndo ? onUndo : onGoBack}
+              title={canUndo ? "이전 조건 다시 입력" : "이전 단계로 돌아가기"}
+              aria-label={canUndo ? "이전 조건 다시 입력" : "이전 단계로 돌아가기"}
+              disabled={canUndo ? undoDisabled : false}
+              className="absolute bottom-3.5 -right-7 flex h-6 w-6 items-center justify-center p-0 !bg-transparent !border-none !shadow-none !outline-none !ring-0 hover:!bg-transparent hover:!border-none active:!bg-transparent focus:!bg-transparent focus:!ring-0 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              ⤴️
+              <img
+                src="/assets/icons/u_turn_to_left.png"
+                alt={canUndo ? "이전 조건 다시 입력" : "이전 단계로 돌아가기"}
+                className="h-3.5 w-3.5 object-contain select-none opacity-50 hover:opacity-100 transition-opacity"
+                style={{ filter: "invert(45%)" }} // 중간 회색
+              />
             </button>
           )}
         </div>
-
-        {/* 🎨 [프론트엔드 수정 가능 Zone 7: '이전 단계로 돌아가기' 플로팅 버튼]
-           - absolute bottom-2 -right-11: 버튼의 위치 좌표값 수정 가능
-           - active:scale-95: 클릭 시 누르는 애니메이션 효과
-           - ⤴️ 이모지 대신 <Undo2 size={14} /> 같은 서브 아이콘 적용 가능
-        */}
-        {canGoBack && !canUndo && (
-          <button
-            type="button"
-            onClick={onGoBack}
-            title="이전 단계로 돌아가기"
-            className="absolute bottom-2 -right-11 flex h-8 w-8 items-center justify-center rounded-full border border-border/80 bg-background shadow-sm hover:bg-muted text-muted-foreground hover:text-primary active:scale-95 transition-all duration-200"
-          >
-            <span className="text-sm select-none">⤴️</span>
-          </button>
-        )}
 
         {/* 🎨 [프론트엔드 수정 가능 Zone 8: 메시지 타임스탬프 (시간 표시)]
            - text-[10px]: 시간 글자 크기 (예: text-xs)

@@ -21,7 +21,7 @@ export default function SelectableRecommendationCard({ recommendation, onSelect,
         {rank !== undefined && <span className="flex h-7 min-w-7 flex-none items-center justify-center rounded-full bg-brand-surface px-1 text-xs font-black text-brand-surface-foreground">{rank}</span>}
         <ProductImage productId={product.id} imagePath={product.imagePath} alt={`${product.brand} ${product.name} 상품 이미지`} className="h-20 w-20 flex-none rounded-lg border border-border bg-muted object-cover" />
         <div className="min-w-0 flex-1">
-          <div className="flex justify-between gap-2"><p className="truncate text-xs font-bold text-muted-foreground">{product.brand} · {product.modelNumber}</p><span className="mr-1 flex-none text-xs font-black text-accent">{recommendation.score}점</span></div>
+          <div className="flex items-center justify-between gap-2"><p className="truncate text-xs font-bold text-muted-foreground">{product.brand} · {product.modelNumber}</p><span className="mr-1 flex-none inline-flex items-center gap-0.5 rounded-full bg-[#1E3ABA] px-2.5 py-0.5 text-xs font-black text-white shadow-sm">★ {recommendation.score}점</span></div>
           <p className="mt-1 break-keep font-black text-primary">{product.name}</p>
           {recommendation.verificationNeeded && <p className="mt-1 text-xs font-bold text-amber-700 dark:text-amber-300">조건 확인이 필요한 후보 · {recommendation.verificationRequiredFields?.join(" · ")} 확인 필요</p>}
           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{recommendation.recommendationReasons.slice(0, 2).join(" · ")}</p>

@@ -337,9 +337,9 @@ export default function ChatFlowInput({
   if (step.type === "single-choice") {
     if (step.id === "Q_P2_2" || step.id === "Q_P2_1") {
       const hasPenalty = answers && (
-        answers["bundle.allPenalty"] || 
-        answers["bundle.ptaPenalty"] || 
-        answers["bundle.ptbPenalty"] || 
+        answers["bundle.allPenalty"] ||
+        answers["bundle.ptaPenalty"] ||
+        answers["bundle.ptbPenalty"] ||
         answers["bundle.diffPenalty"] ||
         answers["bundle.ptaComboPenalty"] ||
         answers["bundle.ptbComboPenalty"] ||
@@ -364,8 +364,8 @@ export default function ChatFlowInput({
           value: "any",
           label: "위약금 대비 실질 이득 추천",
           description: "위약금을 내고 갈아타도 진짜 이득인지 비교해드려요",
-          subDescription: hasPenalty 
-            ? undefined 
+          subDescription: hasPenalty
+            ? undefined
             : "- 위약금을 입력하지 않았을 경우, 정확한 진단이 어렵습니다. 제일 저렴한 상품 중심으로 추천됩니다."
         }
       ];
@@ -508,7 +508,7 @@ export default function ChatFlowInput({
               </span>
             )}
           </div>
-          
+
           {!isHistorical && (
             <div className="flex justify-start">
               <button
@@ -595,12 +595,12 @@ export default function ChatFlowInput({
                 borderClass = "border-border/60 bg-muted/40 text-muted-foreground opacity-60 cursor-not-allowed select-none pointer-events-none";
               } else if (isHistorical) {
                 if (userSelectedThis) {
-                  borderClass = "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed";
+                  borderClass = "border-[#C0C5CE] bg-[#C0C5CE]/10 opacity-90 cursor-not-allowed";
                 } else {
                   borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
                 }
               } else {
-                borderClass = "border-border bg-card hover:border-emerald-500/50 hover:bg-emerald-500/5 active:scale-[0.99] cursor-pointer";
+                borderClass = "border-border bg-card hover:border-[#C0C5CE]/50 hover:bg-[#C0C5CE]/5 active:scale-[0.99] cursor-pointer";
               }
 
               const parsed = parsePlanLabel(opt.label);
@@ -614,7 +614,7 @@ export default function ChatFlowInput({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
                       {parsed.mvnoCarrier && (
-                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 shrink-0">
+                        <span className="text-[10px] font-bold text-[#3B82F6] dark:text-[#3B82F6] bg-[#3B82F6]/10 border border-[#3B82F6]/20 rounded px-1.5 py-0.5 shrink-0">
                           {parsed.mvnoCarrier}
                         </span>
                       )}
@@ -623,7 +623,7 @@ export default function ChatFlowInput({
                       </span>
                     </div>
                     {parsed.priceStr && (
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                      <span className="text-xs font-bold text-[#1E3ABA] dark:text-[#60A5FA] shrink-0">
                         월 {parsed.priceStr}
                       </span>
                     )}
@@ -685,7 +685,7 @@ export default function ChatFlowInput({
       const planOption = options.find(
         (o) => o.value !== "direct-select" && o.value !== "direct-choose" && o.value !== "direct-input"
       );
-      
+
       const directSelectOption = options.find((o) => o.value === "direct-select" || o.value === "direct-choose");
       const directInputOption = options.find((o) => o.value === "direct-input");
 
@@ -694,26 +694,26 @@ export default function ChatFlowInput({
       let borderClass = "";
       if (isHistorical) {
         if (userSelectedThis) {
-          borderClass = "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed";
+          borderClass = "border-[#2A6CB6] bg-[#2A6CB6]/10 opacity-90 cursor-not-allowed";
         } else {
           borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
         }
       } else {
-        borderClass = "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10";
+        borderClass = "border-[#2A6CB6]/20 bg-[#2A6CB6]/5 hover:border-[#2A6CB6]/50 hover:bg-[#2A6CB6]/10";
       }
 
       return (
         <div className="flex flex-col gap-3 w-full max-w-md">
           {planOption && (
-            <div 
+            <div
               onClick={isHistorical ? undefined : () => onSubmit({ value: planOption.value, displayValue: planOption.label })}
               className={`group relative rounded-2xl border p-5 shadow-sm transition-all duration-200 flex flex-col gap-2 ${!isHistorical ? "cursor-pointer active:scale-[0.99] hover:shadow-md" : ""} ${borderClass}`}
             >
               <div className="flex items-center justify-between">
-                <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="rounded bg-[#2A6CB6]/15 px-2 py-0.5 text-[10px] font-bold text-[#2A6CB6] dark:text-[#2A6CB6]">
                   조회된 기존 요금제 (추정)
                 </span>
-                <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 group-hover:underline">
+                <span className="text-[10px] font-black text-[#2A6CB6] dark:text-emerald-400 group-hover:underline">
                   {isHistorical ? (userSelectedThis ? "선택됨 ✓" : "") : "이 요금제 선택하기 →"}
                 </span>
               </div>
@@ -723,7 +723,7 @@ export default function ChatFlowInput({
                   <h4 className="text-sm font-black text-primary tracking-tight">
                     {planOption.label.split("\n")[0]}
                   </h4>
-                  <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1.5 leading-relaxed">
+                  <div className="text-xs font-bold text-[#2A6CB6] dark:text-[#2A6CB6] bg-[#2A6CB6]/10 border border-[#2A6CB6]/20 rounded-lg px-2.5 py-1.5 leading-relaxed">
                     {planOption.label.split("\n")[1]}
                   </div>
                 </div>
@@ -738,7 +738,7 @@ export default function ChatFlowInput({
               </p>
             </div>
           )}
-          
+
           {!isHistorical && (
             <div className="flex flex-wrap gap-2 justify-center">
               {directSelectOption && (
@@ -776,24 +776,24 @@ export default function ChatFlowInput({
       const directChoose = step.options.find((o) => o.value === "direct-choose");
       const directSelect = step.options.find((o) => o.value === "direct-select");
       const directInput = step.options.find((o) => o.value === "direct-input");
-      
+
       return (
         <div className="flex flex-col gap-3 w-full max-w-md">
           <div className="grid grid-cols-2 gap-3">
             {cardOptions.map((opt, idx) => {
               const isFav = favorites?.some((f) => f.productId === opt.value);
               const cleanLabel = opt.label.replace(/\[추천 \d+순위\]\s*/g, "");
-              
+
               const isRec1 = opt.label.includes("1순위") || idx === 0;
               const isRec2 = opt.label.includes("2순위") || idx === 1;
-              
+
               const userSelectedThis = answers && answers[step.answerKey] === opt.value;
 
               let borderClass = "";
               if (isHistorical) {
                 if (userSelectedThis) {
                   borderClass = isRec1
-                    ? "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed"
+                    ? "border-[#3B82F6] bg-[#3B82F6]/10 opacity-90 cursor-not-allowed"
                     : isRec2
                       ? "border-teal-500 bg-teal-500/10 opacity-90 cursor-not-allowed"
                       : "border-accent bg-accent/10 opacity-90 cursor-not-allowed";
@@ -801,23 +801,23 @@ export default function ChatFlowInput({
                   borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
                 }
               } else {
-                borderClass = isRec1 
-                  ? "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10" 
-                  : isRec2 
-                    ? "border-teal-500/20 bg-teal-500/5 hover:border-teal-500/50 hover:bg-teal-500/10"
+                borderClass = isRec1
+                  ? "border-[#2A6CB6]/20 bg-[#2A6CB6]/5 hover:border-[#2A6CB6]/50 hover:bg-[#2A6CB6]/10"
+                  : isRec2
+                    ? "border-[#3B82F6]/20 bg-[#3B82F6]/5 hover:border-[#3B82F6]/50 hover:bg-[#3B82F6]/10"
                     : "border-border bg-card hover:border-accent/50 hover:bg-secondary";
               }
-              
-              const textClass = isRec1 
-                ? "text-emerald-600 dark:text-emerald-400" 
-                : isRec2 
-                  ? "text-teal-600 dark:text-teal-400"
+
+              const textClass = isRec1
+                ? "text-[#1E3ABA] dark:text-[#60A5FA]"
+                : isRec2
+                  ? "text-[#3B82F6] dark:text-[#3B82F6]"
                   : "text-accent";
 
-              const badgeBg = isRec1 ? "bg-emerald-600" : isRec2 ? "bg-teal-600" : "bg-accent";
+              const badgeBg = isRec1 ? "bg-[#1E3ABA]" : isRec2 ? "bg-[#3B82F6]" : "bg-accent";
               const badgeMatch = opt.label.match(/추천 (\d+)순위/);
-              const badgeLabel = badgeMatch 
-                ? `${badgeMatch[1]}순위 추천` 
+              const badgeLabel = badgeMatch
+                ? `${badgeMatch[1]}순위 추천`
                 : `선택안 ${idx + 1}`;
 
               const parsed = parsePlanLabel(opt.label);
@@ -825,7 +825,7 @@ export default function ChatFlowInput({
               const bundleComposition = getBundleComposition(opt.value, opt.label);
 
               return (
-                <div 
+                <div
                   key={opt.value}
                   onClick={isHistorical ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
                   className={`group relative rounded-2xl border p-4 shadow-sm transition-all duration-200 flex flex-col gap-2 h-full justify-between ${!isHistorical ? "cursor-pointer active:scale-[0.99] hover:shadow-md" : ""} ${borderClass}`}
@@ -836,7 +836,7 @@ export default function ChatFlowInput({
                         {badgeLabel}
                       </span>
                       {parsed.mvnoCarrier && (
-                        <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-1 py-0.2">
+                        <span className="text-[9px] font-bold text-[#1E3ABA] dark:text-[#1E3ABA] bg-[#1E3ABA]/10 border border-emerald-500/20 rounded px-1 py-0.2">
                           {parsed.mvnoCarrier}
                         </span>
                       )}
@@ -847,7 +847,7 @@ export default function ChatFlowInput({
                     </h4>
 
                     {parsed.priceStr && (
-                      <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      <div className="text-xs font-bold text-[#1E3ABA] dark:text-[#60A5FA]0">
                         월 {parsed.priceStr}
                       </div>
                     )}
@@ -863,7 +863,7 @@ export default function ChatFlowInput({
 
                       {displayData && (
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10.5px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                          <span className="text-[10.5px] font-extrabold text-[#60A5FA] dark:text-[#60A5FA] bg-[#60A5FA]/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
                             {displayData}
                           </span>
                           {parsed.networkType && (
@@ -918,7 +918,7 @@ export default function ChatFlowInput({
               );
             })}
           </div>
-          
+
           {!isHistorical && (
             <div className="flex flex-wrap gap-2 justify-center mt-1">
               {directChoose && (
@@ -994,7 +994,7 @@ export default function ChatFlowInput({
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
           {step.options.map((option) => {
-            const selected = isHistorical 
+            const selected = isHistorical
               ? currentSelections.includes(option.value)
               : selectedValues.includes(option.value);
 

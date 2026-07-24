@@ -13,7 +13,24 @@ const value = (answers: FlowAnswers, key: string) => answers[`${n}.${key}`];
 const label = (labels: Record<string, string>, selected: unknown) => displayLabel(labels, selected);
 
 const steps: FlowStep[] = [
-  { id: "vc-intro", type: "assistant-message", message: "평소 청소 방식과 집 안 환경에 맞춰 실용적인 가성비 청소기를 찾아볼게요.", next: "vc-usage" },
+  {
+    id: "vc-intro-1",
+    type: "assistant-message",
+    message: "안녕하세요! 유저님의 똑똑한 지갑 파수꾼, 모잇이에요! ✨",
+    next: "vc-intro-2",
+  },
+  {
+    id: "vc-intro-2",
+    type: "assistant-message",
+    message: "청소 습관과 집 안 환경에 딱 맞는 청소기를 찾아드릴까요? 💡 딱 맞는 최적의 솔루션을 찾아드릴 테니, 먼저 간단한 정보부터 차근차근 확인해 볼게요! 👍",
+    next: "vc-intro-3",
+  },
+  {
+    id: "vc-intro-3",
+    type: "assistant-message",
+    message: "첫 번째 단계로, 청소기를 주로 어떻게 사용할 예정인지 확인해 볼게요! 🧹💡",
+    next: "vc-usage",
+  },
   { id: "vc-usage", type: "single-choice", message: "청소기를 주로 어떻게 사용할 예정인가요?", answerKey: `${n}.primaryUse`, options: [
     { value: "short-daily", label: "자주 짧게 일상 청소" },
     { value: "whole-home", label: "한 번에 집 전체 청소" },
@@ -65,7 +82,7 @@ export const vacuumFlow: FlowDefinition = {
   id: "vacuum-flow",
   subCategoryId: "vacuum",
   categoryId: "appliances",
-  startStepId: "vc-intro",
+  startStepId: "vc-intro-1",
   steps,
   enableConditionUndo: true,
 };

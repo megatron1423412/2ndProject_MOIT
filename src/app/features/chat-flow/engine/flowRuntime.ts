@@ -110,9 +110,8 @@ const advanceToStep = (
 
     let text = typeof step.message === "function" ? (step.message as Function)(getNestedAnswers(state.answers)) : step.message;
     
-    // Append ⤴️ for telecom flows' input steps (except the start step)
-    const isTelecom = module.id === "bundle" || module.id === "internet" || module.id === "iptv" || module.id === "phone";
-    if (isTelecom && step.type !== "assistant-message" && step.type !== "result" && step.id !== module.definition.startStepId) {
+    // Append ⤴️ for input steps (except the start step)
+    if (step.type !== "assistant-message" && step.type !== "result" && step.id !== module.definition.startStepId) {
       if (typeof text === "string" && !text.includes("⤴️")) {
         text = text.trim() + " ⤴️";
       }

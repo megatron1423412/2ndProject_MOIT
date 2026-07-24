@@ -13,7 +13,24 @@ const value = (answers: FlowAnswers, key: string) => answers[`${n}.${key}`];
 const sizeOptions = [43, 55, 65, 75].map((size) => ({ value: String(size), label: `${size}인치` }));
 
 const steps: FlowStep[] = [
-  { id: "tv-intro", type: "assistant-message", message: "시청 거리와 사용 방식을 먼저 확인한 뒤, 꼭 필요한 스마트 기능과 가성비 기준을 차례로 살펴볼게요.", next: "tv-distance" },
+  {
+    id: "tv-intro-1",
+    type: "assistant-message",
+    message: "안녕하세요! 유저님의 똑똑한 지갑 파수꾼, 모잇이에요! ✨",
+    next: "tv-intro-2",
+  },
+  {
+    id: "tv-intro-2",
+    type: "assistant-message",
+    message: "시청 거리와 사용 환경에 딱 맞는 TV를 찾아드릴까요? 💡 딱 맞는 최적의 솔루션을 찾아드릴 테니, 먼저 간단한 정보부터 차근차근 확인해 볼게요! 👍",
+    next: "tv-intro-3",
+  },
+  {
+    id: "tv-intro-3",
+    type: "assistant-message",
+    message: "첫 번째 단계로, TV를 시청할 때 화면과의 거리는 어느 정도인지 확인해 볼게요! 📺💡",
+    next: "tv-distance",
+  },
   { id: "tv-distance", type: "single-choice", message: "TV를 시청할 때 화면과의 거리는 어느 정도인가요?", answerKey: `${n}.viewingDistance`, options: [
     { value: "under-1.5", label: "1.5m 이하", next: "tv-size-recommendation" },
     { value: "1.5-2.5", label: "1.5~2.5m", next: "tv-size-recommendation" },
@@ -79,7 +96,7 @@ export const tvFlow: FlowDefinition = {
   id: "tv-flow",
   subCategoryId: "tv",
   categoryId: "appliances",
-  startStepId: "tv-intro",
+  startStepId: "tv-intro-1",
   steps,
   enableConditionUndo: true,
 };

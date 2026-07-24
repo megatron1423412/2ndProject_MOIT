@@ -149,6 +149,20 @@ export default function ChatScreen({
   });
 
   const takeChatScrollControl = () => {
+    if (productSelectionScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
+      productSelectionScrollFrameRef.current = null;
+    }
+    const correction = recommendationStartCorrectionRef.current;
+    if (correction) {
+      correction.userScrolled = true;
+    }
+    const container = scrollContainerRef.current;
+    if (container) {
+      const current = container.scrollTop;
+      container.scrollTop = current;
+      container.scrollTo({ top: current, behavior: "auto" });
+    }
     handleUserScrollIntent();
   };
 
@@ -262,9 +276,6 @@ export default function ChatScreen({
              - gap-4: 메시지 카드/말풍선 간의 상하 간격 (gap-3, gap-5 등)
           */}
           <div className="mx-auto grid w-full max-w-4xl grid-cols-[minmax(0,1fr)] gap-4" aria-live="polite" data-chat-timeline-root>
-            {item.parentCategory === "appliances" && (
-              <ChatConversationTurn sender="ai" text={buildSmartShoppingGreeting(userProfile.displayName, item.title)} />
-            )}
             {flow.messages.map((message, index) => {
               const isLast = index === flow.messages.length - 1;
               const isAi = message.sender === "ai";
