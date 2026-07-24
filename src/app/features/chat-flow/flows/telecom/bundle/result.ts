@@ -28,6 +28,7 @@ function resolveSelectedBundlePlan(chosenPlanId: string) {
       mobilePlan: helloItem.mobilePlanName,
       internetPlan: helloItem.internetName,
       tvPlan: helloItem.tvName,
+      services: ["mobile", "internet", "iptv"],
       isPart2Selected: true,
     };
   }
@@ -50,6 +51,7 @@ function resolveSelectedBundlePlan(chosenPlanId: string) {
         mobilePlan: skyMob.mobilePlanName,
         internetPlan: skyHome.internetName,
         tvPlan: skyHome.tvName,
+        services: ["mobile", "internet", "iptv"],
         isPart2Selected: true,
       };
     }
@@ -67,6 +69,7 @@ function resolveSelectedBundlePlan(chosenPlanId: string) {
         mobilePlan: eyagiSktMob.mobilePlanName,
         internetPlan: sktHome.internetName,
         tvPlan: sktHome.tvName,
+        services: ["mobile", "internet", "iptv"],
         isPart2Selected: true,
       };
     }
@@ -83,6 +86,7 @@ function resolveSelectedBundlePlan(chosenPlanId: string) {
         mobilePlan: eyagiLguMob.mobilePlanName,
         internetPlan: lguHome.internetName,
         tvPlan: lguHome.tvName,
+        services: ["mobile", "internet", "iptv"],
         isPart2Selected: true,
       };
     }
@@ -105,6 +109,7 @@ function resolveSelectedBundlePlan(chosenPlanId: string) {
       mobilePlan,
       internetPlan: combo.internetPlan,
       tvPlan,
+      services: ["mobile", "internet", "iptv"],
       isPart2Selected: true,
     };
   }
@@ -139,6 +144,7 @@ function resolveSelectedBundlePlan(chosenPlanId: string) {
       mobilePlan,
       internetPlan,
       tvPlan,
+      services: ["mobile", "internet", "iptv"],
       isPart2Selected: true,
     };
   }

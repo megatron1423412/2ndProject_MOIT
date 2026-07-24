@@ -22,7 +22,7 @@ const generateRegionDetailSteps = (namespace: string, nextStepId: string): FlowS
     return {
       id: `${namespace}-region-${regionKey}`,
       type: "single-choice",
-      message: `${korName}의 상세 지역을 선택해주세요.`,
+      message: `${korName}의 상세 지역을 선택해주세요 📍`,
       answerKey,
       options: sortedDistricts.map(d => ({
         value: d.value,
@@ -55,7 +55,7 @@ const opening: FlowStep[] = [
   {
     id: "internet-intro",
     type: "assistant-message",
-    message: "인터넷 요금제 진단을 시작할게요. 현재 요금 조건부터 확인해볼게요.",
+    message: "인터넷 요금제 진단을 시작할게요! 지금 내고 계신 요금 조건부터 차근차근 확인해 볼게요 🔍",
     next: "internet-carrier",
   },
 
@@ -63,8 +63,7 @@ const opening: FlowStep[] = [
   {
     id: "internet-carrier",
     type: "single-choice",
-    layout: "inline",
-    message: "현재 사용하는 인터넷 통신사를 선택해주세요.",
+    message: "지금 쓰고 계신 인터넷 통신사를 골라주세요 🌐",
     answerKey: `${namespace}.commonCarrier`,
     options: [
       { value: "SK", label: "SK 브로드밴드", next: "internet-fee" },
@@ -79,8 +78,7 @@ const opening: FlowStep[] = [
   {
     id: "internet-carrier-cable",
     type: "single-choice",
-    layout: "inline",
-    message: "사용 중이신 케이블/지역인터넷 통신사를 선택해주세요.",
+    message: "쓰고 계신 케이블/지역인터넷 통신사를 골라주세요 📡",
     answerKey: `${namespace}.cableCarrier`,
     options: [
       { value: "DLIVE", label: "딜라이브", next: "internet-fee" },
@@ -95,7 +93,7 @@ const opening: FlowStep[] = [
   {
     id: "internet-fee",
     type: "number-input",
-    message: "현재 납부하고 계신 인터넷 요금은 매달 얼마인가요?",
+    message: "매달 내고 계신 인터넷 요금은 얼마인가요? 💰",
     answerKey: `${namespace}.fee`,
     placeholder: "예: 25000",
     min: 0,
@@ -107,7 +105,7 @@ const opening: FlowStep[] = [
   {
     id: "internet-current-plan-api",
     type: "single-choice",
-    message: "현재 사용하시는 인터넷 요금제가 맞을까요?",
+    message: "지금 쓰시는 요금제가 이게 맞을까요? 확인 한 번만 부탁드려요 ✅",
     answerKey: `${namespace}.confirmedPlan`,
     options: [
       { value: "direct-choose", label: "직접 고를래요(리스트 보기)", next: "internet-current-plans-list" },
@@ -148,7 +146,7 @@ const opening: FlowStep[] = [
   {
     id: "internet-current-plans-list",
     type: "single-choice",
-    message: "입력하신 요금대와 비슷한 요금제 목록입니다. 현재 요금제를 선택해주세요.",
+    message: "입력하신 요금대와 비슷한 요금제를 모아봤어요. 이 중에서 현재 요금제를 골라주세요 🔍",
     answerKey: `${namespace}.confirmedPlanList`,
     options: [
       { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "internet-contract-period" }
@@ -183,11 +181,11 @@ const opening: FlowStep[] = [
   {
     id: "internet-all-plans-select",
     type: "single-choice",
-    message: "추천 요금제 외에 선택 가능한 전체 요금제 리스트입니다. 원하시는 요금제를 선택해 주세요.",
+    message: "추천 요금제 외에 선택할 수 있는 전체 요금제도 준비했어요. 원하시는 요금제를 골라주세요 ✅",
     answerKey: `${namespace}.manualSelectedPlan`,
     options: [],
     optionsResolver: (answers) => {
-      const contractKey = answers["internet.planContract"] || "discount3y";
+      const contractKey = (answers["internet.planContract"] as string) || "discount3y";
       return getFilteredAllInternetPlans(contractKey, answers);
     },
     next: "internet-result",
@@ -197,7 +195,7 @@ const opening: FlowStep[] = [
   {
     id: "internet-custom-plan-input",
     type: "text-input",
-    message: "사용 중이신 인터넷 요금제 이름을 입력해주세요.",
+    message: "쓰고 계신 인터넷 요금제 이름을 입력해 주세요 ✍️\n모잇의 꿀팁 하나! 💡 인터넷은 3년 약정이 끝나면 사은품이나 재약정 할인을 꼭 챙기셔야 해요. 그냥 두면 아까운 돈이 새어 나가거든요 💰",
     answerKey: `${namespace}.customPlan`,
     placeholder: "예: 기가 인터넷 요금제",
     next: "internet-contract-period",
@@ -207,8 +205,7 @@ const opening: FlowStep[] = [
   {
     id: "internet-contract-period",
     type: "single-choice",
-    layout: "inline",
-    message: "현재 인터넷 가입 약정기간 상태가 어떻게 되시나요?",
+    message: "지금 인터넷 약정 기간은 얼마나 남으셨어요?",
     answerKey: `${namespace}.contractPeriod`,
     options: [
       { value: "expired", label: "약정이 만료됨" },
@@ -227,8 +224,7 @@ const specific: FlowStep[] = [
   {
     id: "internet-usage",
     type: "single-choice",
-    layout: "inline",
-    message: "조건에 맞는 인터넷 속도를 선택해 주세요.",
+    message: "조건에 맞는 인터넷 요금제를 골라주세요 ✅",
     answerKey: `${namespace}.desiredSpeed`,
     options: [
       { value: "100Mbps", label: "100Mbps (웹서핑·유튜브)" },
@@ -242,8 +238,7 @@ const specific: FlowStep[] = [
   {
     id: "internet-plan-contract",
     type: "single-choice",
-    layout: "inline",
-    message: "원하시는 약정 할인 기간을 선택해 주세요.",
+    message: "원하시는 약정 할인 기간을 골라주세요. 기간에 따라 할인 폭이 달라져요 💰",
     answerKey: `${namespace}.planContract`,
     options: [
       { value: "discount3y", label: "3년 약정" },
@@ -257,7 +252,7 @@ const specific: FlowStep[] = [
   {
     id: "internet-region-lv1",
     type: "single-choice",
-    message: "사는 곳을 선택해주세요.",
+    message: "사시는 지역을 골라주세요 📍",
     answerKey: `${namespace}.regionLv1`,
     options: [
       { value: "gangwon", label: "강원", next: "internet-region-gangwon" },
@@ -279,7 +274,7 @@ const specific: FlowStep[] = [
   {
     id: "internet-region-gyeongsang-lv2",
     type: "single-choice",
-    message: "경상도의 세부 지역을 선택해주세요.",
+    message: "경상도의 세부 지역을 골라주세요 📍",
     answerKey: `${namespace}.regionLv2Gyeongsang`,
     options: [
       { value: "gyeongnam", label: "경상남도", next: "internet-region-gyeongnam" },
@@ -293,7 +288,7 @@ const specific: FlowStep[] = [
   {
     id: "internet-region-chungcheong-lv2",
     type: "single-choice",
-    message: "충청도의 세부 지역을 선택해주세요.",
+    message: "충청도의 세부 지역을 골라주세요 📍",
     answerKey: `${namespace}.regionLv2Chungcheong`,
     options: [
       { value: "daejeon", label: "대전광역시", next: "internet-region-daejeon" },
@@ -306,7 +301,7 @@ const specific: FlowStep[] = [
   {
     id: "internet-region-jeolla-lv2",
     type: "single-choice",
-    message: "전라도의 세부 지역을 선택해주세요.",
+    message: "전라도의 세부 지역을 골라주세요 📍",
     answerKey: `${namespace}.regionLv2Jeolla`,
     options: [
       { value: "jeonnam", label: "전라남도", next: "internet-region-jeonnam" },
@@ -318,16 +313,16 @@ const specific: FlowStep[] = [
   {
     id: "internet-recommendation-api",
     type: "single-choice",
-    message: "고객님의 조건을 분석하여 선정한 최적의 추천 요금제 리스트입니다.",
+    message: "짜잔! 알려주신 조건을 꼼꼼히 분석해서 딱 맞는 요금제만 챙겨왔어요 ✨",
     answerKey: `${namespace}.selectedRecommendedPlan`,
     options: [
       ...MOCK_RECOMMENDED_INTERNET_PLANS,
       { value: "direct-choose", label: "직접 고를래요 (전체 리스트 보기)", next: "internet-all-plans-select" }
     ],
     optionsResolver: (answers) => {
-      const carrier = answers["internet.cableCarrier"] || answers["internet.commonCarrier"] || "SK";
-      const desiredSpeed = answers["internet.desiredSpeed"] || "500";
-      const planContract = answers["internet.planContract"] || "discount3y";
+      const carrier = (answers["internet.cableCarrier"] as string) || (answers["internet.commonCarrier"] as string) || "SK";
+      const desiredSpeed = (answers["internet.desiredSpeed"] as string) || "500";
+      const planContract = (answers["internet.planContract"] as string) || "discount3y";
       const recommendations = getRecommendedInternetPlans(carrier, desiredSpeed, planContract, answers);
       return [
         ...recommendations,
@@ -341,7 +336,7 @@ const specific: FlowStep[] = [
   {
     id: "internet-result",
     type: "result",
-    message: "모든 진단과 요금제 선택이 완료되었습니다! 상세 비교서 작성을 완료했어요.",
+    message: "모든 진단과 요금제 선택이 끝났어요! 모잇이 상세 비교서까지 깔끔하게 정리해 드렸어요 📋",
     next: "internet-ask-grade",
   },
 
@@ -349,7 +344,7 @@ const specific: FlowStep[] = [
   {
     id: "internet-ask-grade",
     type: "single-choice",
-    message: "등급 진단을 받아보시겠습니까?",
+    message: "절약 습관이 궁금하지 않으세요? 소비 패턴 등급 진단도 받아보시겠어요? 💡",
     answerKey: `${namespace}.askGrade`,
     options: [
       { value: "yes", label: "YES", next: "internet-grade-result" },
@@ -361,7 +356,7 @@ const specific: FlowStep[] = [
   {
     id: "internet-grade-result",
     type: "result",
-    message: "소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다.",
+    message: "소비 패턴 등급 진단 완료! 결과 등급 카드가 나왔어요. 지금 확인해 보세요 ✨",
   },
 
   // 종료 완료 스텝

@@ -29,11 +29,12 @@ const namespace = "bundle";
 // ──────────────────────────────────────────────
 // API 키 확인 및 모바일/통신 API 캐싱 레이어
 // ──────────────────────────────────────────────
+const viteEnv = (import.meta as { env?: Record<string, string | undefined> }).env ?? {};
 const MOBILE_API_KEY =
-  import.meta.env.VITE_MOBILE_API_KEY ||
-  import.meta.env.VITE_TELECOM_API_KEY ||
-  import.meta.env.VITE_SMARTCHOICE_API_KEY ||
-  import.meta.env.VITE_INTERNET_API_KEY ||
+  viteEnv.VITE_MOBILE_API_KEY ||
+  viteEnv.VITE_TELECOM_API_KEY ||
+  viteEnv.VITE_SMARTCHOICE_API_KEY ||
+  viteEnv.VITE_INTERNET_API_KEY ||
   "";
 
 export let apiPlansCache: BundlePlan[] | null = null;
@@ -80,6 +81,7 @@ export function fetchMobilePlansWithApiKey(): Promise<BundlePlan[]> {
               name: p.planName,
               price: p.monthlyFee,
               carrier,
+              services: ["mobile"],
             });
           }
         });
@@ -289,12 +291,16 @@ function resolveRecommendedBundlePlans(
           seenExtracted.add(key);
           let carrier = "SK";
           if (c.carrier === "KT") carrier = "KT";
+<<<<<<< Updated upstream
           else if (c.carrier === "LGU+" || c.carrier === "LGU") carrier = "LGU";
+=======
+          else if (c.carrier === "LGU+") carrier = "LGU";
+>>>>>>> Stashed changes
 
           extractedMnoPlans.push({
             id: `mock-mob-${c.id}`,
             name: `[${c.carrier}] ${c.mobilePlan}`,
-            price: c.mobilePrice,
+            price: c.mobilePrice ?? 0,
             carrier,
             services: ["mobile"]
           });
@@ -966,7 +972,7 @@ function PlanCheckMethod(args: {
   const listStep: FlowStep = {
     id: listStepId,
     type: "single-choice",
-    message: "입력하신 요금대와 비슷한 전체 요금제 리스트입니다. 원하시는 요금제를 선택해 주세요.",
+    message: "입력하신 요금대와 비슷한 요금제를 모잇이 한자리에 모아왔어요! 마음에 드는 요금제를 골라주세요 ✅",
     answerKey: `${args.answerKey}List`,
     options: [],
     optionsResolver: (answers) => {
@@ -1253,7 +1259,7 @@ function buildMobileFlow(args: {
     steps.push({
       id: `${prefix}1_2`,
       type: "single-choice",
-      message: "이동전화 결합 인원을 알려주세요",
+      message: "가족이나 지인과 함께 묶여 있나요? 이동전화 결합 인원을 알려주세요 👨‍👩‍👧",
       answerKey: `${namespace}.${answerPrefix}Members`,
       options: [
         { value: "1인", label: "1인" },
@@ -1276,7 +1282,11 @@ function buildMobileFlow(args: {
     }),
     ...PlanCheckMethod({
       id: `${prefix}3`,
+<<<<<<< Updated upstream
       message: "지금 사용 중이신 요금제가 혹시 요 제품이 맞는지 한번 확인해 주시겠어요? 📱👍",
+=======
+      message: "지금 쓰시는 요금제, 어떤 방법으로 확인해 볼까요? 🔍",
+>>>>>>> Stashed changes
       answerKey: `${namespace}.${answerPrefix}PlanCheck`,
       answerPrefix,
       isMobile: true,
@@ -1347,7 +1357,11 @@ function buildInternetFlow(args: {
     ];
 
   const carrierMessage = isCombo
+<<<<<<< Updated upstream
     ? "지금 쓰고 계신 인터넷·TV 결합 통신사를 골라주세요 🏠"
+=======
+    ? "지금 쓰고 계신 인터넷/TV 결합 통신사를 골라주세요 🏠"
+>>>>>>> Stashed changes
     : "지금 쓰고 계신 인터넷 통신사를 골라주세요 🌐";
 
   const feeMessage = isCombo
@@ -1369,6 +1383,7 @@ function buildInternetFlow(args: {
   const penaltyInputMessage = isCombo
     ? "유선 상품의 예상 위약금 금액을 입력해 주세요 ✍️"
     : "인터넷의 예상 위약금 금액을 입력해 주세요 ✍️";
+<<<<<<< Updated upstream
 
   const intro1Id = `${prefix}_intro_1`;
   const intro2Id = `${prefix}_intro_2`;
@@ -1388,6 +1403,8 @@ function buildInternetFlow(args: {
       next: firstStepId,
     },
   ];
+=======
+>>>>>>> Stashed changes
 
   if (!skipCarrierSelect) {
     steps.push(
@@ -1466,21 +1483,33 @@ function buildTvFlow(args: {
     }),
     MonthlyFeeInput({
       id: `${prefix}2`,
+<<<<<<< Updated upstream
       message: "TV 상품으로 매달 내고 계신 금액을 입력해 주세요 💰",
+=======
+      message: "지금 이용 중인 IPTV 통신사를 골라주세요 📺",
+>>>>>>> Stashed changes
       answerKey: `${namespace}.${answerPrefix}Fee`,
       placeholder: "실제 납부액을 입력해주세요.",
       next: `${prefix}3`,
     }),
     ...PlanCheckMethod({
       id: `${prefix}3`,
+<<<<<<< Updated upstream
       message: "TV 요금제는 어떤 방법으로 확인해 볼까요? 🔍",
+=======
+      message: "TV 상품으로 매달 내고 계신 금액을 입력해 주세요 💰",
+>>>>>>> Stashed changes
       answerKey: `${namespace}.${answerPrefix}PlanCheck`,
       answerPrefix,
       next: `${prefix}4`,
     }),
     ContractStatus({
       id: `${prefix}4`,
+<<<<<<< Updated upstream
       message: "TV 상품의 약정은 어떤 상태인가요?",
+=======
+      message: "TV 요금제는 어떤 방법으로 확인해 볼까요? 🔍",
+>>>>>>> Stashed changes
       answerKey: `${namespace}.${answerPrefix}Contract`,
       isMobile: false,
       next: `${prefix}5`,
@@ -1913,7 +1942,7 @@ function filterAnyCombinations(answers: FlowAnswers) {
   const ktCombos = filterMnoForCarrier(answers, "KT");
   const lguCombos = filterMnoForCarrier(answers, "LGU+");
 
-  const carrierLists = [sktCombos, ktCombos, lguCombos];
+  const carrierLists: { id: string; label: string; totalPrice: number; carrier: string }[][] = [sktCombos, ktCombos, lguCombos];
 
   // 🟢 결합 인원이 1인인 경우에만 결합인원이 없는 알뜰폰(스카이라이프, 헬로비전, 이야기 모바일) 요금제 포함
   if (lines === 1) {
@@ -2180,7 +2209,11 @@ const steps: FlowStep[] = [
   {
     id: "Q_P2_2",
     type: "single-choice",
+<<<<<<< Updated upstream
     message: "[모잇의 안내] 위약금을 입력하지 않으시면 정확한 진단이 어려울 수 있어요.\n그런 경우엔 가장 저렴한 상품 중심으로 추천해 드릴게요 💰",
+=======
+    message:"이번 진단에서 가장 중요한 건 뭐예요? 💡\n[모잇의 안내] 위약금을 입력하지 않으시면 정확한 진단이 어려울 수 있어요. \n그런 경우엔 가장 저렴한 상품 중심으로 추천해 드릴게요 💰",
+>>>>>>> Stashed changes
     answerKey: `${namespace}.desiredCompanyType`,
     options: [
       { value: "mvno", label: "고정 비용 최소화 추천 (알뜰폰/케이블 최저가 위주로 추천)", next: "Q_P2_3_ROUTE" },
@@ -2193,7 +2226,7 @@ const steps: FlowStep[] = [
   {
     id: "Q_P2_CARRIER",
     type: "single-choice",
-    message: "원하시는 통신사를 선택해 주세요.",
+    message: "갈아타고 싶은 통신사가 있다면 골라주세요!",
     answerKey: `${namespace}.desiredCarrier`,
     options: [
       { value: "SKT", label: "SKT" },
@@ -2216,7 +2249,11 @@ const steps: FlowStep[] = [
   {
     id: "Q_P2_DATA",
     type: "single-choice",
+<<<<<<< Updated upstream
     message: "평소에 자주 쓰시는 데이터 양이나, 딱 원하시는 데이터 스타일이 있으신가요? 📱✨",
+=======
+    message: "한 달에 모바일 데이터를 얼마나 쓰시는 편이에요? 📱",
+>>>>>>> Stashed changes
     answerKey: `${namespace}.desiredData`,
     options: [
       { value: "unlimited", label: "무제한 필요 (헤비 유저)" },
@@ -2239,7 +2276,11 @@ const steps: FlowStep[] = [
   {
     id: "Q_P2_MEMBERS",
     type: "single-choice",
+<<<<<<< Updated upstream
     message: "이번에 같이 묶어서 할인받으실 모바일 회선(인원)은 총 몇 명인가요? 👨‍👩‍👧‍👦💡",
+=======
+    message: "새로 묶을 이동전화 결합 인원을 알려주세요 👨‍👩‍👧",
+>>>>>>> Stashed changes
     answerKey: `${namespace}.desiredMembers`,
     options: [
       { value: "1인", label: "1인" },
@@ -2263,7 +2304,11 @@ const steps: FlowStep[] = [
   {
     id: "Q_P2_SPEED",
     type: "single-choice",
+<<<<<<< Updated upstream
     message: "자주 쓰시던 인터넷 속도나, 딱 원하시는 인터넷 사양이 있다면 알려주세요! 🌐⚡",
+=======
+    message: "인터넷 속도는 어느 정도면 좋을까요? 선호하는 사양을 골라주세요 🌐",
+>>>>>>> Stashed changes
     answerKey: `${namespace}.desiredSpeed`,
     options: [
       { value: "100Mbps", label: "100Mbps (웹서핑·유튜브)" },
@@ -2359,7 +2404,7 @@ const steps: FlowStep[] = [
         const ktCombos = filterMnoForCarrier(answers, "KT");
         const lguCombos = filterMnoForCarrier(answers, "LGU+");
 
-        const carrierLists = [sktCombos, ktCombos, lguCombos];
+        const carrierLists: { id: string; label: string; totalPrice: number; carrier: string }[][] = [sktCombos, ktCombos, lguCombos];
 
         // 🟢 결합 인원이 1인인 경우에만 알뜰폰/케이블 (스카이라이프, 헬로비전, 이야기 모바일) 요금제 포함
         if (lines === 1) {
@@ -2480,7 +2525,7 @@ const steps: FlowStep[] = [
         const ktCombos = filterMnoForCarrier(answers, "KT");
         const lguCombos = filterMnoForCarrier(answers, "LGU+");
 
-        const carrierLists = [sktCombos, ktCombos, lguCombos];
+        const carrierLists: { id: string; label: string; totalPrice: number; carrier: string }[][] = [sktCombos, ktCombos, lguCombos];
 
         if (lines === 1) {
           const skylifeCombos = filterSkylifeCombinations(answers);
@@ -2555,7 +2600,12 @@ const steps: FlowStep[] = [
   {
     id: "bundle-grade-result",
     type: "result",
+<<<<<<< Updated upstream
     message: "소비 패턴 등급 진단 완료! 결과 등급 카드가 나왔어요. 지금 확인해 보세요 ✨",
+=======
+    message:  "소비 패턴 등급 진단 완료! 결과 등급 카드가 나왔어요. 지금 확인해 보세요 ✨"
+,
+>>>>>>> Stashed changes
   },
 
   {

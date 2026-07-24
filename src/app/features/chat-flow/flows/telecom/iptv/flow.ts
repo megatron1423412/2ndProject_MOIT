@@ -174,13 +174,13 @@ const opening: FlowStep[] = [
   {
     id: "iptv-intro",
     type: "assistant-message",
-    message: "TV·IPTV 요금 진단을 시작할께요. 현재 조건부터 확인해볼께요.",
+    message: "TV·IPTV 요금 진단을 시작할게요! 지금 이용 조건부터 차근차근 확인해 볼게요 🔍",
     next: "iptv-provider-type",
   },
   {
     id: "iptv-provider-type",
     type: "single-choice",
-    message: "현재 이용 중이신 TV·IPTV 통신사를 선택해주세요.",
+    message: "지금 이용 중이신 TV·IPTV 통신사를 골라주세요 📺",
     answerKey: `${namespace}.providerCategory`,
     options: [
       { value: "sk_btv", label: providerTypeLabelMap.sk_btv, next: "iptv-current-price-input" },
@@ -193,7 +193,7 @@ const opening: FlowStep[] = [
   {
     id: "iptv-provider-cable",
     type: "single-choice",
-    message: "이용 중이신 케이블/지역방송 통신사를 선택해주세요.",
+    message: "이용 중이신 케이블/지역방송 통신사를 골라주세요 📡",
     answerKey: `${namespace}.providerType`,
     options: [
       { value: "dlive", label: providerTypeLabelMap.dlive, next: "iptv-current-price-input" },
@@ -212,7 +212,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-current-price-input",
     type: "number-input",
-    message: "현재 납부하고 계시는 TV·IPTV 요금제 금액을 입력해주세요.",
+    message: "매달 내고 계신 TV·IPTV 요금을 입력해 주세요 💰",
     answerKey: `${namespace}.currentPlanPriceInput`,
     placeholder: "예: 15400",
     min: 0,
@@ -222,7 +222,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-current-plan-api",
     type: "single-choice",
-    message: "현재 사용하시는 TV·IPTV 요금제가 맞을까요?",
+    message: "지금 쓰시는 TV·IPTV 요금제가 이게 맞을까요? 확인 한 번만 부탁드려요 ✅",
     answerKey: `${namespace}.confirmedPlan`,
     options: [
       { value: "direct-choose", label: "직접 고를래요(리스트 보기)", next: "iptv-choose-current-list" },
@@ -273,7 +273,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-choose-current-list",
     type: "single-choice",
-    message: "현재 이용 중이신 TV·IPTV 요금제를 선택해주세요.",
+    message: "지금 이용 중이신 TV·IPTV 요금제를 골라주세요 🔍",
     answerKey: `${namespace}.currentPlanId`,
     options: [
       { value: "manual_fallback", label: "⚠️ 리스트에 내 요금제가 없음 (직접 입력)", next: "iptv-manual-name-input" },
@@ -301,7 +301,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-manual-name-input",
     type: "text-input",
-    message: "현재 사용 중이신 TV·IPTV 요금제 이름을 입력해주세요.",
+    message: "쓰고 계신 TV·IPTV 요금제 이름을 입력해 주세요 ✍️",
     answerKey: `${namespace}.currentPlanNameManual`,
     placeholder: "통신사 요금제이름 (예 : Btv 스탠다드)",
     next: "iptv-contract-diagnosis",
@@ -309,7 +309,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-contract-diagnosis",
     type: "single-choice",
-    message: "현재 TV·IPTV 가입 약정기간 상태가 어떻게 되시나요?",
+    message: "지금 약정 상태는 어떠세요? 📅",  
     answerKey: `${namespace}.userContractStatus`,
     options: [
       { value: "expired", label: "약정이 만료됨", next: "iptv-desired-contract" },
@@ -340,7 +340,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-desired-contract",
     type: "single-choice",
-    message: "이제 원하시는 TV·IPTV 요금제를 찾아볼까요.\n비교를 원하시는 약정 기간을 선택해주세요. 선택하신 약정에 맞게 TV·IPTV 요금제를 알려 드릴게요.",
+    message: "이제 원하시는 TV·IPTV 요금제를 찾아볼까요?\n비교하고 싶은 약정 기간을 골라주시면, 그에 맞는 요금제를 모잇이 챙겨드릴게요 ✅",
     answerKey: `${namespace}.desiredContract`,
     options: [
       { value: "3years", label: "3년 약정 (추천)", next: "iptv-region-lv1" },
@@ -353,7 +353,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-region-lv1",
     type: "single-choice",
-    message: "사는 곳을 선택해주세요.",
+    message: "사시는 지역을 골라주세요 📍",
     answerKey: `${namespace}.regionLv1`,
     options: [
       { value: "gangwon", label: "강원", next: "iptv-region-gangwon" },
@@ -375,7 +375,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-region-gyeongsang-lv2",
     type: "single-choice",
-    message: "경상도의 세부 지역을 선택해주세요.",
+    message: "경상도의 세부 지역을 골라주세요 📍",
     answerKey: `${namespace}.regionLv2Gyeongsang`,
     options: [
       { value: "gyeongnam", label: "경상남도", next: "iptv-region-gyeongnam" },
@@ -389,7 +389,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-region-chungcheong-lv2",
     type: "single-choice",
-    message: "충청도의 세부 지역을 선택해주세요.",
+    message: "충청도의 세부 지역을 골라주세요 📍",
     answerKey: `${namespace}.regionLv2Chungcheong`,
     options: [
       { value: "daejeon", label: "대전광역시", next: "iptv-region-daejeon" },
@@ -402,7 +402,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-region-jeolla-lv2",
     type: "single-choice",
-    message: "전라도의 세부 지역을 선택해주세요.",
+    message: "전라도의 세부 지역을 골라주세요 📍",
     answerKey: `${namespace}.regionLv2Jeolla`,
     options: [
       { value: "jeonnam", label: "전라남도", next: "iptv-region-jeonnam" },
@@ -413,7 +413,11 @@ const specific: FlowStep[] = [
   {
     id: "iptv-select-new-plan",
     type: "single-choice",
+<<<<<<< Updated upstream
     message: "고객님의 조건을 분석하여 선정한 최적의 추천 요금제 리스트입니다.\n※셋톱박스 대여, 출동비 별도※",
+=======
+    message: "선택하신 약정 조건에 딱 맞는 TV·IPTV 요금제를 모아왔어요! 갈아탈 생각이 있거나 관심 가는 요금제를 골라주세요 ✨\n※ 셋톱박스 대여, 출동비는 별도예요",
+>>>>>>> Stashed changes
     answerKey: `${namespace}.selectedNewPlan`,
     options: [
       { value: "direct-choose", label: "직접 고를래요 (다른추천 리스트 보기)", next: "iptv-all-plans-select" },
@@ -534,13 +538,13 @@ const specific: FlowStep[] = [
   {
     id: "iptv-result",
     type: "result",
-    message: "선택하신 요금제를 바탕으로 TV·IPTV 요금 비교·추천 솔루션 분석이 완료되었습니다. 아래 카드에서 비교 분석 리포트를 확인해 보세요.",
+    message: "선택하신 요금제로 TV·IPTV 요금 비교 분석을 마쳤어요! 아래 카드에서 비교 분석 리포트를 확인해 보세요.📋",
     next: "iptv-ask-grade-diagnosis"
   },
   {
     id: "iptv-ask-grade-diagnosis",
     type: "single-choice",
-    message: "등급 진단을 받아보시겠습니까?",
+    message: "절약 습관이 궁금하지 않으세요? 소비 패턴 등급 진단도 받아보시겠어요? 💡",
     answerKey: `${namespace}.askGrade`,
     options: [
       { value: "yes", label: "YES", next: "iptv-grade-result" },
@@ -550,7 +554,7 @@ const specific: FlowStep[] = [
   {
     id: "iptv-grade-result",
     type: "result",
-    message: "TV·IPTV  소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다.",
+    message: "TV·IPTV  소비 패턴 등급 진단 완료! 결과 등급 카드가 나왔어요. 지금 확인해 보세요✨",
   },
   {
     id: "iptv-completed-exit",

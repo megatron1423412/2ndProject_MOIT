@@ -594,7 +594,7 @@ const opening: FlowStep[] = [
   {
     id: "phone-intro",
     type: "assistant-message",
-    message: "휴대폰 요금제 진단을 시작할게요. 현재 요금 조건부터 확인해볼게요.",
+    message: "휴대폰 요금제 진단을 시작할게요! 지금 내고 계신 요금 조건부터 차근차근 확인해 볼게요 🔍",
     next: "phone-carrier"
   },
 
@@ -602,7 +602,7 @@ const opening: FlowStep[] = [
   {
     id: "phone-carrier",
     type: "single-choice",
-    message: "현재 사용하는 통신사를 선택해주세요.",
+    message: "지금 쓰고 계신 통신사를 골라주세요 📱",
     answerKey: `${namespace}.carrier`,
     options: [
       { value: "skt", label: "SKT" },
@@ -633,7 +633,7 @@ const opening: FlowStep[] = [
   {
     id: "phone-plan-fee",
     type: "number-input",
-    message: "현재 납부하는 요금액을 입력해주세요.",
+    message: "매달 내고 계신 요금을 입력해 주세요 💰",
     answerKey: `${namespace}.currentFee`,
     placeholder: "금액만 적어주세요.",
     min: 0,
@@ -645,7 +645,7 @@ const opening: FlowStep[] = [
   {
     id: "phone-current-plan-api",
     type: "single-choice",
-    message: "현재 사용하시는 요금제가 맞을까요?",
+    message: "지금 쓰시는 요금제가 이게 맞을까요? 확인 한 번만 부탁드려요 ✅",
     answerKey: `${namespace}.confirmedPlan`,
     options: [
       { value: "direct-choose", label: "직접 고를래요(리스트 보기)", next: "phone-current-plans-list" },
@@ -659,7 +659,7 @@ const opening: FlowStep[] = [
   {
     id: "phone-current-plans-list",
     type: "single-choice",
-    message: "입력하신 요금대와 비슷한 요금제 목록입니다. 현재 요금제를 선택해주세요.",
+    message: "입력하신 요금대와 비슷한 요금제를 모아봤어요. 이 중에서 현재 요금제를 골라주세요 🔍",
     answerKey: `${namespace}.confirmedPlanList`,
     options: [
       { value: "none-of-them", label: "목록에 없음 (금액 기준으로만 진단)", next: "phone-contract-period" }
@@ -824,7 +824,7 @@ const opening: FlowStep[] = [
   {
     id: "phone-custom-plan-input",
     type: "text-input",
-    message: "사용 중이신 요금제 이름을 입력해주세요.",
+    message: "쓰고 계신 요금제 이름을 입력해 주세요 ✍️",
     answerKey: `${namespace}.customPlan`,
     placeholder: "예: 슬림 요금제",
     next: "phone-contract-period"
@@ -834,7 +834,7 @@ const opening: FlowStep[] = [
   {
     id: "phone-contract-period",
     type: "single-choice",
-    message: "현재 휴대폰 가입 약정기간 상태가 어떻게 되시나요?",
+    message: "약정 기간도 함께 진단해 볼까요? 🕒",
     answerKey: `${namespace}.contractPeriod`,
     options: [
       { value: "expired", label: "약정이 만료됨" },
@@ -850,7 +850,7 @@ const specific: FlowStep[] = [
   {
     id: "phone-desired-network",
     type: "single-choice",
-    message: "앞으로 이용하고 싶으신 희망 데이터 종류를 선택해주세요.",
+    message: "앞으로 쓰고 싶은 데이터 종류를 골라주세요 📱",
     answerKey: `${namespace}.desiredNetwork`,
     options: [
       { value: "lte", label: "4G/LTE" },
@@ -864,7 +864,7 @@ const specific: FlowStep[] = [
   {
     id: "phone-age-group",
     type: "single-choice",
-    message: "사용자의 연령대를 알려주세요.",
+    message: "연령대를 알려주시겠어요? 연령별 할인 요금제까지 챙겨드릴게요 💰",
     answerKey: `${namespace}.ageGroup`,
     options: [
       { value: "normal", label: "일반(만 35~65세 이하)" },
@@ -880,7 +880,7 @@ const specific: FlowStep[] = [
   {
     id: "phone-data-volume",
     type: "single-choice",
-    message: "한 달 데이터 사용량을 알려주세요.",
+    message: "한 달 데이터 사용량은 어느 정도세요? 📊",
     answerKey: `${namespace}.dataVolume`,
     options: [
       { value: "100GB_over", label: "무제한 (헤비 유저)" },
@@ -895,7 +895,7 @@ const specific: FlowStep[] = [
   {
     id: "phone-recommendation-api",
     type: "single-choice",
-    message: "고객님의 조건을 분석하여 선정한 최적의 추천 요금제 리스트입니다.",
+    message: "짜잔! 알려주신 조건을 꼼꼼히 분석해서 딱 맞는 요금제만 챙겨왔어요 ✨",
     answerKey: `${namespace}.selectedRecommendedPlan`,
     options: MOCK_RECOMMENDED_PLANS,
     optionsResolver: resolvePhoneRecommendations,
@@ -905,7 +905,7 @@ const specific: FlowStep[] = [
   {
     id: "phone-all-plans-select",
     type: "single-choice",
-    message: "추천 요금제 외에 선택 가능한 전체 요금제 리스트입니다. 원하시는 요금제를 선택해 주세요.",
+    message: "추천 요금제 외에 선택할 수 있는 전체 요금제도 준비했어요. 원하시는 요금제를 골라주세요 ✅",
     answerKey: `${namespace}.manualSelectedPlan`,
     options: [
       { value: "plan-api|알뜰폰 5G 데이터 무제한 가성비 팩 (월 33,000원)", label: "알뜰폰 5G 데이터 무제한 가성비 팩 (월 33,000원)", next: "phone-result" },
@@ -921,14 +921,14 @@ const specific: FlowStep[] = [
   {
     id: "phone-result",
     type: "result",
-    message: "모든 진단과 요금제 선택이 완료되었습니다! 상세 비교서 작성을 완료했어요.",
+    message: "모든 진단과 요금제 선택이 끝났어요! 모잇이 상세 비교서까지 깔끔하게 정리해 드렸어요 📋",
     next: "phone-ask-grade"
   },
 
   {
     id: "phone-ask-grade",
     type: "single-choice",
-    message: "고객님의 요금 절감액을 분석하여 소비 패턴 등급을 진단받으시겠습니까?",
+    message: "여기서 끝이 아니에요! 절감액을 바탕으로 소비 패턴 등급도 진단받아 보시겠어요? 💡",
     answerKey: `${namespace}.askGrade`,
     options: [
       { value: "yes", label: "YES", next: "phone-grade-result" },
@@ -939,7 +939,7 @@ const specific: FlowStep[] = [
   {
     id: "phone-grade-result",
     type: "result",
-    message: "소비 패턴 등급 진단이 완료되었습니다. 결과 등급 카드가 생성되었습니다."
+    message: "소비 패턴 등급 진단 완료! 결과 등급 카드가 나왔어요. 지금 확인해 보세요 ✨"
   },
 
   {

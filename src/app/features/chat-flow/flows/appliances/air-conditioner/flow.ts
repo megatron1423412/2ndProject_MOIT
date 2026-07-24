@@ -88,7 +88,11 @@ const steps: FlowStep[] = [
       `- 제품 가격: ${budget === "none" ? "예산 제한 없음" : `${Number(budget).toLocaleString("ko-KR")}원 이하`}`,
     ].join("\n");
   }, next: "ac-confirm" },
+<<<<<<< Updated upstream
   { id: "ac-confirm", type: "confirmation", message: "모잇이 자동으로 챙겨드리는 것들이에요! ✨\n- 냉방 면적이 부족한 제품은 미리 정리해 드려요\n- 전기세 지켜드리는 인버터 제품만 챙겨드려요 💰\n- 판매 중단된 제품은 미리 정리해 드려요\n- 현재 가격, 과거 가격 흐름, 에너지 등급, 자동 건조, 사용 시간, 선택하신 가성비 기준까지 꼼꼼하게 따져서 순위를 매겨요 🔍\n\n이 조건으로 추천을 시작해 볼까요?", answerKey: `${n}.confirmed`, confirmLabel: "추천 시작", cancelLabel: "조건 수정", confirmNext: "ac-result", cancelNext: "$restart" },
+=======
+  { id: "ac-confirm", type: "confirmation", message: "모잇이 자동으로 챙겨드리는 것들이에요! ✨\n- 냉방 면적이 부족한 제품은 미리 정리해 드려요\n- 전기세 지켜드리는 인버터 제품만 챙겨드려요 💰\n- 판매 중단된 제품은 미리 정리해 드려요\n- 현재 가격, 과거 가격 흐름, 에너지 등급, 자동 건조, 사용 시간, 선택한 가성비 기준까지 따져서 순위를 매겨요 🔍\n\n이 조건으로 추천을 시작해 볼까요?", answerKey: `${n}.confirmed`, confirmLabel: "추천 시작", cancelLabel: "조건 수정", confirmNext: "ac-result", cancelNext: "$restart" },
+>>>>>>> Stashed changes
   { id: "ac-result", type: "result", message: "짜잔! 필수 조건을 통과한 제품들을 선택하신 가성비 기준으로 쫙 정렬해 봤어요 ✨ 마음에 드는 제품이 있는지 확인해 보세요!" },
 ];
 
