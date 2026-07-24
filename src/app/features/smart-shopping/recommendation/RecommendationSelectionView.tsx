@@ -83,11 +83,14 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     }));
   }, [appendRecommendation, category, catalogSource]);
 
+  const initializedRef = useRef(false);
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
     dispatch({ type: "start-loading" });
     snapshotRecommendations(activeRecommendations);
     dispatch({ type: "recommendations-settled" });
-  }, [snapshotRecommendations]);
+  }, [snapshotRecommendations, activeRecommendations]);
 
   const hasRecommendationList = session.timeline.some((item) => item.type === "recommendation-list");
   useLayoutEffect(() => {
@@ -100,7 +103,7 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     sessionDispatch({ type: "append", item: createPurchaseGradeTimelineItem(session.sessionId, view.purchaseGradeInput, gradeResult) });
     appendActionGroup("grade-followup");
     dispatch({ type: "complete-purchase-grade", result: gradeResult });
-  }, [appendActionGroup, session.sessionId, view]);
+  }, [appendActionGroup, session.sessionId, view.stage]);
 
   const selected = view.selectedProduct;
   const selectedInternal = selected?.source === "internal" ? selected.recommendation.product : selected?.matchedInternalProduct;

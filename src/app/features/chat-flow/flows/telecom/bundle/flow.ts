@@ -1996,7 +1996,7 @@ const steps: FlowStep[] = [
     answerKey: `${namespace}.partSelect`,
     options: [
       { value: "pta", label: "📱 1인 결합 (모바일 1회선 / 인터넷+TV)", next: "Q_PTA_M1" },
-      { value: "ptc", label: "👨‍👩‍👧‍👦 다인/가족 결합 (모바일 여러 회선 / 인터넷+TV)", next: "Q_PTA_M1" },
+      { value: "ptc", label: "👨‍👩‍👧‍👦 다인/가족 결합 (모바일 여러 회선 / 인터넷+TV)", next: "Q_PTC_M1" },
       { value: "ptb", label: "🌐 인터넷 전용 결합 (모바일 + 인터넷 / TV 제외)", next: "Q_PTB_M1" },
     ],
   },
@@ -2072,7 +2072,7 @@ const steps: FlowStep[] = [
     type: "branch",
     conditions: [
       { answerKey: `${namespace}.diffServices`, operator: "includes", value: "phone", next: "Q_DIFF_M1" },
-      { answerKey: `${namespace}.diffServices`, operator: "includes", value: "internet", next: "Q_DIFF_I1" },
+      { answerKey: `${namespace}.diffServices`, operator: "includes", value: "internet", next: "Q_DIFF_I_intro_1" },
       { answerKey: `${namespace}.diffServices`, operator: "includes", value: "iptv", next: "Q_DIFF_T1" },
     ],
     defaultNext: "bundle-p2-intro-1",
@@ -2089,7 +2089,7 @@ const steps: FlowStep[] = [
     id: "Q_DIFF_M_NEXT",
     type: "branch",
     conditions: [
-      { answerKey: `${namespace}.diffServices`, operator: "includes", value: "internet", next: "Q_DIFF_I1" },
+      { answerKey: `${namespace}.diffServices`, operator: "includes", value: "internet", next: "Q_DIFF_I_intro_1" },
       { answerKey: `${namespace}.diffServices`, operator: "includes", value: "iptv", next: "Q_DIFF_T1" },
     ],
     defaultNext: "bundle-p2-intro-1",

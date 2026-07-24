@@ -23,7 +23,15 @@ export const startPurchaseGradeDiagnosis = ({ selected, recommendations, userCri
     currentPrice,
     allTimeLow,
     priceRisePct: getSelectedPriceRisePct(selected),
-    additionalCostCheck: internal?.categoryId === "air-conditioner" ? "설치비·배관·타공·철거비 확인 필요" : "배송·설치·부가비용 확인 필요",
+    additionalCostCheck: internal?.categoryId === "air-conditioner"
+      ? "설치비·배관·타공·철거비 확인 필요"
+      : internal?.categoryId === "refrigerator"
+        ? "가구장 수치·문 열림 공간 및 배송/사다리차 비용 확인 필요"
+        : internal?.categoryId === "tv"
+          ? "벽걸이/스탠드 설치비 및 폐가전 수거 조건 확인 필요"
+          : internal?.categoryId === "vacuum"
+            ? "필터/물걸레 소모품 비용 및 무상 A/S 기간 확인 필요"
+            : "배송·설치·부가비용 확인 필요",
     priceDataConfidence: history.length ? "mock-history" : internal ? "no-history" : "naver-candidate",
   };
 };

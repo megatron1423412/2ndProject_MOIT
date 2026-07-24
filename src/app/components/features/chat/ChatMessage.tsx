@@ -1,5 +1,4 @@
 import React from "react";
-import { Sparkles } from "lucide-react";
 import ChatFlowInput from "./ChatFlowInput";
 import { CHAT_ASSISTANT_AVATAR_WIDTH_CLASS, CHAT_ASSISTANT_RAIL_GAP_CLASS } from "./ChatTimelineRow";
 import type { AnswerInputStep, SubmittedFlowAnswer } from "../../../features/chat-flow/core/types";
@@ -68,11 +67,14 @@ export default function ChatMessage({
       */}
       {isAi && (
         <div
-          className={`flex h-8 ${CHAT_ASSISTANT_AVATAR_WIDTH_CLASS} flex-shrink-0 items-center justify-center rounded-full border border-emerald-100 text-white shadow-sm`}
-          style={{ background: "linear-gradient(135deg, #1B3A5C, #00B87A)" }}
+          className={`flex h-8 ${CHAT_ASSISTANT_AVATAR_WIDTH_CLASS} flex-shrink-0 items-center justify-center rounded-full bg-transparent overflow-hidden`}
           data-chat-assistant-logo
         >
-          <Sparkles size={14} />
+          <img
+            src="/assets/brand/robot_moit_face.png"
+            alt="MOIT 챗봇"
+            className="h-full w-full object-contain select-none"
+          />
         </div>
       )}
 

@@ -60,6 +60,7 @@ export default function InternetGradeReport({ result, onEndChat }: InternetGrade
   let grade = "Normal";
   let gradeLabel = "일반 등급";
   let gradeEmoji = "🌱";
+  let gradeIconSrc = "/assets/icons/glossy_seedling.png";
   let gradeReason = "현재 이용 요금에 대비하여 큰 절감액이 없거나, 가구원 및 연결 기기 수 대비 200Mbps 인터넷의 속도가 다소 부족하여 기존 인터넷 환경을 그대로 유지하시는 것을 추천합니다.";
   let gradeTheme = { bg: "bg-muted/30", text: "text-muted-foreground", border: "border-border/60", ring: "ring-muted" };
 
@@ -67,18 +68,21 @@ export default function InternetGradeReport({ result, onEndChat }: InternetGrade
     grade = "Gold";
     gradeLabel = "골드 등급";
     gradeEmoji = "🏆";
+    gradeIconSrc = "/assets/icons/gold_medal.png";
     gradeReason = `속도 적합성을 만족하며 월 ${fmt(saving)}원(${Math.round(savingRate * 100)}%)의 우수한 통신 지출을 성공적으로 절감하셨습니다! 스마트한 인터넷 소비 설계를 유지하고 계십니다.`;
     gradeTheme = { bg: "bg-amber-500/5", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20", ring: "ring-amber-500/30" };
   } else if ((saving >= 8000 || savingRate >= 0.15) && speedOk) {
     grade = "Silver";
     gradeLabel = "실버 등급";
     gradeEmoji = "🥈";
+    gradeIconSrc = "/assets/icons/silver_medal.png";
     gradeReason = `속도 적합성을 만족하며 월 ${fmt(saving)}원(${Math.round(savingRate * 100)}%) 가량의 소중한 고정비를 절약하셨습니다. 건강하고 낭비 없는 소비 패턴을 보유하고 계십니다.`;
     gradeTheme = { bg: "bg-slate-500/5", text: "text-slate-600 dark:text-slate-400", border: "border-slate-500/20", ring: "ring-slate-500/30" };
   } else if (saving >= 3000) {
     grade = "Bronze";
     gradeLabel = "브론즈 등급";
     gradeEmoji = "🥉";
+    gradeIconSrc = "/assets/icons/bronze_medal.png";
     gradeReason = `월 ${fmt(saving)}원 수준의 고정비를 절감하셨습니다. 조건에 맞는 요금제를 선택하여 알뜰하게 고정 지출을 아끼셨습니다.`;
     gradeTheme = { bg: "bg-orange-500/5", text: "text-orange-600 dark:text-orange-400", border: "border-orange-500/20", ring: "ring-orange-500/30" };
   }
@@ -107,7 +111,7 @@ export default function InternetGradeReport({ result, onEndChat }: InternetGrade
       {/* 강조된 대형 등급 이모지 */}
       <div className="my-6 flex flex-col items-center justify-center">
         <div className={`flex h-28 w-28 items-center justify-center rounded-full bg-background border shadow-inner ring-8 ${gradeTheme.ring} animate-pulse`}>
-          <span className="text-6xl select-none leading-none">{gradeEmoji}</span>
+          <img src={gradeIconSrc} alt={gradeLabel} className="h-16 w-16 object-contain select-none" />
         </div>
         <span className={`mt-3 text-lg font-black tracking-tight ${gradeTheme.text}`}>
           {gradeLabel}

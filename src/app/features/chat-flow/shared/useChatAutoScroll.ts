@@ -2,32 +2,14 @@
 //
 // 통합 자동 스크롤 훅 — 모든 카테고리 공통
 //
-// ⚡ 설계 원칙:
-//   1. CSS scroll-smooth, scrollIntoView 사용 안 함 (충돌/jitter 방지)
-//   2. requestAnimationFrame + lerp 기반 수동 부드러운 스크롤 애니메이션
-//   3. Observer 콜백은 '목표 갱신'만 하고, 실제 이동은 단일 rAF 루프가 담당
-//   4. 하나의 애니메이션 루프만 존재하므로 충돌이 불가능
+// ⚡ 원칙 기반 Clean Implementation:
+//   1. 유저가 위로 스크롤(wheel deltaY < 0, touchmove 위쪽)하는 순간 userScrolledUpRef = true
+//   2. userScrolledUpRef = true 상태에서는 ResizeObserver/MutationObserver/이미지 로드가 절대 스크롤을 이동시키지 않음
+//   3. AI 답변 스트리밍 및 메시지 추가 시 behavior: 'smooth'로 하단 부드럽게 이동
+//   4. 유저가 손으로 맨 최하단 바닥(remaining < 20px)까지 내렸을 때만 락 해제
+//   5. 어떠한 setTimeout 지연 타이머나 복잡한 애니메이션 루프도 사용하지 않는 단일 구조
 
 import { useCallback, useEffect, useRef } from "react";
-
-/** 사용자가 하단 근처로 판정하는 여유 거리 (px) */
-const NEAR_BOTTOM_THRESHOLD = 150;
-
-/** 메시지 추가 후 자동 스크롤 윈도우 유지 시간 (ms) */
-const AUTO_SCROLL_WINDOW_MS = 700;
-
-/** 마무리 앵커링 지연 시간 (ms) — DOM 렌더링 확정 대기 */
-const FINAL_ANCHOR_DELAY_MS = 100;
-
-/**
- * Lerp 비율 (0~1): 매 프레임 현재 위치에서 목표까지 이 비율만큼 이동.
- * 0.18 = 매 프레임 18% 접근 → 약 ~200ms에 걸쳐 부드럽게 도달.
- * 값이 클수록 빠르게, 작을수록 느리게 (0.12~0.25 권장).
- */
-const LERP_FACTOR = 0.18;
-
-/** lerp 수렴 판정: 목표와의 차이가 이 값 이하이면 즉시 snap (px) */
-const SNAP_THRESHOLD = 1;
 
 interface UseChatAutoScrollOptions {
   messagesLength: number;
@@ -45,77 +27,79 @@ export const useChatAutoScroll = ({
   messagesLength,
   contentRevision = 0,
   scrollContainerRef,
-  messagesEndRef,
 }: UseChatAutoScrollOptions): UseChatAutoScrollReturn => {
-  // ── 내부 상태 refs ──────────────────────────────────────────
-  const isAutoScrollWindowRef = useRef(false);
+  // 유저가 위로 스크롤을 올렸는지 여부 플래그
   const userScrolledUpRef = useRef(false);
-  const windowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const finalAnchorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevMessagesLengthRef = useRef(messagesLength);
   const prevContentRevisionRef = useRef(contentRevision);
-  const lastScrollTopRef = useRef(0);
 
-  // ── 부드러운 스크롤 애니메이션 상태 ────────────────────────────
-  /** 현재 애니메이션 루프가 진행 중인지 */
-  const isAnimatingRef = useRef(false);
-  /** rAF ID (취소용) */
-  const animationRafRef = useRef<number | null>(null);
-  /** 목표 scrollTop 값 (Observer가 갱신, 루프가 추적) */
-  const targetScrollTopRef = useRef(0);
+  /** 바닥으로 부드럽게 스크롤 이동 함수 */
+  const scrollToBottom = useCallback(() => {
+    // 유저가 위로 스크롤한 상태라면 절대 하단으로 스크롤하지 않음
+    if (userScrolledUpRef.current) return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-  // ── 부드러운 스크롤 애니메이션 루프 ────────────────────────────
-  const startSmoothScroll = useCallback(() => {
-    if (isAnimatingRef.current) return; // 이미 실행 중이면 중복 방지
-    isAnimatingRef.current = true;
-
-    const loop = () => {
-      const container = scrollContainerRef.current;
-      if (!container || userScrolledUpRef.current || !isAutoScrollWindowRef.current) {
-        // 조건 불충족 시 애니메이션 정지
-        isAnimatingRef.current = false;
-        animationRafRef.current = null;
-        return;
-      }
-
-      // 목표는 항상 최신 scrollHeight (콘텐츠가 계속 커지므로)
-      targetScrollTopRef.current = container.scrollHeight - container.clientHeight;
-      const current = container.scrollTop;
-      const target = targetScrollTopRef.current;
-      const diff = target - current;
-
-      if (Math.abs(diff) < SNAP_THRESHOLD) {
-        // 수렴 완료: 정확히 바닥에 snap
-        container.scrollTop = target;
-        // 콘텐츠가 계속 변할 수 있으므로 윈도우가 열려있으면 루프 유지
-        if (isAutoScrollWindowRef.current && !userScrolledUpRef.current) {
-          animationRafRef.current = requestAnimationFrame(loop);
-        } else {
-          isAnimatingRef.current = false;
-          animationRafRef.current = null;
-        }
-        return;
-      }
-
-      // Lerp: 매 프레임 diff의 LERP_FACTOR만큼 이동 → 부드러운 감속
-      container.scrollTop = current + diff * LERP_FACTOR;
-
-      animationRafRef.current = requestAnimationFrame(loop);
-    };
-
-    animationRafRef.current = requestAnimationFrame(loop);
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: "smooth",
+    });
   }, [scrollContainerRef]);
 
-  /** 애니메이션 즉시 중단 */
-  const stopSmoothScroll = useCallback(() => {
-    isAnimatingRef.current = false;
-    if (animationRafRef.current !== null) {
-      cancelAnimationFrame(animationRafRef.current);
-      animationRafRef.current = null;
-    }
-  }, []);
+  // ── 1. 네이티브 입력 이벤트 (wheel, touchstart, touchmove, scroll) ──
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-  // ── 메시지 수 / 콘텐츠 리비전 변화 감지 → 자동 스크롤 윈도우 열기 ──
+    let lastTouchY = 0;
+
+    const onWheel = (e: WheelEvent) => {
+      // 휠을 위로 올릴 때 (deltaY < 0) 즉시 유저 스크롤 락
+      if (e.deltaY < 0) {
+        userScrolledUpRef.current = true;
+      }
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        lastTouchY = e.touches[0].clientY;
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        const touchY = e.touches[0].clientY;
+        // 터치 드래그로 화면을 내림 (콘텐츠 위로 올림)
+        if (touchY > lastTouchY + 2) {
+          userScrolledUpRef.current = true;
+        }
+        lastTouchY = touchY;
+      }
+    };
+
+    const onScroll = () => {
+      const remaining = container.scrollHeight - container.scrollTop - container.clientHeight;
+      // 유저가 손으로 바닥 끝(20px 이내)까지 끌어내린 경우에만 락 해제
+      if (remaining < 20) {
+        userScrolledUpRef.current = false;
+      }
+    };
+
+    // 캡처 페이즈로 최우선 감지
+    container.addEventListener("wheel", onWheel, { capture: true, passive: true });
+    container.addEventListener("touchstart", onTouchStart, { capture: true, passive: true });
+    container.addEventListener("touchmove", onTouchMove, { capture: true, passive: true });
+    container.addEventListener("scroll", onScroll, { capture: true, passive: true });
+
+    return () => {
+      container.removeEventListener("wheel", onWheel, { capture: true } as EventListenerOptions);
+      container.removeEventListener("touchstart", onTouchStart, { capture: true } as EventListenerOptions);
+      container.removeEventListener("touchmove", onTouchMove, { capture: true } as EventListenerOptions);
+      container.removeEventListener("scroll", onScroll, { capture: true } as EventListenerOptions);
+    };
+  }, [scrollContainerRef]);
+
+  // ── 2. 메시지 수 / 콘텐츠 리비전 추가 감지 시 스크롤 이동 ──────────
   useEffect(() => {
     const prevMessages = prevMessagesLengthRef.current;
     const prevRevision = prevContentRevisionRef.current;
@@ -126,57 +110,28 @@ export const useChatAutoScroll = ({
     const revisionIncreased = contentRevision > prevRevision;
     if (!messagesAdded && !revisionIncreased) return;
 
-    // 자동 스크롤 윈도우 열기
-    userScrolledUpRef.current = false;
-    isAutoScrollWindowRef.current = true;
+    // 새로운 메시지나 카드가 생성될 때 유저가 최하단 부근에 있다면 부드럽게 스크롤
+    scrollToBottom();
+  }, [messagesLength, contentRevision, scrollToBottom]);
 
-    // 부드러운 스크롤 애니메이션 시작 (이미 실행 중이면 자동 무시)
-    startSmoothScroll();
-
-    // 기존 타이머 정리
-    if (windowTimerRef.current) clearTimeout(windowTimerRef.current);
-    if (finalAnchorTimerRef.current) clearTimeout(finalAnchorTimerRef.current);
-
-    // 윈도우 유지 후 자연 해제 + 마무리 앵커링
-    windowTimerRef.current = setTimeout(() => {
-      isAutoScrollWindowRef.current = false;
-
-      // 마무리: DOM 확정 후 최종 위치 보정 1회
-      finalAnchorTimerRef.current = setTimeout(() => {
-        if (!userScrolledUpRef.current) {
-          const container = scrollContainerRef.current;
-          if (container) {
-            container.scrollTop = container.scrollHeight;
-          }
-        }
-      }, FINAL_ANCHOR_DELAY_MS);
-    }, AUTO_SCROLL_WINDOW_MS);
-
-    return () => {
-      if (windowTimerRef.current) clearTimeout(windowTimerRef.current);
-      if (finalAnchorTimerRef.current) clearTimeout(finalAnchorTimerRef.current);
-    };
-  }, [messagesLength, contentRevision, startSmoothScroll, scrollContainerRef]);
-
-  // ── MutationObserver + ResizeObserver: 높이 변화 시 애니메이션 (재)시작 ──
+  // ── 3. DOM 크기 변형 / 스트리밍 감지 (ResizeObserver & MutationObserver) ──
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    const onHeightChange = () => {
-      if (isAutoScrollWindowRef.current && !userScrolledUpRef.current) {
-        // 목표만 갱신 — 루프가 없으면 시작, 있으면 자동으로 추적
-        startSmoothScroll();
-      }
+    const handleSizeChange = () => {
+      // 유저가 위로 스크롤한 상태면 무조건 무시
+      if (userScrolledUpRef.current) return;
+      scrollToBottom();
     };
 
-    const resizeObserver = new ResizeObserver(onHeightChange);
+    const resizeObserver = new ResizeObserver(handleSizeChange);
     resizeObserver.observe(container);
     if (container.firstElementChild) {
       resizeObserver.observe(container.firstElementChild);
     }
 
-    const mutationObserver = new MutationObserver(onHeightChange);
+    const mutationObserver = new MutationObserver(handleSizeChange);
     mutationObserver.observe(container, {
       childList: true,
       subtree: true,
@@ -186,45 +141,24 @@ export const useChatAutoScroll = ({
     return () => {
       resizeObserver.disconnect();
       mutationObserver.disconnect();
-      stopSmoothScroll();
     };
-  }, [scrollContainerRef, startSmoothScroll, stopSmoothScroll]);
+  }, [scrollContainerRef, scrollToBottom]);
 
-  // ── onScroll 핸들러 ──────────────────────────────────────────
+  // React 합성 이벤트 인터페이스 호환용 핸들러 (사용자가 올린 경우 락)
   const handleScroll = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
-
-    const currentScrollTop = container.scrollTop;
-    const scrolledUp = currentScrollTop < lastScrollTopRef.current - 2;
-    lastScrollTopRef.current = currentScrollTop;
-
-    if (isAutoScrollWindowRef.current && scrolledUp) {
-      const remaining = container.scrollHeight - currentScrollTop - container.clientHeight;
-      if (remaining > NEAR_BOTTOM_THRESHOLD) {
-        userScrolledUpRef.current = true;
-      }
+    const remaining = container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (remaining < 20) {
+      userScrolledUpRef.current = false;
     }
+  }, [scrollContainerRef]);
 
-    if (userScrolledUpRef.current) {
-      const remaining = container.scrollHeight - currentScrollTop - container.clientHeight;
-      if (remaining < NEAR_BOTTOM_THRESHOLD) {
-        userScrolledUpRef.current = false;
-        // 하단 복귀 시 애니메이션 재시작
-        if (isAutoScrollWindowRef.current) {
-          startSmoothScroll();
-        }
-      }
-    }
-  }, [scrollContainerRef, startSmoothScroll]);
-
-  // ── 사용자 의도 스크롤 감지 (wheel/pointer/touch) ──────────────
   const handleUserScrollIntent = useCallback(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
-
     const remaining = container.scrollHeight - container.scrollTop - container.clientHeight;
-    if (remaining > NEAR_BOTTOM_THRESHOLD) {
+    if (remaining > 20) {
       userScrolledUpRef.current = true;
     }
   }, [scrollContainerRef]);

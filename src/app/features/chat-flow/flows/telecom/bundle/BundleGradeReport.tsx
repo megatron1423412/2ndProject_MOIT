@@ -45,6 +45,7 @@ export default function BundleGradeReport({ result, onEndChat }: BundleGradeRepo
       subLabel: "절감 효과 극대화! 최상의 가성비 구간",
       status: "골드 단계이며 갈아타기를 강력 추천합니다.",
       emoji: "🏆",
+      iconSrc: "/assets/icons/gold_medal.png",
       theme: { bg: "bg-amber-500/5", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20", ring: "ring-amber-500/30", bar: "bg-amber-500" },
       feature: "연간 압도적인 절감 이득 구간으로, 환승 시 가계부에 가장 극적인 변화를 주는 등급입니다.",
       scenario: "기존 약정이 만료되었거나 위약금이 0원이라 환승 즉시 100% 이득이 발생하는 경우입니다.",
@@ -59,6 +60,7 @@ export default function BundleGradeReport({ result, onEndChat }: BundleGradeRepo
       subLabel: "확실한 고정비 절감이 체감되는 알뜰 구간",
       status: "실버 단계이며 조건부 환승을 추천합니다.",
       emoji: "🥈",
+      iconSrc: "/assets/icons/silver_medal.png",
       theme: { bg: "bg-slate-500/5", text: "text-slate-600 dark:text-slate-400", border: "border-slate-500/20", ring: "ring-slate-500/30", bar: "bg-slate-500" },
       feature: "대기업 결합 혜택의 착시를 깨고 실속을 챙길 수 있는 영리한 대안 구간입니다.",
       scenario: "해지 위약금이 발생하지만 단기간에 요금 절감액으로 전액 회수가 가능한 경우입니다.",
@@ -75,6 +77,7 @@ export default function BundleGradeReport({ result, onEndChat }: BundleGradeRepo
       subLabel: "소소하지만 실속 있게 아끼는 절약 구간",
       status: "브론즈 단계이며 현재 결합 상품 유지를 권장합니다.",
       emoji: "🥉",
+      iconSrc: "/assets/icons/bronze_medal.png",
       theme: { bg: "bg-orange-500/5", text: "text-orange-600 dark:text-orange-400", border: "border-orange-500/20", ring: "ring-orange-500/30", bar: "bg-orange-500" },
       feature: "절약 폭이 크지는 않지만, 약정 만료 상태이거나 위약금이 없다면 충분히 전환을 고려할 만한 구간입니다.",
       scenario: "약정 초반이라 위약금 페널티가 너무 커서 현재 바꾸면 오히려 금전적 손해가 발생하는 경우입니다.",
@@ -89,6 +92,7 @@ export default function BundleGradeReport({ result, onEndChat }: BundleGradeRepo
       subLabel: "지출 낭비 없이 안정적인 유지 구간",
       status: "진단 보류 및 현 상태 유지",
       emoji: "🌱",
+      iconSrc: "/assets/icons/glossy_seedling.png",
       theme: { bg: "bg-muted/30", text: "text-muted-foreground", border: "border-border/60", ring: "ring-muted", bar: "bg-muted" },
       feature: "이동할 때 드는 번거로움이나 위약금 리스크에 비해 얻는 요금 메리트가 적어, 기존 결합을 유지하는 것이 더 이득인 구간입니다.",
       scenario: "기존 결합의 할인 혜택이 이미 최적화되어 있거나, 추가 절약 메리트가 크지 않은 상태입니다.",
@@ -129,7 +133,7 @@ export default function BundleGradeReport({ result, onEndChat }: BundleGradeRepo
 
         <div className="mt-4 flex flex-col items-center justify-center">
           <div className={`flex h-24 w-24 items-center justify-center rounded-full bg-background border shadow-inner ring-8 ${gradeInfo.theme.ring} animate-pulse`}>
-            <span className="text-5xl select-none leading-none">{gradeInfo.emoji}</span>
+            <img src={gradeInfo.iconSrc} alt={gradeInfo.label} className="h-16 w-16 object-contain select-none" />
           </div>
           <span className={`mt-3 text-lg font-black tracking-tight ${gradeInfo.theme.text}`}>
             {gradeInfo.label}
