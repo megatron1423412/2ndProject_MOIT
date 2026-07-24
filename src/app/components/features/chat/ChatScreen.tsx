@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
+import { useChatAutoScroll } from "../../../features/chat-flow/shared/useChatAutoScroll";
 import { getSubCategoryById } from "../../../data/categories";
 import { useChatFlow } from "../../../features/chat-flow/engine/useChatFlow";
 import type { ConversationHistoryItem, SubCategory, SubCategoryId, TopActionState } from "../../../types/moit";
@@ -126,9 +127,6 @@ export default function ChatScreen({
   const [notice, setNotice] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
-  const shouldStickToBottomRef = useRef(true);
-  const manualScrollIntentRef = useRef(false);
-  const lastScrollTopRef = useRef(0);
   const programmaticScrollTargetRef = useRef<number | null>(null);
   const productSelectionScrollFrameRef = useRef<number | null>(null);
   const scrolledProductSelectionAnchorsRef = useRef(new Set<string>());
@@ -142,75 +140,16 @@ export default function ChatScreen({
   } | null>(null);
   const [timelineRevision, setTimelineRevision] = useState(0);
 
-  useEffect(() => () => {
-    if (productSelectionScrollFrameRef.current !== null) window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
-  }, []);
-
-  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior, block: "end" });
-    }
-    const container = scrollContainerRef.current;
-    if (container) {
-      const targetScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
-      programmaticScrollTargetRef.current = targetScrollTop;
-      container.scrollTo({ top: targetScrollTop, behavior });
-    }
-  }, []);
-
-  useEffect(() => {
-    scrollToBottom("smooth");
-
-    const rafId = requestAnimationFrame(() => {
-      scrollToBottom("smooth");
-    });
-    const timerId = setTimeout(() => {
-      scrollToBottom("smooth");
-    }, 100);
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      clearTimeout(timerId);
-    };
-  }, [flow.messages, flow.supplementalMessages, flow.currentStep, flow.isTransitioning, timelineRevision, scrollToBottom]);
-
-  const handleScroll = () => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const currentScrollTop = container.scrollTop;
-    const programmaticTarget = programmaticScrollTargetRef.current;
-    if (programmaticTarget !== null) {
-      if (Math.abs(currentScrollTop - programmaticTarget) <= CHAT_SCROLL_BOTTOM_EPSILON) {
-        programmaticScrollTargetRef.current = null;
-      }
-      lastScrollTopRef.current = currentScrollTop;
-      return;
-    }
-    const ownership = resolveChatScrollOwnership({
-      remainingScroll: container.scrollHeight - currentScrollTop - container.clientHeight,
-      manualScrollIntent: manualScrollIntentRef.current,
-      scrollDirection: getChatScrollDirection({ previousScrollTop: lastScrollTopRef.current, currentScrollTop }),
-    });
-    manualScrollIntentRef.current = ownership.manualScrollIntent;
-    shouldStickToBottomRef.current = ownership.shouldStickToBottom;
-    lastScrollTopRef.current = currentScrollTop;
-  };
+  // 🟢 통합 자동 스크롤 훅 — 모든 카테고리 공통 (isTransitioning에 의존하지 않음)
+  const { handleScroll, handleUserScrollIntent } = useChatAutoScroll({
+    messagesLength: flow.messages.length,
+    contentRevision: timelineRevision,
+    scrollContainerRef,
+    messagesEndRef,
+  });
 
   const takeChatScrollControl = () => {
-    manualScrollIntentRef.current = true;
-    shouldStickToBottomRef.current = false;
-    programmaticScrollTargetRef.current = null;
-    const correction = recommendationStartCorrectionRef.current;
-    if (correction) correction.userScrolled = true;
-    if (productSelectionScrollFrameRef.current !== null) {
-      window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
-      productSelectionScrollFrameRef.current = null;
-    }
-    const container = scrollContainerRef.current;
-    if (container) {
-      lastScrollTopRef.current = container.scrollTop;
-      container.scrollTo({ top: container.scrollTop, behavior: "auto" });
-    }
+    handleUserScrollIntent();
   };
 
   const cancelRecommendationStartCorrectionOnScrollKey = (event: React.KeyboardEvent<HTMLElement>) => {
@@ -226,8 +165,6 @@ export default function ChatScreen({
     const isRecommendationStart = isRecommendationStartAnchor(anchorId);
     if (isRecommendationStart) currentRecommendationStartAnchorRef.current = anchorId;
     else recommendationStartCorrectionRef.current = null;
-    manualScrollIntentRef.current = false;
-    shouldStickToBottomRef.current = false;
     if (productSelectionScrollFrameRef.current !== null) window.cancelAnimationFrame(productSelectionScrollFrameRef.current);
     productSelectionScrollFrameRef.current = window.requestAnimationFrame(() => {
       productSelectionScrollFrameRef.current = null;
@@ -269,12 +206,9 @@ export default function ChatScreen({
   }, []);
 
   const submitAnswerWithSmartShoppingFollow = (answer: SubmittedFlowAnswer) => {
-    if (item?.parentCategory === "appliances") {
-      manualScrollIntentRef.current = false;
-      shouldStickToBottomRef.current = true;
-      programmaticScrollTargetRef.current = null;
-    }
+    programmaticScrollTargetRef.current = null;
     flow.submitAnswer(answer);
+    // 자동 스크롤은 useChatAutoScroll 훅이 messagesLength 변화를 감지하여 자동 처리
   };
 
   /* 🎨 [프론트엔드 수정 가능 Zone 1: 예외/에러 화면 UI]
