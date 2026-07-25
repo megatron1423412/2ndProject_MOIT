@@ -30,6 +30,22 @@ export default function ProductRecommendationCard({ recommendation, isFavorite =
     : recommendation.unmatchedOrUnknownCriteria;
   return (
     <article className="rounded-2xl border border-slate-200/80 bg-white p-5 sm:p-6 shadow-sm">
+      {/* 🎨 상단 타이틀 Header */}
+      <div className="flex flex-col border-b border-slate-100 pb-5 mb-5">
+        <div className="mb-3">
+          <span className="inline-flex items-center gap-1.5 py-1 px-3.5 rounded-full bg-[#F5F7FA] border border-slate-200/70 text-xs font-bold text-[#1E3ABA]">
+            <span className="h-2 w-2 rounded-full bg-[#1E3ABA]"></span>
+            <span>가전·구매 진단</span>
+          </span>
+        </div>
+        <h1 className="text-2xl sm:text-2xl font-extrabold text-[#3B82F6] tracking-tight mt-0 mb-1">
+          스마트 제품 분석 솔루션
+        </h1>
+        <p className="text-xs sm:text-sm font-medium text-slate-500">
+          구매 적기 판단을 위한 맞춤 리포트
+        </p>
+      </div>
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         {/* 🎨 1. 상품 이미지 카드 썸네일 (bg-[#F5F7FA]) */}
         <div className="flex h-24 w-24 flex-none items-center justify-center rounded-2xl border border-slate-100 bg-[#F5F7FA] p-3 sm:h-28 sm:w-28">

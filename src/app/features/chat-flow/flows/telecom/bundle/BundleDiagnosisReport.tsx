@@ -541,7 +541,7 @@ export default function BundleDiagnosisReport({ result }: BundleDiagnosisReportP
             <span>인터넷·결합 분석</span>
           </span>
         </div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1F2937] tracking-tight mt-0 mb-1">
+        <h1 className="text-2xl sm:text-2xl font-extrabold text-[#3B82F6] tracking-tight mt-0 mb-1">
           요금 비교 · 추천 솔루션
         </h1>
         <p className="text-xs sm:text-sm font-medium text-slate-500">

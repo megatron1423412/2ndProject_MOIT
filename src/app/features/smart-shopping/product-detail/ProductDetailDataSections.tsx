@@ -41,7 +41,7 @@ export default function ProductDetailDataSections({
             <span className="flex h-5 w-5 flex-none items-center justify-center rounded-full border border-[#1E3ABA] bg-white text-xs font-bold text-[#1E3ABA]">
               ✓
             </span>
-            <p className="text-xs sm:text-sm font-medium text-slate-800">
+            <p className="text-xs sm:text-sm font-[20px] text-slate-800">
               실사용자 <strong className="font-extrabold text-[#1E3ABA]">1,243건</strong> 분석 결과, 냉방·소음 만족도 <strong className="font-extrabold text-[#1E3ABA]">상위 8%</strong>
             </p>
           </div>
@@ -103,18 +103,18 @@ export default function ProductDetailDataSections({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">역대 최저가</span>
-                <span className="font-bold text-slate-700">
+                <span className="font-bold text-slate-700 text-sm sm:text-base">
                   {summary ? won(summary.allTimeLow) : "이용 불가"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-500 font-medium">최저가 대비</span>
                 {summary ? (
-                  <span className="rounded-full bg-[#FFF1F1] px-2.5 py-0.5 text-xs font-extrabold text-[#E53E3E]">
+                  <span className="rounded-full bg-[#FFF1F1] px-2.5 py-0.5 text-[16px] sm:text-[16px] font-extrabold text-[#E53E3E]">
                     {signedWon(summary.differenceFromLow)}
                   </span>
                 ) : (
-                  <span className="text-slate-400">이용 불가</span>
+                  <span className="text-slate-400 text-sm sm:text-base">이용 불가</span>
                 )}
               </div>
             </div>

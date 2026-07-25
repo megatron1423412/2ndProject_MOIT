@@ -38,12 +38,12 @@ export default function MainStartScreen({
     >
       <main className="flex-1 bg-[#f8fafc]  pb-8">
         {/* 메인 대시보드 전체 감싸는 컨테이너 */}
-        <div className="mx-auto w-full max-w-[1180px] px-4">
+        <div className="mx-auto w-full max-w-[1180px] xl:max-w-7xl 2xl:max-w-[1600px] px-4 xl:px-6 2xl:px-8">
 
           {/* ========================================================================= */}
           {/* 🚀 [ZONE 1: 상단 히어로 배너 - 수평 직사각형 둥근 박스] */}
           {/* ========================================================================= */}
-          <div className="relative mb-6 flex h-24 w-full items-center rounded-2xl bg-gradient-to-r from-[#1E3ABA] via-[#2A6CB6] to-blue-500 px-6 py-3 text-white shadow-md sm:px-8">
+          <div className="relative mb-6 flex h-24 xl:h-28 2xl:h-32 w-full items-center rounded-2xl bg-gradient-to-r from-[#1E3ABA] via-[#2A6CB6] to-blue-500 px-6 py-3 text-white shadow-md sm:px-8 xl:px-10 2xl:px-12">
 
             {/* 1-1. 은은한 배경 빛(Glow) 효과 */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
@@ -54,10 +54,10 @@ export default function MainStartScreen({
 
               {/* 1-2. 히어로 배너 좌측 텍스트 영역 */}
               <div className="flex flex-col justify-center space-y-1">
-                <h1 className="text-base font-extrabold leading-tight sm:text-lg md:text-[20px]">
+                <h1 className="text-base font-extrabold leading-tight sm:text-lg md:text-[20px] xl:text-[22px] 2xl:text-[24px]">
                   지금, 더 현명하게 소비하고 있나요?
                 </h1>
-                <p className="text-[11px] leading-tight opacity-90 sm:text-xs">
+                <p className="text-[11px] leading-tight opacity-90 sm:text-xs xl:text-sm">
                   가전제품부터 통신비까지 — 나에게 딱 맞는 최적 소비를 진단해 드려요.
                 </p>
               </div>
@@ -87,7 +87,7 @@ export default function MainStartScreen({
           {/* ========================================================================= */}
           {/* 🎨 [ZONE 3: 탭 선택에 따른 메인 본문 콘텐츠 영역] */}
           {/* ========================================================================= */}
-          <div className="mt-5">
+          <div className="mt-8">
             {activeTab === "start" ? (
               /* 🎨 [카테고리 섹션] sections={START_SECTIONS} 전달을 통해 좌우 2컬럼 지원 */
               <StartCategorySection

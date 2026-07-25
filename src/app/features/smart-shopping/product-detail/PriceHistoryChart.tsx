@@ -231,7 +231,7 @@ function PricePointBubble({ point, placement, transient }: { point: PriceHistory
       <path d={`M ${placement.anchorX - 5} ${bubbleBottom - 1} L ${placement.anchorX + 5} ${bubbleBottom - 1} L ${point.x} ${tailTipY} Z`} fill="white" stroke="#BFDBFE" strokeWidth="1" data-price-bubble-pointer data-pointer-tip-x={point.x} data-pointer-tip-y={tailTipY} />
       <rect x={placement.x} y={placement.y} width={placement.width} height={placement.height} rx="8" fill="white" stroke="#BFDBFE" strokeWidth="1" className="drop-shadow-xs" />
       {transient && <text x={placement.x + placement.width / 2} y={placement.y + 18} textAnchor="middle" className="fill-slate-400 text-[10px] font-semibold">{point.date}</text>}
-      <text x={placement.x + placement.width / 2} y={placement.y + (transient ? 38 : 25)} textAnchor="middle" className="fill-[#1E3ABA] text-xs font-extrabold">{won(point.lowestPrice)}</text>
+      <text x={placement.x + placement.width / 2} y={placement.y + (transient ? 38 : 25)} textAnchor="middle" className="fill-[#1E3ABA] text-[18px] font-extrabold">{won(point.lowestPrice)}</text>
     </g>
   );
 }

@@ -64,7 +64,7 @@ export default function MoitBrand({
   if (layoutMode === "horizontal") {
     const mascotSize = mascotSizeClass ?? "h-13 sm:h-14 w-auto";
     const logoHeight = logoHeightClass ?? "h-7 sm:h-8 w-auto";
-    const sloganSize = sloganSizeClass ?? "text-[14px] sm:text-[15px] font-bold text-slate-400";
+    const sloganSize = sloganSizeClass ?? "text-[14px] sm:text-[15px] font-bold text-[#1F2937]";
 
     return (
       <div className={`flex items-center gap-2 ${className}`}>
@@ -92,7 +92,7 @@ export default function MoitBrand({
   // 2. [채팅 사이드바 상단 수직 수평 스택 모드] (슬로건이 레터링 로고 아래 수직 배치 & 왼쪽 정렬)
   const mascotSize = mascotSizeClass ?? "h-10 sm:h-11 w-auto";
   const logoHeight = logoHeightClass ?? "h-5 sm:h-6 w-auto";
-  const sloganSize = sloganSizeClass ?? "text-[10px] sm:text-[11px] font-bold text-slate-400";
+  const sloganSize = sloganSizeClass ?? "text-[10px] sm:text-[11px] font-bold text-[#1F2937]";
 
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>

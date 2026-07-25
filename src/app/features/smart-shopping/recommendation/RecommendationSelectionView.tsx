@@ -101,9 +101,8 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     if (view.stage !== "grading-purchase") return;
     const gradeResult = calculatePurchaseGrade(view.purchaseGradeInput.currentPrice, view.purchaseGradeInput.allTimeLow);
     sessionDispatch({ type: "append", item: createPurchaseGradeTimelineItem(session.sessionId, view.purchaseGradeInput, gradeResult) });
-    appendActionGroup("grade-followup");
     dispatch({ type: "complete-purchase-grade", result: gradeResult });
-  }, [appendActionGroup, session.sessionId, view.stage]);
+  }, [session.sessionId, view.stage]);
 
   const selected = view.selectedProduct;
   const selectedInternal = selected?.source === "internal" ? selected.recommendation.product : selected?.matchedInternalProduct;

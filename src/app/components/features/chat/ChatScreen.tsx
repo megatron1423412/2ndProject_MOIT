@@ -438,6 +438,9 @@ export function ChatScreenSmartShoppingTimeline({ model }: { model: SmartShoppin
             </React.Fragment>
           );
         }
+        if (timelineItem.type === "action-group" && timelineItem.group === "grade-followup") {
+          return null;
+        }
         return <ChatTimelineRow key={timelineItem.id} kind="wide"><SmartShoppingWideTimelineContent item={timelineItem} {...bindings} /></ChatTimelineRow>;
       })}
     </>

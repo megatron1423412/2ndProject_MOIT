@@ -1,7 +1,6 @@
 import React from "react";
 import type { MiddleCategory, MiddleCategoryId, SubCategory, SubCategoryId } from "../../../types/moit";
 import CategoryIcon from "../../common/CategoryIcon";
-import SidebarAccordionChevron from "./SidebarAccordionChevron";
 import SidebarBrandButton from "./SidebarBrandButton";
 
 interface CollapsedSidebarRailProps {
@@ -37,16 +36,13 @@ export default function CollapsedSidebarRail({
                 aria-label={`${category.title} 세부 항목 ${isOpen ? "접기" : "펼치기"}`}
                 aria-expanded={isOpen}
                 title={category.title}
-                className={`grid h-11 w-full max-w-[60px] grid-cols-[16px_1fr] items-center gap-1 rounded-lg border px-1 outline-none transition-all hover:bg-[var(--sidebar-item-hover)] focus-visible:ring-2 focus-visible:ring-sidebar-ring ${
+                className={`flex h-11 w-11 items-center justify-center rounded-xl border outline-none transition-all hover:bg-[var(--sidebar-item-hover)] focus-visible:ring-2 focus-visible:ring-sidebar-ring ${
                   isParentActive
-                    ? "border-[var(--sidebar-group-border)] bg-[var(--sidebar-group-bg)] text-accent shadow-sm"
+                    ? "border-[var(--sidebar-group-border)] bg-[var(--sidebar-group-bg)] text-[#1E3ABA] shadow-sm"
                     : "border-transparent text-sidebar-foreground/75"
                 }`}
               >
-                <SidebarAccordionChevron isOpen={isOpen} size={13} />
-                <span className="flex h-9 w-9 items-center justify-center rounded-md">
-                  <CategoryIcon fallback={category.icon} iconPath={category.iconPath} size={20} />
-                </span>
+                <CategoryIcon fallback={category.icon} iconPath={category.iconPath} size={20} />
               </button>
 
               <div className={`grid w-full transition-[grid-template-rows,opacity] duration-200 ease-out ${isOpen ? "mt-2 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
@@ -68,7 +64,7 @@ export default function CollapsedSidebarRail({
                               : "border-transparent text-sidebar-foreground/75"
                           }`}
                         >
-                          <CategoryIcon fallback={item.icon} iconPath={item.iconPath} size={17} />
+                          <CategoryIcon fallback={item.icon} iconPath={item.sidebarIconPath || item.iconPath} size={17} className={isActive ? "brightness-0 invert" : ""} />
                         </button>
                       );
                     })}
