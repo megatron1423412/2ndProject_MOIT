@@ -50,7 +50,7 @@ export const useChatAutoScroll = ({
   const animationRafRef = useRef<number | null>(null);
   const targetScrollTopRef = useRef(0);
 
-  /** 진행 중인 rAF 부드러운 스크롤 애니메이션 즉시 강제 파괴 */
+  /** 진행 중인 rAF 부드러운 스크롤 및 브라우저 네이티브 smooth 애니메이션 0.0ms 즉시 파괴 */
   const cancelOngoingSmoothScroll = useCallback(() => {
     isAnimatingRef.current = false;
     if (animationRafRef.current !== null) {
@@ -59,9 +59,10 @@ export const useChatAutoScroll = ({
     }
     const container = scrollContainerRef.current;
     if (container) {
-      // 현재 scrollTop 위치로 고정하여 모든 이동 틱을 0.0ms에 파괴
+      // 현재 scrollTop 위치로 동기식 순간 고정 & 브라우저 엔진 예약 스크롤 0.0ms 파괴
       const current = container.scrollTop;
       container.scrollTop = current;
+      container.scrollTo({ top: current, behavior: "auto" });
     }
   }, [scrollContainerRef]);
 

@@ -33,7 +33,7 @@ export default function ChatSidebarSection({
         aria-label={`${category.title} 세부 항목 ${isOpen ? "접기" : "펼치기"}`}
         className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm font-black outline-none transition-all hover:bg-[var(--sidebar-item-hover)] focus-visible:ring-2 focus-visible:ring-sidebar-ring ${
           containsActiveItem
-            ? "border-[var(--sidebar-group-border)] bg-[var(--sidebar-group-bg)] text-accent"
+            ? "border-[var(--sidebar-group-border)] bg-[var(--sidebar-group-bg)] text-[#1E3ABA]"
             : "border-transparent text-sidebar-foreground"
         }`}
       >

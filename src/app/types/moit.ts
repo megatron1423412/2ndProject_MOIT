@@ -33,6 +33,7 @@ export interface SubCategory {
   icon: IconKey;
   /** Replaceable public asset. Leave undefined to use the Lucide fallback only. */
   iconPath?: string;
+  sidebarIconPath?: string;
   chatTitle: string;
 }
 

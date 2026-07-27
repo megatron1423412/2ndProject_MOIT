@@ -7,11 +7,16 @@ import { prefetchPlans, resolvePhoneCurrentPlanOptions } from "../../../features
 import { mockLgHelloBundles, mockMvnoMobilePlans, mockEyagiSktMobilePlans, mockEyagiLguMobilePlans } from "../../../features/chat-flow/flows/telecom/bundle/MVNOmockData";
 import { MOCK_PLAN_COMBINATIONS, mockBundlePlans } from "../../../features/chat-flow/flows/telecom/bundle/mockData";
 
+/**
+ * 결합 요금제 ID를 받아 해당 요금제의 데이터 스펙(예: "100GB", "무제한")을 추출하는 헬퍼 함수
+ */
 function getBundlePlanData(id: string): string | null {
   if (!id) return null;
+  // 1. LG 헬로비전 결합 상품에서 찾기
   const hello = mockLgHelloBundles.find((b) => b.id === id);
   if (hello?.data) return hello.data;
 
+  // 2. 알뜰폰 + 유선 결합 (구분자 '_'가 포함된 경우)
   if (id.includes("_")) {
     const [mobId] = id.split("_");
     const skyMob = mockMvnoMobilePlans.find((m) => m.id === mobId);
@@ -24,15 +29,20 @@ function getBundlePlanData(id: string): string | null {
     if (eyagiLgu?.data) return eyagiLgu.data;
   }
 
+  // 3. 통신 3사(MNO) 결합 상품에서 데이터 속도/제공량 찾기
   const mno = MOCK_PLAN_COMBINATIONS.find((c) => c.id === id);
   if (mno?.mobileSpeed) return mno.mobileSpeed;
 
   return null;
 }
 
+/**
+ * 결합 요금제 ID 및 라벨을 분석하여 상품 구성(예: "모바일+인터넷+TV") 단어를 반환하는 함수
+ */
 function getBundleComposition(id: string, label: string = ""): string {
   if (!id) return "모바일+인터넷+TV";
 
+  // LG 헬로비전 상품 구성 확인
   const hello = mockLgHelloBundles.find((b) => b.id === id);
   if (hello) {
     const hasMobile = Boolean(hello.mobilePlanName);
@@ -43,6 +53,7 @@ function getBundleComposition(id: string, label: string = ""): string {
     if (hasInternet && hasTv) return "인터넷+TV";
   }
 
+  // 알뜰폰 교차 결합 상품 구성 확인
   if (id.includes("_")) {
     const [mobId, homeId] = id.split("_");
     const hasMobile = Boolean(
@@ -56,6 +67,7 @@ function getBundleComposition(id: string, label: string = ""): string {
     if (hasHome) return "인터넷+TV";
   }
 
+  // MNO 통신사 결합 상품 구성 확인
   const mno = MOCK_PLAN_COMBINATIONS.find((c) => c.id === id);
   if (mno) {
     const hasMobile = Boolean(mno.mobilePlan);
@@ -66,6 +78,7 @@ function getBundleComposition(id: string, label: string = ""): string {
     if (hasInternet && hasTv) return "인터넷+TV";
   }
 
+  // 일반 MOCK 결합 데이터 구성 확인
   const bundlePlan = mockBundlePlans.find((b) => b.id === id);
   if (bundlePlan) {
     const hasNet = bundlePlan.services.includes("internet");
@@ -76,6 +89,7 @@ function getBundleComposition(id: string, label: string = ""): string {
     if (hasMob && hasNet) return "모바일+인터넷";
   }
 
+  // 정규식을 통한 텍스트 기반 Fallback 파싱
   const hasMob = /모바일|폰|유심|전화|5G|LTE/i.test(label);
   const hasNet = /인터넷|100M|500M|1G/i.test(label);
   const hasTv = /TV|IPTV|tv|보상|채널/i.test(label);
@@ -87,25 +101,28 @@ function getBundleComposition(id: string, label: string = ""): string {
   return "모바일+인터넷+TV";
 }
 
+/**
+ * 찜하기(즐겨찾기) 저장을 위해 요금제 라벨에서 상품명, 가격, 브랜드명을 분리해내는 함수
+ */
 const getPlanDetails = (value: string, label: string, subCategoryId: string) => {
   let name = label;
   let price = 0;
   let brand = "통신사";
 
-  // 1. Remove ranking prefix
+  // 1. 추천 순위 수식어 제거 ([추천 1순위] 등)
   name = name.replace(/^\[추천 \d순위\]\s*/, "");
 
-  // 2. Parse price (e.g. "월 33,000원", "월 33000원")
+  // 2. 가격 정규식 추출
   const priceMatch = label.match(/월\s*([\d,]+)원/);
   if (priceMatch) {
     price = parseInt(priceMatch[1].replace(/,/g, ""), 10);
   }
 
-  // 3. Clean price parts from name
+  // 3. 상품명에서 가격 수식어 지우기
   name = name.replace(/\s*\(월\s*[\d,]+원\)/, "").trim();
   name = name.replace(/\s*-\s*월\s*[\d,]+원/, "").trim();
 
-  // 4. Determine brand/carrier
+  // 4. 서브 카테고리 종류에 따른 통신사/브랜드 결정
   const valLower = value.toLowerCase();
   const catLower = subCategoryId.toLowerCase();
 
@@ -158,6 +175,9 @@ const getPlanDetails = (value: string, label: string, subCategoryId: string) => 
   return { name, price, brand };
 };
 
+/**
+ * 화면 UI 출력을 위해 단일 요금제 텍스트 라벨을 알뜰폰 브랜드, 요금제명, 가격, 데이터, 망 종류 등으로 세분화 파싱
+ */
 export function parsePlanLabel(label: string) {
   if (!label) return { cleanLabel: "", mvnoCarrier: "", name: "", priceStr: "", data: "", networkType: "", voice: "", sms: "" };
 
@@ -171,20 +191,20 @@ export function parsePlanLabel(label: string) {
   let voice = "";
   let sms = "";
 
-  // 통신사 브랜드 추출 [SKT], [KT], [이야기모바일(SKT)] 등
+  // [통신사] 대괄호 대역 추출
   const brandMatch = cleanLabel.match(/^\[(.*?)\]/);
   if (brandMatch) {
     mvnoCarrier = brandMatch[1];
   }
   const restLabel = brandMatch ? cleanLabel.replace(/^\[.*?\]\s*/, "") : cleanLabel;
 
-  // 가격 추출
+  // 월 가격 대역 추출
   const priceMatch = label.match(/월\s*([\d,]+원)/) || label.match(/([\d,]+원)/);
   if (priceMatch) {
     priceStr = priceMatch[1];
   }
 
-  // 1. 개행문자(\n) 구분 파싱
+  // 케이스 1: 줄바꿈(\n) 형태로 구분된 라벨 파싱
   if (restLabel.includes("\n")) {
     const [line1, line2] = restLabel.split("\n").map(s => s.trim());
     name = line1.replace(/월\s*[\d,]+원/, "").replace(/[\d,]+원/, "").replace(/\(\s*\)/, "").trim();
@@ -195,7 +215,7 @@ export function parsePlanLabel(label: string) {
     voice = parts[2] || "";
     sms = parts[3] || "";
   }
-  // 2. 가운데점( · ) 구분 파싱
+  // 케이스 2: 가운데점(·) 구분 기호 형태 라벨 파싱
   else if (restLabel.includes(" · ")) {
     const parts = restLabel.split(" · ").map(s => s.trim());
     name = parts[0];
@@ -215,7 +235,7 @@ export function parsePlanLabel(label: string) {
       }
     }
   }
-  // 3. 단일 텍스트 파싱 fallback
+  // 케이스 3: 기타 일반 텍스트 라벨 Fallback 파싱
   else {
     name = restLabel.replace(/\s*\(월\s*[\d,]+원\)/, "").trim();
     name = name.replace(/\s*-\s*월\s*[\d,]+원/, "").trim();
@@ -229,7 +249,7 @@ export function parsePlanLabel(label: string) {
     else if (/LTE/i.test(name) || /4G/i.test(name)) networkType = "LTE";
   }
 
-  // data에 '음성'이나 '문자' 단어가 잘못 안 섞이도록 보정
+  // 파싱 오류 보정 (데이터 항목에 음성/문자 텍스트가 오버랩된 경우)
   if (data.includes("음성") || data.includes("문자")) {
     if (data.includes("음성") && !voice) {
       voice = data;
@@ -252,6 +272,9 @@ export function parsePlanLabel(label: string) {
   };
 }
 
+/**
+ * ChatFlowInput 컴포넌트 Props 인터페이스 정의
+ */
 interface ChatFlowInputProps {
   step: AnswerInputStep | null;
   completed: boolean;
@@ -266,6 +289,9 @@ interface ChatFlowInputProps {
   onEndSmartShoppingChat?: () => void;
 }
 
+/**
+ * 챗봇 대화 상동 흐름의 사용자 입력 컴포넌트 메인
+ */
 export default function ChatFlowInput({
   step,
   completed,
@@ -279,26 +305,29 @@ export default function ChatFlowInput({
   answers,
   onEndSmartShoppingChat,
 }: ChatFlowInputProps) {
+  // 사용자의 로컬 입력 상태 변수
   const [inputValue, setInputValue] = useState("");
   const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [phonePlanOptions, setPhonePlanOptions] = useState<FlowChoiceOption[] | null>(null);
 
-  // 처음 로드된 요금제 옵션을 스냅샷으로 고정 저장 (isHistorical 전환 후 데이터 오염 방지)
+  // 과거 이력 보기 시 데이터 스냅샷을 고정하여 불필요한 데이터 변형 방지
   const frozenPlanOptionsRef = useRef<FlowChoiceOption[] | null>(null);
   const stepIdRef = useRef<string | undefined>(step?.id);
 
+  // 답변 데이터 추출
   const phoneCarrier = String(answers?.["phone.carrier"] || "");
   const phoneCurrentFee = Number(answers?.["phone.currentFee"] || 0);
   const phoneDiscountOption = answers?.["phone.discountOption"];
   const isCurrentPhonePlanLookup = step?.id === "phone-current-plan-api";
 
+  // 스텝이 바뀔 때마다 입력 값 초기화
   useEffect(() => {
     setInputValue("");
     setSelectedValues([]);
   }, [step?.id]);
 
+  // 핸드폰 현재 요금제 API 조회 및 데이터 스냅샷 동결(Freeze) 처리
   useEffect(() => {
-    // step이 바뀌면 frozen 스냅샷 초기화
     if (stepIdRef.current !== step?.id) {
       stepIdRef.current = step?.id;
       frozenPlanOptionsRef.current = null;
@@ -307,7 +336,6 @@ export default function ChatFlowInput({
     setPhonePlanOptions(null);
     if (!isCurrentPhonePlanLookup || isHistorical || !phoneCarrier) return;
 
-    // 이미 freeze된 스냅샷이 있으면 재사용 (answers 변경 후 재실행돼도 오염 안 됨)
     if (frozenPlanOptionsRef.current) {
       setPhonePlanOptions(frozenPlanOptionsRef.current);
       return;
@@ -321,7 +349,7 @@ export default function ChatFlowInput({
         "phone.currentFee": phoneCurrentFee,
         "phone.discountOption": phoneDiscountOption,
       });
-      // Deep copy로 스냅샷 고정 — 이후 전역 State 변경에도 절대 변하지 않음
+      // 객체 깊은 복사를 통해 참조를 차단하고 스냅샷을 박음
       frozenPlanOptionsRef.current = JSON.parse(JSON.stringify(resolved));
       setPhonePlanOptions(frozenPlanOptionsRef.current);
     });
@@ -329,17 +357,20 @@ export default function ChatFlowInput({
     return () => { active = false; };
   }, [isCurrentPhonePlanLookup, isHistorical, phoneCarrier, phoneCurrentFee, phoneDiscountOption]);
 
+  // 1. 모든 문답이 완료되었을 때 '다시 진단하기' 버튼 출력
   if (completed) {
     return <QuickReplyChips replies={["처음부터 다시 진단하기"]} onSelect={onReset} />;
   }
   if (!step) return null;
 
+  // 2. 단일 선택형 스텝(`single-choice`) UI 빌드
   if (step.type === "single-choice") {
+    // 2-1. [결합 상품 조건 선택 카테고리] UI (알뜰, MNO 대기업, 위약금 고려 선택 카드)
     if (step.id === "Q_P2_2" || step.id === "Q_P2_1") {
       const hasPenalty = answers && (
-        answers["bundle.allPenalty"] || 
-        answers["bundle.ptaPenalty"] || 
-        answers["bundle.ptbPenalty"] || 
+        answers["bundle.allPenalty"] ||
+        answers["bundle.ptaPenalty"] ||
+        answers["bundle.ptbPenalty"] ||
         answers["bundle.diffPenalty"] ||
         answers["bundle.ptaComboPenalty"] ||
         answers["bundle.ptbComboPenalty"] ||
@@ -364,48 +395,81 @@ export default function ChatFlowInput({
           value: "any",
           label: "위약금 대비 실질 이득 추천",
           description: "위약금을 내고 갈아타도 진짜 이득인지 비교해드려요",
-          subDescription: hasPenalty 
-            ? undefined 
+          subDescription: hasPenalty
+            ? undefined
             : "- 위약금을 입력하지 않았을 경우, 정확한 진단이 어렵습니다. 제일 저렴한 상품 중심으로 추천됩니다."
         }
       ];
+
+      const optionStyleMap: Record<string, {
+        normal: string;
+        selectedHistorical: string;
+        checkColor: string;
+        titleColor: string;
+      }> = {
+        mvno: {
+          normal: "border-[#A8E6CF] bg-[#A8E6CF]/15 hover:bg-[#A8E6CF]/30 hover:border-[#A8E6CF]",
+          selectedHistorical: "border-[#A8E6CF] bg-[#A8E6CF]/25 opacity-95",
+          checkColor: "text-[#059669]",
+          titleColor: "text-[#047857]"
+        },
+        mno: {
+          normal: "border-[#2A6CB6]/40 bg-[#2A6CB6]/10 hover:bg-[#2A6CB6]/20 hover:border-[#2A6CB6]",
+          selectedHistorical: "border-[#2A6CB6] bg-[#2A6CB6]/20 opacity-95",
+          checkColor: "text-[#1E3ABA]",
+          titleColor: "text-[#1E3ABA]"
+        },
+        any: {
+          normal: "border-[#A78BFA]/40 bg-[#A78BFA]/10 hover:bg-[#A78BFA]/20 hover:border-[#A78BFA]",
+          selectedHistorical: "border-[#A78BFA] bg-[#A78BFA]/20 opacity-95",
+          checkColor: "text-[#7C3AED]",
+          titleColor: "text-[#6D28D9]"
+        }
+      };
 
       return (
         <div className="flex flex-col gap-3 w-full max-w-md">
           {cardOptions.map((opt) => {
             const userSelectedThis = answers && answers[step.answerKey] === opt.value;
+            const style = optionStyleMap[opt.value] || {
+              normal: "border-border bg-card hover:border-[#2A6CB6]/50 hover:bg-[#2A6CB6]/5",
+              selectedHistorical: "border-[#2A6CB6] bg-[#2A6CB6]/10 opacity-90",
+              checkColor: "text-[#1E3ABA]",
+              titleColor: "text-slate-800"
+            };
+
             let borderClass = "";
             if (isHistorical) {
               if (userSelectedThis) {
-                borderClass = "border-[#2A6CB6] bg-[#2A6CB6]/10 opacity-90 cursor-not-allowed";
+                borderClass = `${style.selectedHistorical} cursor-not-allowed`;
               } else {
                 borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
               }
             } else {
-              borderClass = "border-border bg-card hover:border-[#2A6CB6]/50 hover:bg-[#2A6CB6]/5 active:scale-[0.99] cursor-pointer";
+              borderClass = `${style.normal} active:scale-[0.99] cursor-pointer`;
             }
 
             return (
               <div
                 key={opt.value}
                 onClick={isHistorical ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
-                className={`flex flex-col gap-1 rounded-xl border p-4 text-left shadow-sm transition-all duration-200 ${borderClass}`}
+                className={`flex flex-col gap-1 rounded-xl border p-4 text-left shadow-2xs transition-all duration-200 ${borderClass}`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-black text-primary">
+                  <span className={`text-sm font-black ${style.titleColor}`}>
                     {opt.label}
                   </span>
                   {isHistorical && userSelectedThis && (
-                    <span className="text-xs font-bold text-[#1E3ABA]">
+                    <span className={`text-xs font-bold ${style.checkColor}`}>
                       선택됨 ✓
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-xs font-medium text-slate-600">
                   {opt.description}
                 </p>
                 {opt.subDescription && (
-                  <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-500 leading-normal">
+                  <p className="mt-1.5 text-[10px] font-bold text-amber-700 dark:text-amber-500 leading-normal">
                     {opt.subDescription}
                   </p>
                 )}
@@ -416,6 +480,7 @@ export default function ChatFlowInput({
       );
     }
 
+    // 2-2. [신규 가입 유연 경로 선택] UI
     if (step.id === "Q_NEW_SELECT") {
       const cardOptions = [
         {
@@ -471,6 +536,7 @@ export default function ChatFlowInput({
       );
     }
 
+    // 2-3. [구매 등급 진단 신청 카드] UI (새 디자인: 화면 캡처 2026-07-25 021102.png + holographic_medal.png 적용)
     if (
       step.id === "phone-ask-grade" ||
       step.id === "internet-ask-grade" ||
@@ -479,42 +545,63 @@ export default function ChatFlowInput({
     ) {
       const userSelectedYes = answers && answers[step.answerKey] === "yes";
 
-      let borderClass = "";
+      let cardContainerClass = "";
       if (isHistorical) {
         if (userSelectedYes) {
-          borderClass = "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed";
+          cardContainerClass = "border-slate-200 bg-white opacity-90 cursor-not-allowed";
         } else {
-          borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
+          cardContainerClass = "border-slate-200 bg-white opacity-40 cursor-not-allowed";
         }
       } else {
-        borderClass = "border-emerald-500 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-400/10 dark:hover:bg-emerald-400/15 cursor-pointer";
+        cardContainerClass = "border-slate-100 bg-white hover:shadow-lg transition-all duration-200 cursor-pointer active:scale-[0.995]";
       }
 
       return (
-        <div className="w-full max-w-md space-y-3">
+        <div className="w-full max-w-sm sm:max-w-md space-y-4 my-2">
+          {/* 🏅 구매 등급 진단 메인 카드 (holographic_medal.png 3D 메달 적용 - 검은 테두리 완벽 제거) */}
           <div
             onClick={isHistorical ? undefined : () => onSubmit({ value: "yes", displayValue: "YES" })}
-            className={`w-full rounded-xl border-2 p-5 text-left shadow-sm transition-all duration-200 ${borderClass}`}
+            className={`relative flex flex-col items-center text-center rounded-3xl border border-slate-100 border-t-4 border-t-[#1E3ABA] bg-white p-6 sm:p-7 shadow-md overflow-hidden ${cardContainerClass}`}
           >
-            <p className="text-lg font-black text-emerald-800 dark:text-emerald-200">
-              ⭐구매등급진단⭐
+            {/* 🎨 [프론트엔드 수정 가능 Zone: 메달 이미지 파일 및 크기 조절]
+               - 파일 위치: public/assets/brand/holographic_medal.png
+               - 이미지 크기 변경: w-14 h-14 (w-12 h-12, w-16 h-16, w-20 h-20 등 조절)
+            */}
+            <div className="w-14 h-14 rounded-full overflow-hidden shadow-md mb-4 shrink-0 flex items-center justify-center bg-[#F5F7FA]">
+              <img
+                src="/assets/brand/holographic_medal.png"
+                alt="구매등급진단 메달"
+                className="w-full h-full object-cover scale-[1.18]"
+              />
+            </div>
+
+            {/* 타이틀 */}
+            <h4 className="text-lg sm:text-xl font-extrabold text-[#1F2937] mb-1.5 tracking-tight">
+              구매등급진단
+            </h4>
+
+            {/* 설명 서브 타이틀 */}
+            <p className="text-xs sm:text-sm font-medium text-slate-500 leading-relaxed mb-6 max-w-[280px]">
+              전체 조건 맞춤 요금제 중에서 현재 요금제의 알뜰함 수준을 상위 %로 진단해 드려요.
             </p>
-            <p className="mt-2 text-sm font-bold text-emerald-700 dark:text-emerald-300">
-              해당 물건을 구매하시면 얼마나 가성비 있게 소비하시는지 알려드려요😇
-            </p>
-            {isHistorical && userSelectedYes && (
-              <span className="mt-2 inline-block rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                선택됨 ✓
-              </span>
-            )}
+
+            {/* 내 등급 확인하기 메인 블루 버튼 */}
+            <button
+              type="button"
+              disabled={isHistorical}
+              className="w-full rounded-2xl bg-[#1E3ABA] hover:bg-[#152B88] py-3.5 px-6 text-sm sm:text-base font-extrabold text-white shadow-xs transition-all active:scale-[0.99] disabled:opacity-80"
+            >
+              {isHistorical && userSelectedYes ? "선택됨 ✓" : "내 등급 확인하기"}
+            </button>
           </div>
-          
+
+          {/* 하단 채팅 종료하기 버튼 (색상 포인트 적용) */}
           {!isHistorical && (
-            <div className="flex justify-start">
+            <div className="flex justify-start pt-1">
               <button
                 type="button"
                 onClick={onEndSmartShoppingChat}
-                className="rounded-lg border border-border bg-card px-4 py-2 text-xs font-black text-primary hover:bg-muted focus:outline-none transition-all active:scale-[0.98]"
+                className="rounded-xl border border-[#1E3ABA]/30 bg-[#1E3ABA]/10 text-[#1E3ABA] hover:bg-[#1E3ABA]/20 hover:border-[#1E3ABA]/50 px-4 py-2 text-xs font-bold focus:outline-none transition-all shadow-xs active:scale-[0.98]"
               >
                 채팅 종료하기
               </button>
@@ -523,6 +610,8 @@ export default function ChatFlowInput({
         </div>
       );
     }
+
+    // 2-4. [지역 선택 목록형 컴포넌트] UI
     if (step.id.includes("-region-")) {
       return (
         <div className="flex flex-col gap-3 w-full max-w-md">
@@ -562,6 +651,7 @@ export default function ChatFlowInput({
       );
     }
 
+    // 2-5. [전체 요금제 리스트 스크롤 컴포넌트] UI
     if (
       step.id === "phone-current-plans-list" ||
       step.id === "internet-current-plans-list" ||
@@ -576,6 +666,11 @@ export default function ChatFlowInput({
       step.id.endsWith("-plans-list") ||
       step.answerKey?.endsWith("PlanCheckList")
     ) {
+      const isRecommendationList =
+        step.id.includes("all-plans-select") ||
+        step.id.includes("recommendation") ||
+        step.id.includes("all-plans");
+
       const planOptions = step.options.filter(
         (o) => o.value !== "none-of-them" && o.value !== "manual_fallback" && o.value !== "direct-choose"
       );
@@ -595,15 +690,27 @@ export default function ChatFlowInput({
                 borderClass = "border-border/60 bg-muted/40 text-muted-foreground opacity-60 cursor-not-allowed select-none pointer-events-none";
               } else if (isHistorical) {
                 if (userSelectedThis) {
-                  borderClass = "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed";
+                  borderClass = isRecommendationList
+                    ? "border-[#1E3ABA] bg-[#1E3ABA]/10 opacity-90 cursor-not-allowed"
+                    : "border-[#14B8A6] bg-[#14B8A6]/10 opacity-90 cursor-not-allowed";
                 } else {
                   borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
                 }
               } else {
-                borderClass = "border-border bg-card hover:border-emerald-500/50 hover:bg-emerald-500/5 active:scale-[0.99] cursor-pointer";
+                borderClass = isRecommendationList
+                  ? "border-border bg-card hover:border-[#1E3ABA]/50 hover:bg-[#1E3ABA]/5 active:scale-[0.99] cursor-pointer"
+                  : "border-border bg-card hover:border-[#14B8A6]/50 hover:bg-[#14B8A6]/5 active:scale-[0.99] cursor-pointer";
               }
 
               const parsed = parsePlanLabel(opt.label);
+
+              const badgeColorClass = isRecommendationList
+                ? "text-[#1E3ABA] dark:text-[#60A5FA] bg-[#1E3ABA]/10 border border-[#1E3ABA]/20"
+                : "text-[#14B8A6] dark:text-[#14B8A6] bg-[#14B8A6]/10 border border-[#14B8A6]/20";
+
+              const priceColorClass = isRecommendationList
+                ? "text-[#1E3ABA] dark:text-[#60A5FA]"
+                : "text-[#0F766E] dark:text-[#168D84]";
 
               return (
                 <div
@@ -614,7 +721,7 @@ export default function ChatFlowInput({
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
                       {parsed.mvnoCarrier && (
-                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 shrink-0">
+                        <span className={`text-[10px] font-bold rounded px-1.5 py-0.5 shrink-0 ${badgeColorClass}`}>
                           {parsed.mvnoCarrier}
                         </span>
                       )}
@@ -623,7 +730,7 @@ export default function ChatFlowInput({
                       </span>
                     </div>
                     {parsed.priceStr && (
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                      <span className={`text-xs font-bold shrink-0 ${priceColorClass}`}>
                         월 {parsed.priceStr}
                       </span>
                     )}
@@ -670,6 +777,7 @@ export default function ChatFlowInput({
       );
     }
 
+    // 2-6. [API 기반 조회된 기존 가입 요금제 추정 카드] UI
     if (
       step.id === "phone-current-plan-api" ||
       step.id === "internet-current-plan-api" ||
@@ -685,7 +793,7 @@ export default function ChatFlowInput({
       const planOption = options.find(
         (o) => o.value !== "direct-select" && o.value !== "direct-choose" && o.value !== "direct-input"
       );
-      
+
       const directSelectOption = options.find((o) => o.value === "direct-select" || o.value === "direct-choose");
       const directInputOption = options.find((o) => o.value === "direct-input");
 
@@ -694,51 +802,65 @@ export default function ChatFlowInput({
       let borderClass = "";
       if (isHistorical) {
         if (userSelectedThis) {
-          borderClass = "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed";
+          borderClass = "border-[#14B8A6] bg-[#14B8A6]/10 opacity-90 cursor-not-allowed";
         } else {
           borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
         }
       } else {
-        borderClass = "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10";
+        borderClass = "border-[#14B8A6]/20 bg-[#14B8A6]/5 hover:border-[#14B8A6]/50 hover:bg-[#14B8A6]/10";
       }
 
       return (
         <div className="flex flex-col gap-3 w-full max-w-md">
           {planOption && (
-            <div 
+            <div
               onClick={isHistorical ? undefined : () => onSubmit({ value: planOption.value, displayValue: planOption.label })}
               className={`group relative rounded-2xl border p-5 shadow-sm transition-all duration-200 flex flex-col gap-2 ${!isHistorical ? "cursor-pointer active:scale-[0.99] hover:shadow-md" : ""} ${borderClass}`}
             >
               <div className="flex items-center justify-between">
-                <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="rounded bg-[#14B8A6]/15 px-2 py-0.5 text-[10px] font-bold text-[#14B8A6] dark:text-[#14B8A6]">
                   조회된 기존 요금제 (추정)
                 </span>
-                <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 group-hover:underline">
+                <span className="text-[10px] font-black text-[#14B8A6] dark:text-[#14B8A6] group-hover:underline">
                   {isHistorical ? (userSelectedThis ? "선택됨 ✓" : "") : "이 요금제 선택하기 →"}
                 </span>
               </div>
 
-              {planOption.label.includes("\n") ? (
-                <div className="flex flex-col gap-1.5 my-1">
-                  <h4 className="text-sm font-black text-primary tracking-tight">
-                    {planOption.label.split("\n")[0]}
-                  </h4>
-                  <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1.5 leading-relaxed">
-                    {planOption.label.split("\n")[1]}
-                  </div>
-                </div>
-              ) : (
-                <h4 className="text-sm font-black text-primary transition-colors whitespace-pre-line leading-relaxed">
-                  {planOption.label}
-                </h4>
-              )}
+              {(() => {
+                const fullText = planOption.label.split("\n")[0];
+                const specText = planOption.label.split("\n")[1];
 
-              <p className="text-xs text-muted-foreground leading-normal">
-                고객님이 입력하신 납부 금액 정보를 기반으로 통신사 API에서 조회 및 추정한 기존 가입 요금제 스펙입니다.
+                const priceMatch = fullText.match(/(월\s*[\d,]+원|[\d,]+원)/);
+                const priceText = priceMatch ? (priceMatch[1].startsWith("월") ? priceMatch[1] : `월 ${priceMatch[1]}`) : "";
+                const titleText = priceMatch ? fullText.replace(priceMatch[0], "").trim() : fullText;
+
+                return (
+                  <div className="flex flex-col gap-2 my-1">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <h4 className="text-sm font-black text-[#0F766E] tracking-tight leading-snug flex-1 min-w-0 break-keep">
+                        {titleText}
+                      </h4>
+                      {priceText && (
+                        <span className="text-base font-black text-[#0F766E] dark:text-[#168D84] shrink-0 tabular-nums">
+                          {priceText}
+                        </span>
+                      )}
+                    </div>
+                    {specText && (
+                      <div className="text-xs font-bold text-[#6E7581] dark:text-[#6E7581] bg-[#9CA3AF]/10 border border-[#9CA3AF]/20 rounded-lg px-2.5 py-1.5 leading-relaxed">
+                        {specText}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <p className="text-[10px] text-muted-foreground leading-normal">
+                입력하신 금액 기준, API로 추정한 요금제 정보입니다.
               </p>
             </div>
           )}
-          
+
           {!isHistorical && (
             <div className="flex flex-wrap gap-2 justify-center">
               {directSelectOption && (
@@ -764,6 +886,8 @@ export default function ChatFlowInput({
         </div>
       );
     }
+
+    // 2-7. [추천 요금제 4종 그리드 카드] UI (찜하기 기능 포함)
     if (
       step.id === "phone-recommendation-api" ||
       step.id === "internet-recommendation-api" ||
@@ -776,24 +900,24 @@ export default function ChatFlowInput({
       const directChoose = step.options.find((o) => o.value === "direct-choose");
       const directSelect = step.options.find((o) => o.value === "direct-select");
       const directInput = step.options.find((o) => o.value === "direct-input");
-      
+
       return (
         <div className="flex flex-col gap-3 w-full max-w-md">
           <div className="grid grid-cols-2 gap-3">
             {cardOptions.map((opt, idx) => {
               const isFav = favorites?.some((f) => f.productId === opt.value);
               const cleanLabel = opt.label.replace(/\[추천 \d+순위\]\s*/g, "");
-              
+
               const isRec1 = opt.label.includes("1순위") || idx === 0;
               const isRec2 = opt.label.includes("2순위") || idx === 1;
-              
+
               const userSelectedThis = answers && answers[step.answerKey] === opt.value;
 
               let borderClass = "";
               if (isHistorical) {
                 if (userSelectedThis) {
                   borderClass = isRec1
-                    ? "border-emerald-500 bg-emerald-500/10 opacity-90 cursor-not-allowed"
+                    ? "border-[#3B82F6] bg-[#3B82F6]/10 opacity-90 cursor-not-allowed"
                     : isRec2
                       ? "border-teal-500 bg-teal-500/10 opacity-90 cursor-not-allowed"
                       : "border-accent bg-accent/10 opacity-90 cursor-not-allowed";
@@ -801,23 +925,23 @@ export default function ChatFlowInput({
                   borderClass = "border-border bg-card opacity-30 cursor-not-allowed";
                 }
               } else {
-                borderClass = isRec1 
-                  ? "border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/50 hover:bg-emerald-500/10" 
-                  : isRec2 
-                    ? "border-teal-500/20 bg-teal-500/5 hover:border-teal-500/50 hover:bg-teal-500/10"
+                borderClass = isRec1
+                  ? "border-[#2A6CB6]/20 bg-[#2A6CB6]/5 hover:border-[#2A6CB6]/50 hover:bg-[#2A6CB6]/10"
+                  : isRec2
+                    ? "border-[#3B82F6]/20 bg-[#3B82F6]/5 hover:border-[#3B82F6]/50 hover:bg-[#3B82F6]/10"
                     : "border-border bg-card hover:border-accent/50 hover:bg-secondary";
               }
-              
-              const textClass = isRec1 
-                ? "text-emerald-600 dark:text-emerald-400" 
-                : isRec2 
-                  ? "text-teal-600 dark:text-teal-400"
+
+              const textClass = isRec1
+                ? "text-[#1E3ABA] dark:text-[#60A5FA]"
+                : isRec2
+                  ? "text-[#3B82F6] dark:text-[#3B82F6]"
                   : "text-accent";
 
-              const badgeBg = isRec1 ? "bg-emerald-600" : isRec2 ? "bg-teal-600" : "bg-accent";
+              const badgeBg = isRec1 ? "bg-[#1E3ABA]" : isRec2 ? "bg-[#3B82F6]" : "bg-accent";
               const badgeMatch = opt.label.match(/추천 (\d+)순위/);
-              const badgeLabel = badgeMatch 
-                ? `${badgeMatch[1]}순위 추천` 
+              const badgeLabel = badgeMatch
+                ? `${badgeMatch[1]}순위 추천`
                 : `선택안 ${idx + 1}`;
 
               const parsed = parsePlanLabel(opt.label);
@@ -825,7 +949,7 @@ export default function ChatFlowInput({
               const bundleComposition = getBundleComposition(opt.value, opt.label);
 
               return (
-                <div 
+                <div
                   key={opt.value}
                   onClick={isHistorical ? undefined : () => onSubmit({ value: opt.value, displayValue: opt.label })}
                   className={`group relative rounded-2xl border p-4 shadow-sm transition-all duration-200 flex flex-col gap-2 h-full justify-between ${!isHistorical ? "cursor-pointer active:scale-[0.99] hover:shadow-md" : ""} ${borderClass}`}
@@ -836,7 +960,7 @@ export default function ChatFlowInput({
                         {badgeLabel}
                       </span>
                       {parsed.mvnoCarrier && (
-                        <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded px-1 py-0.2">
+                        <span className="text-[9px] font-bold text-[#1E3ABA] dark:text-[#1E3ABA] bg-[#1E3ABA]/10 border border-emerald-500/20 rounded px-1 py-0.2">
                           {parsed.mvnoCarrier}
                         </span>
                       )}
@@ -847,7 +971,7 @@ export default function ChatFlowInput({
                     </h4>
 
                     {parsed.priceStr && (
-                      <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      <div className="text-xs font-bold text-[#1E3ABA] dark:text-[#60A5FA]0">
                         월 {parsed.priceStr}
                       </div>
                     )}
@@ -863,7 +987,7 @@ export default function ChatFlowInput({
 
                       {displayData && (
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10.5px] font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                          <span className="text-[10.5px] font-extrabold text-[#60A5FA] dark:text-[#60A5FA] bg-[#60A5FA]/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
                             {displayData}
                           </span>
                           {parsed.networkType && (
@@ -883,10 +1007,11 @@ export default function ChatFlowInput({
                     </div>
                   </div>
 
+                  {/* 별표 찜하기 토글 버튼 */}
                   <button
                     type="button"
                     onClick={(e) => {
-                      e.stopPropagation();
+                      e.stopPropagation(); // 카드 선택 이벤트 중첩 발생 방지
                       if (onToggleFavoriteProduct) {
                         const details = getPlanDetails(opt.value, opt.label, subCategoryId || "");
                         onToggleFavoriteProduct(opt.value, {
@@ -918,7 +1043,7 @@ export default function ChatFlowInput({
               );
             })}
           </div>
-          
+
           {!isHistorical && (
             <div className="flex flex-wrap gap-2 justify-center mt-1">
               {directChoose && (
@@ -954,6 +1079,7 @@ export default function ChatFlowInput({
       );
     }
 
+    // 2-8. 일반 단일 선택용 칩스(QuickReplyChips) 컴포넌트 출력
     const selectedOpt = step.options.find(o => answers && answers[step.answerKey] === o.value);
     const selectedLabel = selectedOpt?.label;
 
@@ -970,6 +1096,7 @@ export default function ChatFlowInput({
     );
   }
 
+  // 3. 확인형 선택(`confirmation`) 스텝 처리 (확인/취소 칩스)
   if (step.type === "confirmation") {
     const confirmLabel = step.confirmLabel ?? "확인";
     const cancelLabel = step.cancelLabel ?? "취소";
@@ -986,6 +1113,7 @@ export default function ChatFlowInput({
     );
   }
 
+  // 4. 다중 선택(`multi-choice`) 스텝 처리
   if (step.type === "multi-choice") {
     const minimum = step.minSelections ?? 1;
     const currentSelections = answers ? (answers[step.answerKey] as string[] || []) : [];
@@ -994,7 +1122,7 @@ export default function ChatFlowInput({
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-2">
           {step.options.map((option) => {
-            const selected = isHistorical 
+            const selected = isHistorical
               ? currentSelections.includes(option.value)
               : selectedValues.includes(option.value);
 
@@ -1015,6 +1143,7 @@ export default function ChatFlowInput({
                 onClick={() =>
                   !isHistorical &&
                   setSelectedValues((current) => {
+                    // 예외 처리: '할인 없음', '모름' 등 배타적 단일 선택 옵션인 경우
                     const isExclusive =
                       option.value === "no-discount" ||
                       option.value === "no_discount" ||
@@ -1027,6 +1156,7 @@ export default function ChatFlowInput({
                       return selected ? [] : [option.value];
                     }
 
+                    // 일반 다중 선택 시 배타적 옵션들을 제거하고 항목 토글
                     const filtered = current.filter(
                       (v) => v !== "no-discount" && v !== "no_discount" && v !== "no-discount-option" && v !== "모름" && v !== "none"
                     );
@@ -1057,6 +1187,7 @@ export default function ChatFlowInput({
     );
   }
 
+  // 5. 일반 텍스트 입력 및 숫자 입력(`number-input`, `text-input`) 스텝 처리
   const numeric = step.type === "number-input";
   const trimmed = inputValue.trim();
   const numericValue = numeric ? Number(trimmed) : null;
@@ -1067,6 +1198,7 @@ export default function ChatFlowInput({
   );
   const canSubmit = trimmed !== "" && isValidNumber;
 
+  // 답변 제출 함수
   const submit = () => {
     if (!canSubmit) return;
     onSubmit({
@@ -1100,6 +1232,7 @@ export default function ChatFlowInput({
           <Send size={16} />
         </button>
       </div>
+      {/* 대체 옵션 버튼이 존재하는 경우 (예: "잘 모르겠음" 등) */}
       {numeric && step.alternateOption && (
         <button
           type="button"

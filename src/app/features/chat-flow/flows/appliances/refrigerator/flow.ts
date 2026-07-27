@@ -22,8 +22,25 @@ const usagePhrase: Record<string, string> = {
 };
 
 const steps: FlowStep[] = [
-  { id: "rf-intro", type: "assistant-message", message: "안녕하세요, 모잇이에요! 🧊 가구원 수와 식재료 보관 습관부터 살펴보고, 생활에 딱 맞는 가성비 냉장고를 찾아드릴게요!", next: "rf-household" },
-  { id: "rf-household", type: "single-choice", message: "냉장고를 함께 사용하는 가구원은 몇 명인가요? 👨‍👩‍👧", answerKey: `${n}.householdSize`, options: [
+  {
+    id: "rf-intro-1",
+    type: "assistant-message",
+    message: "안녕하세요! 유저님의 똑똑한 지갑 파수꾼, 모잇이에요! ✨",
+    next: "rf-intro-2",
+  },
+  {
+    id: "rf-intro-2",
+    type: "assistant-message",
+    message: "가구원 수와 식재료 보관 습관에 딱 맞는 냉장고를 찾아드릴까요? 💡 딱 맞는 최적의 솔루션을 찾아드릴 테니, 먼저 간단한 정보부터 차근차근 확인해 볼게요! 👍",
+    next: "rf-intro-3",
+  },
+  {
+    id: "rf-intro-3",
+    type: "assistant-message",
+    message: "첫 번째 단계로, 함께 사용하는 가구원은 몇 명인지 확인해 볼게요! 👥💡",
+    next: "rf-household",
+  },
+  { id: "rf-household", type: "single-choice", message: "함께 사용하는 가구원은 몇 명인가요?", answerKey: `${n}.householdSize`, options: [
     { value: "1", label: "1명" },
     { value: "2", label: "2명" },
     { value: "3-4", label: "3~4명" },
@@ -85,7 +102,7 @@ export const refrigeratorFlow: FlowDefinition = {
   id: "refrigerator-flow",
   subCategoryId: "refrigerator",
   categoryId: "appliances",
-  startStepId: "rf-intro",
+  startStepId: "rf-intro-1",
   steps,
   enableConditionUndo: true,
 };

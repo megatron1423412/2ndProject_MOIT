@@ -18,7 +18,17 @@ export interface AppliancesGradeReportData {
     subLabel: string;
     status: string;
     emoji: string;
-    theme: { bg: string; text: string; border: string; ring: string; bar: string };
+    theme: {
+      bg: string;
+      text: string;
+      border: string;
+      gradient: string;
+      ring: string;
+      bar: string;
+      badgeBg: string;
+      badgeText: string;
+      badgeBorder: string;
+    };
     feature: string;
     scenario: string;
   };
@@ -72,7 +82,17 @@ export function collectAppliancesGradeReportData(
       status: "골드 단계이며 구매를 강력 추천합니다.",
       emoji: "🏆",
       iconSrc: "/assets/icons/gold_medal.png",
-      theme: { bg: "bg-amber-500/5", text: "text-amber-600 dark:text-amber-400", border: "border-amber-500/20", ring: "ring-amber-500/30", bar: "bg-amber-500" },
+      theme: {
+        bg: "bg-[#FFFEF0]",
+        text: "text-[#6B4D1E]",
+        border: "border-[#C9A65A]",
+        gradient: "from-[#F3D78B] to-[#C9A65A]",
+        ring: "ring-[#C9A65A]/30",
+        bar: "bg-[#C9A65A]",
+        badgeBg: "bg-[#FFF9E6]",
+        badgeText: "text-[#6B4D1E]",
+        badgeBorder: "border-[#C9A65A]",
+      },
       feature: result.status === "available" ? result.reason : "현재 역대 최저가 근접 수준으로 최적의 가성비를 자랑합니다.",
       scenario: result.status === "available" ? result.timingGuide : "판매처의 쿠폰 및 혜택 조건을 확인 후 즉시 구매를 추천합니다.",
     },
@@ -82,7 +102,17 @@ export function collectAppliancesGradeReportData(
       status: "실버 단계이며 조건부 구매를 추천합니다.",
       emoji: "🥈",
       iconSrc: "/assets/icons/silver_medal.png",
-      theme: { bg: "bg-slate-500/5", text: "text-slate-600 dark:text-slate-400", border: "border-slate-500/20", ring: "ring-slate-500/30", bar: "bg-slate-500" },
+      theme: {
+        bg: "bg-[#F9FAFB]",
+        text: "text-[#4B5563]",
+        border: "border-[#D1D5DB]",
+        gradient: "from-[#E5E7EB] to-[#9CA3AF]",
+        ring: "ring-[#9CA3AF]/30",
+        bar: "bg-[#9CA3AF]",
+        badgeBg: "bg-[#F3F4F6]",
+        badgeText: "text-[#4B5563]",
+        badgeBorder: "border-[#D1D5DB]",
+      },
       feature: result.status === "available" ? result.reason : "역대 최저가 대비 무난한 가격 수준을 유지하고 있습니다.",
       scenario: result.status === "available" ? result.timingGuide : "카드 할인 및 사은품 조건을 비교해보고 구매를 결정해보세요.",
     },
@@ -92,7 +122,17 @@ export function collectAppliancesGradeReportData(
       status: "브론즈 단계이며 현재 가격 관망을 권장합니다.",
       emoji: "🥉",
       iconSrc: "/assets/icons/bronze_medal.png",
-      theme: { bg: "bg-orange-500/5", text: "text-orange-600 dark:text-orange-400", border: "border-orange-500/20", ring: "ring-orange-500/30", bar: "bg-orange-500" },
+      theme: {
+        bg: "bg-[#FDF2E9]",
+        text: "text-[#7C4A2E]",
+        border: "border-[#D4A574]",
+        gradient: "from-[#D4A574] to-[#9C6B4A]",
+        ring: "ring-[#9C6B4A]/30",
+        bar: "bg-[#9C6B4A]",
+        badgeBg: "bg-[#FBEBE1]",
+        badgeText: "text-[#7C4A2E]",
+        badgeBorder: "border-[#D4A574]",
+      },
       feature: result.status === "available" ? result.reason : "현재 가격이 다소 높게 형성되어 있는 구간입니다.",
       scenario: result.status === "available" ? result.timingGuide : "급하지 않다면 할인 행사나 가격 알림 설정을 권장합니다.",
     },
@@ -102,7 +142,17 @@ export function collectAppliancesGradeReportData(
       status: "진단 보류 및 현 상태 유지",
       emoji: "🌱",
       iconSrc: "/assets/icons/glossy_seedling.png",
-      theme: { bg: "bg-muted/30", text: "text-muted-foreground", border: "border-border/60", ring: "ring-muted", bar: "bg-muted" },
+      theme: {
+        bg: "bg-[#F1F5F9]",
+        text: "text-[#334155]",
+        border: "border-[#94A3B8]",
+        gradient: "from-[#CBD5E1] to-[#64748B]",
+        ring: "ring-[#64748B]/30",
+        bar: "bg-[#64748B]",
+        badgeBg: "bg-[#E2E8F0]",
+        badgeText: "text-[#334155]",
+        badgeBorder: "border-[#94A3B8]",
+      },
       feature: result.reason || "가격 기록 데이터가 부족하여 정확한 가성비를 진단하기 어려운 상태입니다.",
       scenario: "추후 추가 데이터가 확보되면 다시 진단해보실 수 있습니다.",
     },

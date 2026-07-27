@@ -1992,10 +1992,10 @@ const steps: FlowStep[] = [
     message: "지금 쓰고 계신 모바일 통신사를 알려주시겠어요? 📱",
     answerKey: `${namespace}.startState`,
     options: [
-      { value: "all_same", label: "전부 같아요 🎯", next: "Q_ALL_M1" },
-      { value: "part_same", label: "일부만 같아요 🧩", next: "Q_PART_SELECT" },
-      { value: "all_diff", label: "모두 달라요 🔀", next: "Q_DIFF_START" },
-      { value: "new_start", label: "새로 가입해요 ✨", next: "Q_NEW_SELECT" },
+      { value: "all_same", label: "전부 같아요", next: "Q_ALL_M1" },
+      { value: "part_same", label: "일부만 같아요", next: "Q_PART_SELECT" },
+      { value: "all_diff", label: "모두 달라요", next: "Q_DIFF_START" },
+      { value: "new_start", label: "새로 가입해요", next: "Q_NEW_SELECT" },
     ],
   },
 
@@ -2614,6 +2614,7 @@ const steps: FlowStep[] = [
   },
 ];
 
+
 export const bundleFlow: FlowDefinition = {
   id: "bundle-flow",
   subCategoryId: "bundle",
@@ -2621,3 +2622,16 @@ export const bundleFlow: FlowDefinition = {
   startStepId: "bundle-intro-1",
   steps: composeFlow(steps),
 };
+
+{/*
+export const bundleFlow: FlowDefinition = {
+  id: "bundle-flow",
+  subCategoryId: "bundle",
+  categoryId: "telecom",
+  // 🛠️ [DELETE-FOR-DEV-TEST] START: 요금제 확인 카드 UI 개발 테스트용 시작점 지정 (원래값: "bundle-intro-1")
+  startStepId: "Q_ALL_M3",
+  // 🛠️ [DELETE-FOR-DEV-TEST] END
+  steps: composeFlow(steps),
+};*/}
+
+{/* Q_ALL_M3 */ }

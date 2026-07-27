@@ -101,9 +101,8 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
     if (view.stage !== "grading-purchase") return;
     const gradeResult = calculatePurchaseGrade(view.purchaseGradeInput.currentPrice, view.purchaseGradeInput.allTimeLow);
     sessionDispatch({ type: "append", item: createPurchaseGradeTimelineItem(session.sessionId, view.purchaseGradeInput, gradeResult) });
-    appendActionGroup("grade-followup");
     dispatch({ type: "complete-purchase-grade", result: gradeResult });
-  }, [appendActionGroup, session.sessionId, view.stage]);
+  }, [session.sessionId, view.stage]);
 
   const selected = view.selectedProduct;
   const selectedInternal = selected?.source === "internal" ? selected.recommendation.product : selected?.matchedInternalProduct;
@@ -210,7 +209,6 @@ export default function RecommendationSelectionView({ result, onEndSmartShopping
   const nextStep = () => {
     if (!selected) return;
     appendText("user-action", "다음 단계로");
-    appendText("assistant-text", "이 상품으로 무엇을 해볼까요? 원하는 다음 단계를 선택해주세요.");
     appendActionGroup("next");
     dispatch({ type: "choose-next-action" });
   };

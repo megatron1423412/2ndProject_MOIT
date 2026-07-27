@@ -9,6 +9,7 @@ const applianceSubCategories: SubCategory[] = [
     description: "공간과 냉방 면적 기준 구매 진단",
     icon: "snowflake",
     iconPath: "/assets/icons/categories/ac_exact_transparent.png",
+    sidebarIconPath: "/assets/icons/categories/ac_exact_line.png",
     chatTitle: "에어컨 구매 진단 챗봇",
   },
   {
@@ -19,6 +20,7 @@ const applianceSubCategories: SubCategory[] = [
     description: "시청 거리와 화질 맞춤 진단",
     icon: "tv",
     iconPath: "/assets/icons/categories/tv_appliance_exact_transparent.png",
+    sidebarIconPath: "/assets/icons/categories/tv_appliance_exact_line.png",
     chatTitle: "TV 구매 진단 챗봇",
   },
   {
@@ -29,6 +31,7 @@ const applianceSubCategories: SubCategory[] = [
     description: "가족 수와 용량별 가성비 비교",
     icon: "refrigerator",
     iconPath: "/assets/icons/categories/fridge_exact_transparent.png",
+    sidebarIconPath: "/assets/icons/categories/fridge_exact_line.png",
     chatTitle: "냉장고 구매 진단 챗봇",
   },
   {
@@ -39,6 +42,7 @@ const applianceSubCategories: SubCategory[] = [
     description: "무선·로봇·유선 타입별 추천",
     icon: "vacuum",
     iconPath: "/assets/icons/categories/vacuum_wired_updated.png",
+    sidebarIconPath: "/assets/icons/categories/vacuum_wired_line.png",
     chatTitle: "청소기 구매 진단 챗봇",
   },
 ];
@@ -52,6 +56,7 @@ const telecomSubCategories: SubCategory[] = [
     description: "월요금과 데이터 절감 가능성 계산",
     icon: "phone",
     iconPath: "/assets/icons/categories/phone_50percent_final.png",
+    sidebarIconPath: "/assets/icons/categories/phone_50percent_line.png",
     chatTitle: "휴대폰 요금제 진단 챗봇",
   },
   {
@@ -62,6 +67,7 @@ const telecomSubCategories: SubCategory[] = [
     description: "속도 대비 요금 최적화 점검",
     icon: "internet",
     iconPath: "/assets/icons/categories/internet_exact_transparent.png",
+    sidebarIconPath: "/assets/icons/categories/internet_exact_line.png",
     chatTitle: "인터넷 요금/속도 진단 챗봇",
   },
   {
@@ -72,6 +78,7 @@ const telecomSubCategories: SubCategory[] = [
     description: "시청 채널 기준 요금 다이어트",
     icon: "tv",
     iconPath: "/assets/icons/categories/tv_telecom_exact_transparent.png",
+    sidebarIconPath: "/assets/icons/categories/tv_telecom_exact_line.png",
     chatTitle: "IPTV 요금/채널 진단 챗봇",
   },
   {
@@ -82,6 +89,7 @@ const telecomSubCategories: SubCategory[] = [
     description: "유무선 결합 할인 최대화 진단",
     icon: "bundle",
     iconPath: "/assets/icons/categories/bundle_exact_transparent.png",
+    sidebarIconPath: "/assets/icons/categories/bundle_exact_line.png",
     chatTitle: "유무선 결합상품 진단 챗봇",
   },
 ];

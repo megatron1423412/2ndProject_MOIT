@@ -49,8 +49,14 @@ export default function PageShell({
         {/* <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border pb-5"> */}
         
         {/* ✨ 구분선(border-b) 제거 적용 코드 */}
-        <header className="flex flex-wrap items-center justify-between gap-4 pb-5">
-          <BrandHeader onClick={onBrandClick} />
+        <header className="flex flex-wrap items-center justify-between gap-4 pb-3">
+          <BrandHeader
+            onClick={onBrandClick}
+            layoutMode="horizontal"
+            mascotSizeClass="h-13 sm:h-14 w-auto"
+            logoHeightClass="h-7 sm:h-8 w-auto"
+            sloganSizeClass="text-[14px] sm:text-[15px] font-bold text-slate-400"
+          />
           <TopActionBar
             isLoggedIn={isLoggedIn}
             isDarkMode={isDarkMode}

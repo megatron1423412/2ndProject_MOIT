@@ -2,72 +2,111 @@ import React, { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { BRAND } from "../../config/brand";
 
-type MoitBrandVariant = "full" | "compact";
+export type MoitBrandVariant = "full" | "compact";
+export type MoitBrandLayoutMode = "horizontal" | "stacked";
 
-interface MoitBrandProps {
+export interface MoitBrandProps {
   variant?: MoitBrandVariant;
+  layoutMode?: MoitBrandLayoutMode;
   className?: string;
+  /** 🎨 마스코트 캐릭터 아이콘 크기 클래스 (예: h-14, h-11 등 개별 지정) */
+  mascotSizeClass?: string;
+  /** 🎨 MOiT 레터링 로고 이미지 크기 클래스 (예: h-8, h-6 등 개별 지정) */
+  logoHeightClass?: string;
+  /** 🎨 슬로건 문구 스타일 및 크기 클래스 (예: text-[15px], text-[11px] 등 개별 지정) */
+  sloganSizeClass?: string;
+  /** 🎨 세로 구분선 (|) 스타일 클래스 (horizontal 모드 전용) */
+  dividerClassName?: string;
+  /** 🎨 로고 및 슬로건 수직 래퍼 커스텀 클래스 */
+  contentWrapperClass?: string;
 }
 
-function BrandMark({ compact }: { compact: boolean }) {
+function BrandMark({ compact, mascotSizeClass }: { compact: boolean; mascotSizeClass?: string }) {
   const [hasAsset, setHasAsset] = useState(true);
   const assetPath = compact ? BRAND.compactLogoPath : BRAND.logoPath;
 
   useEffect(() => setHasAsset(true), [assetPath]);
 
+  const defaultSize = compact ? "h-10 w-auto" : "h-11 w-auto";
+  const sizeClass = mascotSizeClass ?? defaultSize;
+
   return (
-    /* 🎨 [프론트엔드 수정 가능 Zone 1: 로고 심볼/캐릭터 크기 및 박스]
-       - h-20 w-auto: 캐릭터 박스 높이를 줄여 불필요한 투명 여백 제거 (h-16, h-24 등 조절)
-       - bg-transparent: 배경 상자 제거
-    */
-    <div className="relative flex h-25 w-auto flex-none items-center justify-center overflow-hidden bg-transparent shadow-none">
+    <div className={`relative flex flex-none items-center justify-center overflow-hidden bg-transparent shadow-none ${sizeClass}`}>
       {hasAsset && (
         <img
           src={assetPath}
           alt={BRAND.logoAlt}
           onError={() => setHasAsset(false)}
-          className="h-full w-full object-contain p-0"
+          className="h-full w-auto object-contain p-0"
         />
       )}
-      {!hasAsset && <Sparkles aria-hidden="true" size={24} className="text-accent" />}
+      {!hasAsset && <Sparkles aria-hidden="true" size={20} className="text-accent" />}
     </div>
   );
 }
 
-/** Shared brand UI for the main header and chat sidebar. */
-export default function MoitBrand({ variant = "full", className = "" }: MoitBrandProps) {
+/** Shared brand UI for the main header and chat sidebar with independent controls. */
+export default function MoitBrand({
+  variant = "full",
+  layoutMode = "horizontal",
+  className = "",
+  mascotSizeClass,
+  logoHeightClass,
+  sloganSizeClass,
+  dividerClassName = "h-7 w-[1.5px] bg-slate-300 mx-2",
+  contentWrapperClass = ""
+}: MoitBrandProps) {
   if (variant === "compact") {
-    return <BrandMark compact />;
+    return <BrandMark compact mascotSizeClass={mascotSizeClass} />;
   }
 
-  return (
-    /* 🎨 [프론트엔드 수정 가능 Zone 2: 전체 로고 그룹 레이아웃 간격]
-       - gap-0: 심볼과 우측 텍스트 기본 간격
-       - -ml-4: 마이너스 마진으로 레터링 영역을 심볼 쪽으로 바짝 당김 (-ml-3, -ml-5 등으로 미세조정)
-    */
-    <div className={`flex items-center gap-0 ${className}`}>
-      <BrandMark compact={false} />
-      <div className="min-w-0 flex flex-col justify-center -ml-3">
-        
-        {/* 🎨 [프론트엔드 수정 가능 Zone 3: "모잇, MOIT" 텍스트 대신 들어가는 레터링 로고 이미지]
-           - h-12: 레터링 로고 이미지 높이 (h-10, h-14 등으로 비율 조절)
-           - src 경로: 레터링 로고 전용 파일 경로
-        */}
-        <div className="flex items-center">
-          <img
-            src="/assets/brand/moit_logo_blue_silver_transparent.png" 
-            alt={BRAND.name}
-            className="h-12 w-auto object-contain"
-          />
-        </div>
+  // 1. [메인 페이지 상단 가로 나열 모드]
+  if (layoutMode === "horizontal") {
+    const mascotSize = mascotSizeClass ?? "h-13 sm:h-14 w-auto";
+    const logoHeight = logoHeightClass ?? "h-7 sm:h-8 w-auto";
+    const sloganSize = sloganSizeClass ?? "text-[14px] sm:text-[15px] font-bold text-[#1F2937]";
 
-        {/* 🎨 [프론트엔드 수정 가능 Zone 4: 하단 슬로건/태그라인 문구 (유지)]
-           - pl-1: 슬로건 좌측 패딩으로 레터링 로고와의 중심 정렬 미세 조정 (pl-0, pl-2 등)
-           - whitespace-nowrap: 줄바꿈 방지
-           - text-[13px]: 슬로건 글자 크기
-           - text-muted-foreground: 텍스트 색상
-        */}
-        <p className="whitespace-nowrap text-[12px] font-bold text-muted-foreground pl-1">
+    return (
+      <div className={`flex items-center gap-2 ${className}`}>
+        {/* 마스코트 이미지 (독립 크기 조절 가능) */}
+        <BrandMark compact={false} mascotSizeClass={mascotSize} />
+
+        {/* 레터링 로고 이미지 (독립 크기 조절 가능) */}
+        <img
+          src="/assets/brand/moit_logo_blue_silver_transparent.png"
+          alt={BRAND.name}
+          className={`${logoHeight} object-contain`}
+        />
+
+        {/* 세로 구분선 */}
+        <div className={dividerClassName} />
+
+        {/* 슬로건 (독립 크기 조절 가능) */}
+        <p className={`whitespace-nowrap ${sloganSize} leading-none`}>
+          {BRAND.tagline}
+        </p>
+      </div>
+    );
+  }
+
+  // 2. [채팅 사이드바 상단 수직 수평 스택 모드] (슬로건이 레터링 로고 아래 수직 배치 & 왼쪽 정렬)
+  const mascotSize = mascotSizeClass ?? "h-10 sm:h-11 w-auto";
+  const logoHeight = logoHeightClass ?? "h-5 sm:h-6 w-auto";
+  const sloganSize = sloganSizeClass ?? "text-[10px] sm:text-[11px] font-bold text-[#1F2937]";
+
+  return (
+    <div className={`flex items-center gap-2.5 ${className}`}>
+      {/* 마스코트 이미지 (독립 크기 조절 가능) */}
+      <BrandMark compact={false} mascotSizeClass={mascotSize} />
+
+      {/* 레터링 로고 아래 슬로건 수직 컬럼 배치 (왼쪽 정렬) */}
+      <div className={`flex flex-col items-start justify-center text-left min-w-0 ${contentWrapperClass}`}>
+        <img
+          src="/assets/brand/moit_logo_blue_silver_transparent.png"
+          alt={BRAND.name}
+          className={`${logoHeight} object-contain self-start`}
+        />
+        <p className={`whitespace-nowrap ${sloganSize} text-left leading-tight mt-0.5 tracking-tight`}>
           {BRAND.tagline}
         </p>
       </div>
